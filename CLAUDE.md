@@ -95,6 +95,16 @@ public files and, with a supplement bound, on anything its `denylist.txt` or its
 identifying settings name. It cannot recognise every personal value, so read the
 diff of a public change for them before committing it.
 
+## Branches
+
+`main` is the released version, and the checkout the machine is bound to stays
+on it, so an apply always renders a release. Changes are made on `dev`, in a
+separate worktree, and reach `main` when `dev` is merged into it after its
+self-test and CI pass. Never commit to `main` directly. To try `dev` on the
+machine before a release, run `./bin/shaffy apply` in the `dev` worktree with
+`--checkout PATH` naming it: the binding stays on the released checkout, and
+its next apply returns the machine to `main`.
+
 ## Leaving the repository
 
 Anything that writes outside this working tree changes the machine:
