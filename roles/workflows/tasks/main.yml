@@ -8,8 +8,28 @@
     name: '{{ shaffy_target_user }}'
     groups: docker
     append: true
+# Docker filters published ports in its own chains, before UFW sees them. A port published
+# without a host address therefore binds to loopback: `ip` covers the default bridge and
+# `default-network-opts` every network created afterwards, such as Compose's.
+- name: Create the Docker engine's configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+- name: Publish container ports on loopback unless a host address is given
+  ansible.builtin.copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart the Docker engine
 - name: Enable the local Docker engine without starting any restored workloads
   ansible.builtin.systemd_service:
     name: docker.service
     enabled: true
     state: started
+- name: Apply a changed engine configuration
+  ansible.builtin.meta: flush_handlers

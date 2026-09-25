@@ -224,6 +224,28 @@ Remove the link before copying, since copying onto it would write through to
 systemd-resolved's stub file. The system operation's snapper pre snapshot of `/`
 also holds the earlier `/etc`.
 
+## Docker
+
+The `workflows` role installs Docker, Compose and Buildx, adds the target user
+to the `docker` group and enables `docker.service`; it starts no containers.
+
+Docker filters published ports in its own firewall chains, before UFW sees them,
+so UFW's default incoming policy does not protect a published port. The role
+therefore installs `/etc/docker/daemon.json` (source
+`roles/workflows/files/daemon.json`), which binds a port published without a host
+address to loopback: `ip` sets this for the default bridge, and
+`default-network-opts` for every bridge network created afterwards, such as the
+ones Compose creates. A project's `"5433:5432"` then listens on `127.0.0.1:5433`
+only. Containers with `network_mode: host` publish nothing and stay behind UFW.
+See [Docker's port publishing documentation](https://docs.docker.com/engine/network/port-publishing/).
+
+To offer a port to the network on purpose, name the address in the mapping, such
+as `"0.0.0.0:8080:80"`; UFW does not filter it either way. A network created before the
+configuration keeps the binding it was created with; `docker compose down`
+followed by `up` recreates a project's network with the new default, and keeps
+its volumes. A changed `daemon.json` restarts the engine, which stops running
+containers; those with a restart policy come back.
+
 ## AUR packages
 
 Four applications come from the Arch User Repository: Beeper

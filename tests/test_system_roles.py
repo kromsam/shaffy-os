@@ -55,6 +55,26 @@ class SettingsGatedRoleTests(unittest.TestCase):
         self.assertIn('default(false)', vars_['login_autologin'])
 
 
+class DockerEngineTests(unittest.TestCase):
+    def test_published_ports_default_to_loopback_on_every_bridge_network(self):
+        daemon = json.loads((ROOT / 'roles/workflows/files/daemon.json').read_text())
+        self.assertEqual(daemon['ip'], '127.0.0.1')
+        self.assertEqual(daemon['default-network-opts'],
+                         {'bridge': {'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1'}})
+
+    def test_the_engine_starts_with_its_configuration_and_restarts_when_it_changes(self):
+        steps = tasks('workflows')
+        config = next(i for i, task in enumerate(steps)
+                      if task.get('ansible.builtin.copy', {}).get('dest') == '/etc/docker/daemon.json')
+        start = next(i for i, task in enumerate(steps)
+                     if task.get('ansible.builtin.systemd_service', {}).get('name') == 'docker.service')
+        self.assertLess(config, start)
+        self.assertEqual(steps[config]['notify'], 'Restart the Docker engine')
+        self.assertEqual(steps[-1].get('ansible.builtin.meta'), 'flush_handlers')
+        handlers = yaml.safe_load((ROOT / 'roles/workflows/handlers/main.yml').read_text())
+        self.assertIn('Restart the Docker engine', [handler['name'] for handler in handlers])
+
+
 if __name__ == '__main__':
     unittest.main()
 
