@@ -1,0 +1,30 @@
+---
+# The checks run first, in preflight.yml. The operation's snapper pair is the rollback.
+- name: Pass the cached startup password to the existing optional keyring module
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sddm-autologin
+    regexp: '^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$'
+    line: '-auth       optional    pam_systemd_loadkey.so'
+    insertbefore: '^-?auth\s+optional\s+pam_gnome_keyring\.so'
+
+- name: Create the SDDM service override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/sddm.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Let SDDM inherit the startup password cache
+  ansible.builtin.copy:
+    src: shaffy-keyring.conf
+    dest: /etc/systemd/system/sddm.service.d/20-shaffy-keyring.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: keyring_override
+
+- name: Load the next-boot configuration without restarting the desktop
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: keyring_override.changed

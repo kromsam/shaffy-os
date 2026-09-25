@@ -1,0 +1,45 @@
+---
+- name: Manage selected browser associations in the target user's desktop profile
+  become: true
+  become_user: '{{ shaffy_target_user }}'
+  environment:
+    HOME: '{{ shaffy_target_home }}'
+    XDG_CONFIG_HOME: '{{ shaffy_target_home }}/.config'
+    XDG_CURRENT_DESKTOP: niri
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/bash
+      - '{{ playbook_dir }}/scripts/configure-web-browser.sh'
+      - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
+      - '{{ shaffy.settings.desktop.browser }}'
+  check_mode: false
+  register: browser_result
+  changed_when: >-
+    'configuration_changed: 1' in browser_result.stdout or
+    (ansible_check_mode and 'Browser defaults need attention' in browser_result.stderr)
+  failed_when: >-
+    browser_result.rc != 0 and not
+    (ansible_check_mode and browser_result.rc == 1 and
+    'Browser defaults need attention' in browser_result.stderr)
+
+- name: Keep Office documents, CSV and TSV opening in LibreOffice instead of ChatGPT
+  become: true
+  become_user: '{{ shaffy_target_user }}'
+  environment:
+    HOME: '{{ shaffy_target_home }}'
+    XDG_CONFIG_HOME: '{{ shaffy_target_home }}/.config'
+    XDG_CURRENT_DESKTOP: niri
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/bash
+      - '{{ playbook_dir }}/scripts/configure-office-apps.sh'
+      - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
+  check_mode: false
+  register: office_result
+  changed_when: >-
+    'configuration_changed: 1' in office_result.stdout or
+    (ansible_check_mode and 'Office defaults need attention' in office_result.stderr)
+  failed_when: >-
+    office_result.rc != 0 and not
+    (ansible_check_mode and office_result.rc == 1 and
+    'Office defaults need attention' in office_result.stderr)

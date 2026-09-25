@@ -1,0 +1,22 @@
+{{- $sftp := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.backup.repository.sftp -}}
+Host restic-home-nas
+    HostName {{ $sftp.host }}
+    Port {{ dig "port" 22 $sftp }}
+    User {{ $sftp.user }}
+    IdentityFile %d/.config/restic-home/id_ed25519
+    IdentitiesOnly yes
+    PreferredAuthentications publickey
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    StrictHostKeyChecking yes
+    UserKnownHostsFile %d/.config/restic-home/known_hosts
+    UpdateHostKeys no
+    HostKeyAlgorithms ssh-ed25519
+    CheckHostIP no
+    BatchMode yes
+    ConnectTimeout 15
+    ConnectionAttempts 3
+    ClearAllForwardings yes
+    RequestTTY no
+    ServerAliveInterval 60
+    ServerAliveCountMax 240

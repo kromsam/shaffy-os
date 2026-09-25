@@ -1,0 +1,113 @@
+---
+# Every login and keyring prerequisite, checked before the first autologin or PAM write.
+# These tasks only read, and only matter when automatic login is requested.
+- name: Read the Niri session definition
+  ansible.builtin.stat:
+    path: /usr/share/wayland-sessions/niri.desktop
+  register: niri_session
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Require Niri to be installed
+  ansible.builtin.assert:
+    that: niri_session.stat.isreg | default(false)
+    fail_msg: Niri's session file is missing; install Niri before configuring its automatic login.
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Read the target user's account
+  ansible.builtin.getent:
+    database: passwd
+    key: '{{ shaffy_target_user }}'
+    fail_key: false
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Require the automatic login's user to exist
+  ansible.builtin.assert:
+    that: (ansible_facts.getent_passwd[shaffy_target_user] | default(none)) is not none
+    fail_msg: There is no account named {{ shaffy_target_user }} to log in automatically.
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Check the installed password handoff modules
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop:
+    - /usr/lib/security/pam_systemd_loadkey.so
+    - /usr/lib/security/pam_gnome_keyring.so
+  register: keyring_modules
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Require both supported PAM modules
+  ansible.builtin.assert:
+    that: item.stat.isreg | default(false)
+  loop: '{{ keyring_modules.results }}'
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Read the existing SDDM automatic login PAM stack
+  ansible.builtin.slurp:
+    src: /etc/pam.d/sddm-autologin
+  register: sddm_autologin_pam
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Require the existing optional keyring hooks before editing PAM
+  ansible.builtin.assert:
+    that:
+      - "(sddm_autologin_pam.content | b64decode | regex_findall('(?m)^-?auth[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]*$') | length) == 1"
+      - "(sddm_autologin_pam.content | b64decode | regex_findall('(?m)^-?session[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]+auto_start[ \\t]*$') | length) == 1"
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Read the target user's keyrings
+  ansible.builtin.stat:
+    path: '{{ shaffy_target_home }}/.local/share/keyrings/{{ item }}'
+  loop: [default, login.keyring]
+  register: login_keyrings
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+- name: Read which keyring is the default
+  ansible.builtin.slurp:
+    src: '{{ shaffy_target_home }}/.local/share/keyrings/default'
+  register: login_keyring_default
+  when: (login_autologin or (login_keyring_migrating | default(false))) and login_keyrings.results[0].stat.isreg | default(false)
+
+- name: Read whether a keyring migration is prepared for the next boot
+  ansible.builtin.stat:
+    path: /etc/systemd/system/shaffy-login-keyring.service
+  register: login_keyring_migration_unit
+  when: login_autologin or (login_keyring_migrating | default(false))
+
+# Automatic login unlocks only login.keyring; with another default keyring the first
+# login would create an empty login keyring beside it, which the migration then refuses.
+- name: Require the default keyring to be the login keyring, or its migration prepared
+  ansible.builtin.assert:
+    that: >-
+      login_keyring_migrating | default(false)
+      or not (login_keyrings.results[0].stat.isreg | default(false))
+      or (login_keyring_default.content | b64decode | trim) == 'login'
+      or (login_keyring_migration_unit.stat.exists and not login_keyrings.results[1].stat.exists)
+    fail_msg: >-
+      The default keyring of {{ shaffy_target_user }} is not the login keyring, which automatic login
+      unlocks. Run ./bin/shaffy apply --system --tags login_keyring_migration first and reboot; if
+      login.keyring already exists beside it, review ~/.local/share/keyrings with the keyring daemon
+      stopped (docs/LOGIN-KEYRING.md).
+
+# Automatic login skips the password, so only disk encryption keeps the desktop closed.
+- name: Find the device under the root filesystem
+  ansible.builtin.command:
+    argv: [findmnt, --noheadings, --nofsroot, --output, SOURCE, /]
+  register: login_root_device
+  changed_when: false
+  check_mode: false
+  when: login_autologin
+
+- name: Read the device types beneath it
+  ansible.builtin.command:
+    argv: [lsblk, --noheadings, --inverse, --output, TYPE, '{{ login_root_device.stdout | trim }}']
+  register: login_root_types
+  changed_when: false
+  check_mode: false
+  when: login_autologin
+
+- name: Require an encrypted root filesystem for automatic login
+  ansible.builtin.assert:
+    that: "'crypt' in (login_root_types.stdout_lines | map('trim') | list)"
+    fail_msg: Automatic login needs / on an encrypted device, since nothing else asks for a password
+      before the desktop opens. Encrypt the disk, or leave login.autologin unset.
+  when: login_autologin

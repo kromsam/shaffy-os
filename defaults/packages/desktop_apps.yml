@@ -1,0 +1,21 @@
+# Selected desktop applications.
+packages:
+  - zen-browser-bin
+  - chromium
+  - tailscale
+  - proton-vpn-gtk-app
+  - freerdp
+  - remmina
+  - neovim
+  - lazygit
+  - tree-sitter-cli
+  - nodejs
+  - tmux
+  - zoxide
+  - uv
+  # The AUR helper for updating the AUR packages the aur_package role installs.
+  - yay
+required:
+  # tailscale: the Noctalia Tailnet plugin is always enabled, and the tailnet role runs the
+  # client when the supplement names a Tailnet.
+  - tailscale

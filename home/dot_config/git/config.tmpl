@@ -1,0 +1,24 @@
+{{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- $id := dig "identity" dict $s -}}
+{{- $key := dig "signing" "key" "" $id -}}
+{{- $signing := and $key (stat (includeTemplate "path" (dict "home" .chezmoi.homeDir "path" $key))) -}}
+{{- if or (hasKey $id "name") (hasKey $id "email") $signing -}}
+[user]
+{{- if hasKey $id "name" }}
+    name = {{ $id.name }}
+{{- end }}
+{{- if hasKey $id "email" }}
+    email = {{ $id.email }}
+{{- end }}
+{{- if $signing }}
+    signingkey = {{ $key }}
+{{- end }}
+{{ end -}}
+[init]
+    defaultBranch = main
+{{- if $signing }}
+[gpg]
+    format = ssh
+[commit]
+    gpgsign = true
+{{- end }}

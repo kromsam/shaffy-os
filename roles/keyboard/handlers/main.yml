@@ -1,0 +1,10 @@
+---
+- name: Rebuild keyboard hardware database
+  ansible.builtin.command: systemd-hwdb update
+  changed_when: true
+  notify: Apply keyboard hardware database
+
+- name: Apply keyboard hardware database
+  ansible.builtin.command:
+    argv: [udevadm, trigger, --action=change, --subsystem-match=input, --settle]
+  changed_when: true

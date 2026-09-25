@@ -1,0 +1,13 @@
+{
+  "comment": "Oldest supported versions; the test fails when an installed tool is older. The CI container is pinned by digest.",
+  "minimum": {
+    "python": "3.14",
+    "ansible-core": "2.21.4",
+    "chezmoi": "2.72.2",
+    "git": "2.55.0",
+    "niri": "26.04",
+    "noctalia": "5.1.0",
+    "fish": "4.9.3"
+  },
+  "ci_container": "cachyos/cachyos@sha256:11aa6fe527e88403914010abb9d972c1799c921543ace2a54368de8f3c40a575"
+}

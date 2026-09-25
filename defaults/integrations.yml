@@ -1,0 +1,102 @@
+# Optional integrations. A supplement
+# requests each with `integrations: {name: managed|disabled|released}`; one that
+# is not requested stays unmanaged. `targets` are the chezmoi targets that render
+# only while the integration is managed (otherwise they are ignored, never
+# removed). `activation` is what switching it on creates, recorded in the
+# ledger: `disabled` removes the wants links and autostart entries it made;
+# config-key records name keys set in application-written files, which stay the
+# application's and are never reverted; application data is never touched.
+# `adopt_requires` must hold before existing activation is adopted and
+# `activate_requires` before an apply creates it (until then the apply defers the
+# integration); each names a file and either a line it holds or JSON fields it
+# records, where "{settings.a.b}" stands for that setting's value.
+nextcloud:
+  scope: home
+  description: The Nextcloud desktop client started at login; its accounts and folders are its own
+  targets:
+    - .config/autostart/Nextcloud.desktop
+  activation:
+    - {kind: autostart, path: "~/.config/autostart/Nextcloud.desktop"}
+
+syncthing:
+  scope: home
+  description: Syncthing's user service, enabled without a session; its folders and devices are its own
+  targets:
+    - .config/systemd/user/default.target.wants/syncthing.service
+  activation:
+    - {kind: wants-link, unit: syncthing.service, link: "~/.config/systemd/user/default.target.wants/syncthing.service"}
+
+ssh:
+  scope: home
+  description: The SSH client configuration and the packaged SSH agent socket
+  targets:
+    - .ssh/**
+    - .config/systemd/user/sockets.target.wants/ssh-agent.socket
+  activation:
+    - {kind: wants-link, unit: ssh-agent.socket, link: "~/.config/systemd/user/sockets.target.wants/ssh-agent.socket"}
+
+reaper:
+  scope: home
+  description: REAPER's audio through PipeWire and its Windows plugin bridge (yabridge)
+  targets:
+    - .config/REAPER/**
+    - .config/yabridgectl/**
+  activation:
+    - {kind: config-key, file: "~/.config/REAPER/reaper.ini",
+       keys: [alsa_indev, alsa_outdev, linux_audio_mode, linux_auto_pasuspend]}
+
+zettlr:
+  scope: home
+  description: Zettlr's export profiles, style and packaged Pandoc
+  targets:
+    - .config/Zettlr/**
+  activation:
+    - {kind: config-key, file: "~/.config/Zettlr/config.json",
+       keys: [export.useBundledPandoc, display.hideToolbarInDistractionFree]}
+
+zotero:
+  scope: home
+  description: Zotero's profile, its library in ~/.local/share/zotero-data and the local API the MCP server reads
+  targets:
+    - .zotero
+    - .zotero/**
+    - .local/share/zotero-data
+    - .local/share/zotero-data/**
+  activation:
+    - {kind: config-key, file: "~/.zotero/zotero/profiles.ini", keys: [Profile0.Path]}
+  # Zotero names a new profile directory at random; the managed profile is
+  # shaffy.default, so an existing one moves there before it is adopted.
+  adopt_requires:
+    file: "~/.zotero/zotero/profiles.ini"
+    line: "Path=shaffy.default"
+    hint: "stop Zotero and move the profile with scripts/move-zotero-profile.py --apply"
+
+backup:
+  scope: home
+  description: The daily verified home backup, weekly maintenance and monthly full check, as user timers
+  requires_setting: backup
+  targets:
+    - .config/systemd/user/timers.target.wants/restic-home-backup.timer
+    - .config/systemd/user/timers.target.wants/restic-home-maintenance.timer
+    - .config/systemd/user/timers.target.wants/restic-home-check.timer
+  activation:
+    - {kind: wants-link, unit: restic-home-backup.timer, link: "~/.config/systemd/user/timers.target.wants/restic-home-backup.timer"}
+    - {kind: wants-link, unit: restic-home-maintenance.timer, link: "~/.config/systemd/user/timers.target.wants/restic-home-maintenance.timer"}
+    - {kind: wants-link, unit: restic-home-check.timer, link: "~/.config/systemd/user/timers.target.wants/restic-home-check.timer"}
+  # The schedules start only after one backup of the configured repository was made
+  # and verified by hand; until then an apply installs the client and defers them.
+  activate_requires:
+    file: "~/.local/state/shaffy/home-backup/last-success.json"
+    json: {status: verified, repository_id: "{settings.backup.repository.id}"}
+    hint: "run restic-home backup once, check it with restic-home status, then apply again"
+
+gbrain:
+  scope: home
+  description: The GBrain knowledge base as a local read-only MCP server (launchers, proxy and user service)
+  targets:
+    - .local/bin/gbrain
+    - .local/bin/gbrain-mcp
+    - .local/lib/shaffy/gbrain-mcp-proxy.py
+    - .config/systemd/user/gbrain-mcp.service
+  # The service starts on demand through the proxy; nothing is enabled.
+  activation: []

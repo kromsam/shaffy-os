@@ -1,0 +1,24 @@
+[Unit]
+Description=Maintain only CachyOS home snapshots
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/.config/restic-home/password
+ConditionPathExists=%h/.config/restic-home/id_ed25519
+
+[Service]
+Type=oneshot
+Environment=RESTIC_LOCK_WAIT_SECONDS=14400
+ExecStart=%h/.local/bin/restic-home maintenance
+Nice=15
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+TimeoutStartSec=infinity
+TimeoutStopSec=15min
+KillSignal=SIGINT
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=%h/.cache/restic-home %h/.local/state/shaffy/home-backup
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

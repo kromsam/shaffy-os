@@ -1,0 +1,10 @@
+# Galaxy collections for the playbooks, installed into ./collections,
+# which ansible.cfg reads and Git ignores:
+#   mise exec -- ansible-galaxy collection install -r requirements.yml -p collections
+# Exact versions only; this file is the version record.
+collections:
+  - name: community.general
+    version: 13.4.0
+  # A dependency of community.general, pinned so the record is complete.
+  - name: community.library_inventory_filtering_v1
+    version: 1.1.5

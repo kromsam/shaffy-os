@@ -1,0 +1,2 @@
+{{- /* The supplement's optional Noctalia fragment (overrides.noctalia); empty otherwise. */ -}}
+{{- with (dig "noctalia" "" (includeTemplate "shaffy.json" . | fromJson).shaffy.overrides) }}{{ include . }}{{ end -}}

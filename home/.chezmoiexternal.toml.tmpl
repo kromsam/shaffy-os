@@ -1,0 +1,16 @@
+{{- /* Refuse direct changes first (see .chezmoitemplates/guard). */ -}}
+{{- template "guard" . -}}
+{{- /* Personal files from the supplement's `assets`, copied from the loader's paths
+     (the operation's capture during an apply) and checked against their SHA-256. */ -}}
+{{- range (includeTemplate "shaffy.json" . | fromJson).shaffy.assets }}
+[{{ .target | quote }}]
+    type = "file"
+    url = {{ .url | quote }}
+    checksum.sha256 = {{ .sha256 | quote }}
+{{-   if .executable }}
+    executable = true
+{{-   end }}
+{{-   if .private }}
+    private = true
+{{-   end }}
+{{- end }}

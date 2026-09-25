@@ -1,0 +1,100 @@
+---
+# The Tailnet client, only where the supplement names a Tailnet (`tailnet` settings).
+- name: Leave the Tailnet client alone without tailnet settings
+  ansible.builtin.meta: end_role
+  when: "'tailnet' not in shaffy.settings"
+
+- name: Enable the Tailscale daemon
+  ansible.builtin.systemd_service:
+    name: tailscaled.service
+    enabled: true
+    state: started
+
+- name: Let the target user operate the Tailscale client without repeated administrator prompts
+  ansible.builtin.command:
+    argv: ['tailscale', 'set', '--operator={{ shaffy_target_user }}']
+  changed_when: false
+
+- name: Inspect the registered client before changing its DNS preferences
+  ansible.builtin.command:
+    argv: ['tailscale', 'status', '--json']
+  register: tailnet_status
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: Require this machine signed in to the configured Tailnet
+  ansible.builtin.assert:
+    that:
+      - (tailnet_status.stdout | from_json).BackendState == 'Running'
+      - (tailnet_status.stdout | from_json).Self.HostName == ansible_facts.hostname
+      - shaffy.settings.tailnet.address is not defined
+        or shaffy.settings.tailnet.address in (tailnet_status.stdout | from_json).TailscaleIPs
+    fail_msg: Sign this machine in to the Tailnet first (tailscale up with the configured login server),
+      then apply again.
+    quiet: true
+
+- name: Inspect resolver file ownership
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+    follow: false
+  register: tailnet_resolver
+
+- name: Keep a private rollback directory
+  ansible.builtin.file:
+    path: /var/lib/shaffy/tailnet
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Preserve the original resolver file once
+  ansible.builtin.copy:
+    src: /etc/resolv.conf
+    dest: /var/lib/shaffy/tailnet/resolv.conf.before
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: '0600'
+  when: tailnet_resolver.stat.isreg | default(false)
+
+- name: Keep the existing system resolver enabled
+  ansible.builtin.systemd_service:
+    name: systemd-resolved.service
+    state: started
+    enabled: true
+
+- name: Connect NetworkManager and systemd-resolved through the standard stub link
+  ansible.builtin.file:
+    src: /run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+    force: true
+  register: tailnet_dns_link
+
+- name: Reload DNS integration without disconnecting Wi-Fi
+  ansible.builtin.command:
+    argv: ['nmcli', 'general', 'reload', 'dns-full']
+  when: tailnet_dns_link.changed
+  changed_when: true
+
+- name: Refresh the Tailscale resolver detection after correcting the integration
+  ansible.builtin.systemd_service:
+    name: tailscaled.service
+    state: restarted
+  when: tailnet_dns_link.changed or (tailnet_refresh_daemon | default(false) | bool)
+
+- name: Read only the required client preferences privately
+  ansible.builtin.command:
+    argv: ['tailscale', 'debug', 'prefs']
+  register: tailnet_prefs
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: Restore accepted subnet routes and private-network name resolution
+  ansible.builtin.command:
+    argv: ['tailscale', 'set', '--accept-dns=true', '--accept-routes=true']
+  when: not ((tailnet_prefs.stdout | from_json).CorpDNS and (tailnet_prefs.stdout | from_json).RouteAll)
+  changed_when: true

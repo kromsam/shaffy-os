@@ -1,0 +1,95 @@
+{{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- $home := .chezmoi.homeDir -}}
+# Fixed commands: queries and selections are never interpolated into a shell.
+
+[shell.launcher.dmenu.entry.audio-settings]
+command = "printf '%s\\n' 'Audio settings — sound, speakers and microphone'"
+exec = "noctalia msg panel-open control-center audio"
+label = "Audio settings"
+prefix = "audio"
+glyph = "volume"
+global = true
+
+[shell.launcher.dmenu.entry.display-settings]
+command = "printf '%s\\n' 'Display settings — screen, brightness'"
+exec = "noctalia msg panel-open control-center monitor"
+label = "Display settings"
+prefix = "display"
+glyph = "device-desktop"
+global = true
+
+[shell.launcher.dmenu.entry.network-settings]
+command = "printf '%s\\n' 'Network settings — Wi-Fi and Ethernet'"
+exec = "noctalia msg panel-open control-center network"
+label = "Network settings"
+prefix = "network"
+glyph = "wifi"
+global = true
+
+[shell.launcher.dmenu.entry.bluetooth-settings]
+command = "printf '%s\\n' 'Bluetooth settings — Devices and connections'"
+exec = "noctalia msg panel-open control-center bluetooth"
+label = "Bluetooth settings"
+prefix = "bluetooth"
+glyph = "bluetooth"
+global = true
+
+[shell.launcher.dmenu.entry.do-not-disturb]
+command = "printf '%s\\n' 'Do not disturb — toggle notifications'"
+exec = "noctalia msg notification-dnd-toggle"
+label = "Do not disturb"
+prefix = "dnd"
+glyph = "bell-off"
+global = true
+
+[shell.launcher.dmenu.entry.notification-history]
+command = "printf '%s\\n' 'Notification history — notifications'"
+exec = "noctalia msg panel-open control-center notifications"
+label = "Notification history"
+prefix = "notifications"
+glyph = "bell"
+global = true
+
+[shell.launcher.dmenu.entry.choose-wallpaper]
+command = "printf '%s\\n' 'Choose wallpaper and theme — background'"
+exec = "noctalia msg panel-open wallpaper"
+label = "Choose wallpaper and theme"
+prefix = "background"
+glyph = "photo"
+global = true
+
+[shell.launcher.dmenu.entry.desktop-settings]
+command = "printf '%s\\n' 'Desktop settings — Noctalia preferences'"
+exec = "noctalia msg settings-open"
+label = "Desktop settings"
+prefix = "settings"
+glyph = "settings"
+global = true
+
+[shell.launcher.dmenu.entry.capture-menu]
+command = "printf '%s\\n' 'Capture — screenshots, recording, color, OCR and QR'"
+exec = {{ printf "%s/.local/bin/shaffy-desktop capture" $home | toJson }}
+prefix = "capture-menu"
+glyph = "camera"
+global = true
+
+[shell.launcher.dmenu.entry.timer-panel]
+command = "printf '%s\\n' 'Timer — countdown reminder'"
+exec = "noctalia msg panel-toggle noctalia/timer:panel"
+prefix = "timer-panel"
+glyph = "hourglass"
+global = true
+
+[shell.launcher.dmenu.entry.world-clock]
+command = "printf '%s\\n' 'World clocks — timezones'"
+exec = "noctalia msg panel-toggle noctalia/world_clock:panel"
+prefix = "world-clock"
+glyph = "world"
+global = true
+
+[shell.launcher.dmenu.entry.desktop-tools]
+command = "printf '%s\\n' 'Desktop tools — share files, convert, system monitor'"
+exec = {{ printf "%s/.local/bin/shaffy-desktop tools" $home | toJson }}
+prefix = "desktop-tools"
+glyph = "tool"
+global = true

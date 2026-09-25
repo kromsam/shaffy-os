@@ -1,0 +1,7 @@
+// Zotero reads user.js at every start; prefs.js stays Zotero's own.
+// The library lives outside the profile; the local API serves the Zotero MCP server.
+user_pref("extensions.zotero.dataDir", "{{ .chezmoi.homeDir }}/.local/share/zotero-data");
+user_pref("extensions.zotero.useDataDir", true);
+user_pref("extensions.zotero.sync.autoSync", true);
+user_pref("extensions.zotero.httpServer.enabled", true);
+user_pref("extensions.zotero.httpServer.localAPI.enabled", true);

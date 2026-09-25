@@ -1,0 +1,83 @@
+// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
+// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
+    window-rule {
+        geometry-corner-radius 0 // Omarchy square corners
+        clip-to-geometry true
+        draw-border-with-background false
+        opacity 0.985
+    }
+
+    window-rule {
+        match is-active=false
+        opacity 0.96
+    }
+    window-rule {
+        match app-id=r#"(?i)(zen|firefox|chromium|google-chrome|brave|vivaldi)"#
+        opacity 1.0
+    }
+    window-rule {
+        match app-id=r#"(?i)(zen|firefox|chromium|google-chrome|brave|vivaldi)"# is-active=false
+        opacity 0.985
+    }
+    // Omarchy keeps video, remote desktops, games and PiP opaque.
+    window-rule {
+        match app-id=r#"(?i)(mpv|vlc|totem|clapper|imv|loupe|gwenview|qemu|virt-manager|remmina|freerdp|steam_app_)"#
+        match title=r#"(?i)^(picture.in.picture|pip)$"#
+        opacity 1.0
+    }
+    window-rule {
+        match title=r#"(?i)^(picture.in.picture|pip)$"#
+        open-floating true
+        default-column-width { fixed 600; }
+        default-window-height { fixed 338; }
+        default-floating-position x=20 y=20 relative-to="bottom-right"
+        border { off; }
+    }
+    window-rule {
+        match app-id="^shaffy-btop$"
+        open-floating true
+        default-column-width { fixed 1000; }
+        default-window-height { fixed 650; }
+    }
+
+    window-rule {
+        background-effect {
+          blur false
+          xray false
+        }
+    }
+
+    // Floating Noctalia settings window.
+    window-rule {
+        match app-id="dev.noctalia.Noctalia"
+        open-floating true
+        default-column-width { fixed 1080; }
+        default-window-height { fixed 920; }
+    }
+
+    // if you use steam you will probably like these
+    window-rule {
+        match app-id="steam"
+        exclude title=r#"^[Ss]team$"#
+        open-floating true
+    }
+
+    window-rule {
+       match app-id="steam" title=r#"^notificationtoasts_\d+_desktop$"#
+       default-floating-position x=10 y=10 relative-to="bottom-right"
+       open-focused false
+    }
+
+    layer-rule {
+        match namespace="^noctalia-wallpaper"
+        place-within-backdrop true
+    }
+
+    layer-rule {
+        match namespace="^noctalia-(bar-[^\"]+|notification|dock|panel|attached-panel|osd)$"
+        background-effect {
+          xray false
+          // blur false
+        }
+    }
+

@@ -1,0 +1,16 @@
+{{- $s := includeTemplate "shaffy.json" . | fromJson -}}
+// Managed by Shaffy OS from the desktop.displays setting; empty means Niri
+// configures outputs itself. Positions use logical (scaled) pixels.
+{{- range (dig "desktop" "displays" (list) $s.shaffy.settings) }}
+output "{{ .name }}" {
+{{- if hasKey . "mode" }}
+    mode "{{ .mode }}"
+{{- end }}
+{{- if hasKey . "scale" }}
+    scale {{ .scale }}
+{{- end }}
+{{- if hasKey . "position" }}
+    position x={{ .position.x }} y={{ .position.y }}
+{{- end }}
+}
+{{ end -}}

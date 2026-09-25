@@ -1,0 +1,13 @@
+# Overrides the AUR package's /usr/share/applications/beeper.desktop, which starts Beeper
+# with --no-sandbox: this entry keeps Chromium's sandbox. Managed by Shaffy OS.
+[Desktop Entry]
+Type=Application
+Name=Beeper
+GenericName=Unified Messenger
+Comment=The ultimate messaging app
+Exec=beeper %U
+Icon=beepertexts
+Terminal=false
+StartupWMClass=Beeper
+MimeType=x-scheme-handler/beeper;x-scheme-handler/matrix;x-scheme-handler/element;
+Categories=Network;InstantMessaging;

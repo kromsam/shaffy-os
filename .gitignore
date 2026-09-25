@@ -1,0 +1,17 @@
+artifacts/
+logs/
+secrets/
+__pycache__/
+*.key
+*.pem
+*.password
+
+
+# Local chezmoi deployment state, never configuration source.
+chezmoistate.boltdb
+
+# A private Shaffy OS supplement cloned or linked here is never part of this repository.
+/supplement
+
+# Galaxy collections installed from requirements.yml.
+/collections/

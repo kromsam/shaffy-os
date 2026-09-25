@@ -1,0 +1,22 @@
+---
+# The aur_package role as root in the container test, with the synthetic probe recipe served
+# from a local git repository in place of the AUR.
+- name: Build and install the probe package from the stand-in AUR
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  environment:
+    SHAFFY_AUR_URL: file:///home/tester/aur
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    shaffy_system: {checkout: /home/tester/checkout}
+    shaffy_target_user: tester
+    shaffy_target_home: /home/tester
+    shaffy_op_dir: /var/lib/shaffy/ops/test-aur-package
+  tasks:
+    - name: Install the probe as an AUR package
+      ansible.builtin.include_role:
+        name: aur_package
+      vars:
+        aur_package: {name: shaffy-probe}

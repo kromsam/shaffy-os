@@ -1,0 +1,76 @@
+{{- $w := dig "writing" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+# ZETTLR DEFAULTS FILE
+# ====================
+# Conversion: Markdown --> DOCX
+# More info: https://pandoc.org/MANUAL.html
+reader: markdown
+writer: docx
+embed-resources: true
+standalone: true
+
+variables:
+  # Document type and page layout
+  papersize: a4
+  documentclass: book
+
+  # Fonts and line spacing
+  mainfont: EB Garamond
+  mainfontoptions:
+    - Ligatures=TeX
+    - Numbers=OldStyle
+  sansfont: Fira Sans
+  monofont: Fira Code Nerd Font
+  urlstyle: rm
+  fontsize: 12pt
+  linestretch: 1.25
+
+  # Language and quotation marks
+{{- with dig "language" "" $w }}
+  lang: {{ . }}
+{{- end }}
+  csquotes: true
+  csquotesoptions: english=british
+
+  # Microtype
+  microtype: true
+  microtypeoptions: activate={true,nocompatibility},final,tracking=true,factor=1100,stretch=10,shrink=10
+
+  # Link citations
+  link-citations: true
+
+  # Section numbering depth
+  secnumdepth: 1
+
+filters:
+  - type: citeproc
+  - "${HOME}/.local/share/pandoc/filters/epigraph.lua"
+  - "${HOME}/.local/share/pandoc/filters/pagebreak.lua"
+  - "${HOME}/.local/share/pandoc/filters/no-latex.lua"
+
+top-level-division: chapter
+
+pdf-engine: lualatex
+
+# Table of contents
+toc: false
+toc-depth: 2 # 1 for LaTeX, 2 for DOCX
+
+number-sections: false
+
+# Citation style: Chicago 18, notes and bibliography, ibid, no DOI or URL in bibliography
+# entries (notes keep them)
+csl: "${HOME}/.local/share/pandoc/csl/chicago-notes-bibliography-subsequent-ibid-no-url.csl"
+
+# Title fix (export to LaTeX)
+title-prefix: ''
+
+{{- with dig "docx_reference" "" $w }}
+
+# Reference document whose styles DOCX exports take (writing.docx_reference)
+reference-doc: {{ hasPrefix "~/" . | ternary (printf "${HOME}/%s" (trimPrefix "~/" .)) . | toJson }}
+{{- end }}
+{{- with dig "language" "" $w }}
+
+metadata:
+  lang: {{ . }}
+{{- end }}

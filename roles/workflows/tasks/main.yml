@@ -1,0 +1,15 @@
+---
+- name: Install the workflow packages through the configured repository priority
+  community.general.pacman:
+    name: "{{ shaffy.packages.groups.workflows }}"
+    state: present
+- name: Allow the existing administrator to use the local Docker socket
+  ansible.builtin.user:
+    name: '{{ shaffy_target_user }}'
+    groups: docker
+    append: true
+- name: Enable the local Docker engine without starting any restored workloads
+  ansible.builtin.systemd_service:
+    name: docker.service
+    enabled: true
+    state: started

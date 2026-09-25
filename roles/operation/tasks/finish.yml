@@ -1,0 +1,9 @@
+---
+# The last root task: post snapshots paired with the pre ones, the phase and the
+# completion recorded, root `pending` cleared. A failed play never gets here, so
+# the operation stays unfinished for ./bin/shaffy apply --resume or --abandon.
+- name: Take the post snapshots, record completion and release the system lock
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', '-I', shaffy_root_op_dir + '/root_op.py', 'finish', '--op', shaffy_system.op,
+              '--uid', shaffy_system.target.uid | string] + shaffy_root_test_arguments }}"
+  changed_when: false

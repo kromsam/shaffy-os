@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Zettlr's packaged-Pandoc and toolbar settings (the `zettlr` integration); the rest is Zettlr's.
+
+Before Zettlr has written its configuration there is nothing to change, and the
+empty output leaves the file for Zettlr to create; the next apply sets the keys.
+"""
+import json
+import sys
+
+SETTINGS = {('export', 'useBundledPandoc'): False,
+            # Invalid old custom CSS used JS to hide controls; keep the native setting instead.
+            ('display', 'hideToolbarInDistractionFree'): True}
+
+
+def main():
+    original = sys.stdin.read()
+    if not original.strip():
+        return
+    config = json.loads(original)
+    before = json.dumps(config, sort_keys=True)
+    for (section, key), value in SETTINGS.items():
+        config.setdefault(section, {})[key] = value
+    if json.dumps(config, sort_keys=True) == before:
+        sys.stdout.write(original)
+    else:
+        print(json.dumps(config, indent=2, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

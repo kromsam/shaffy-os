@@ -1,0 +1,5 @@
+// Synthetic override: replaces a public binding and adds one.
+binds {
+    Mod+Return { spawn "foot"; }
+    Mod+F12 { spawn "true"; }
+}

@@ -1,0 +1,3 @@
+{{- /* Expand a settings path: a leading ~/ becomes the target home. Usage:
+       includeTemplate "path" (dict "home" .chezmoi.homeDir "path" $value) */ -}}
+{{- if hasPrefix "~/" .path -}}{{ .home }}{{ trimPrefix "~" .path }}{{- else -}}{{ .path }}{{- end -}}

@@ -1,0 +1,3 @@
+{{- $sftp := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.backup.repository.sftp -}}
+{{- $port := dig "port" 22 $sftp -}}
+{{ if eq (int $port) 22 }}{{ $sftp.host }}{{ else }}[{{ $sftp.host }}]:{{ $port }}{{ end }} {{ $sftp.host_key }}

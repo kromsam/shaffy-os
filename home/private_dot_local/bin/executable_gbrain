@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/mise exec bun@1.4.2 -- bun "$HOME/.local/share/gbrain/source/src/cli.ts" "$@"

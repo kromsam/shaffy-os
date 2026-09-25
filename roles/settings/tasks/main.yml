@@ -1,0 +1,27 @@
+---
+# Sets `shaffy` for the play from the operation's settings: the
+# loaded settings in the verified root-owned copy that the operation role prepares.
+# `slurp` reads them under become, and module results stay literal, so a value
+# shaped like Jinja is never evaluated. Never pass settings with -e @file,
+# vars_files, include_vars or inventory variables, which evaluate Jinja.
+- name: Require the settings of a Shaffy OS operation
+  ansible.builtin.assert:
+    that:
+      - shaffy_settings_file is defined
+      - shaffy_settings_file is string
+    fail_msg: Run through ./bin/shaffy apply --system, which passes the operation's settings.
+    quiet: true
+  tags: [always]
+
+- name: Read the operation's settings
+  ansible.builtin.slurp:
+    src: "{{ shaffy_settings_file }}"
+  register: shaffy_settings_raw
+  no_log: true  # the settings hold private values; -v must not print them
+  tags: [always]
+
+- name: Set the settings for the play
+  ansible.builtin.set_fact:
+    shaffy: "{{ (shaffy_settings_raw.content | b64decode | from_json).shaffy }}"
+  no_log: true
+  tags: [always]

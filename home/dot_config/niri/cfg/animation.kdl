@@ -1,0 +1,51 @@
+// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
+// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
+    animations {
+        workspace-switch {
+            off
+        }
+        window-open {
+            // Hyprland speed 4.1 is 410 ms; 87% pop-in translated to Niri's shader API.
+            duration-ms 410
+            curve "cubic-bezier" 0.23 1.0 0.32 1.0
+            custom-shader r#"
+                vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                    float scale = mix(0.87, 1.0, niri_clamped_progress);
+                    coords_geo = vec3((coords_geo.xy - vec2(0.5)) / scale + vec2(0.5), 1.0);
+                    vec3 coords_tex = niri_geo_to_tex * coords_geo;
+                    return texture2D(niri_tex, coords_tex.st) * niri_clamped_progress;
+                }
+            "#
+        }
+        window-close {
+            duration-ms 149
+            curve "linear"
+            custom-shader r#"
+                vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                    float scale = mix(1.0, 0.87, niri_clamped_progress);
+                    coords_geo = vec3((coords_geo.xy - vec2(0.5)) / scale + vec2(0.5), 1.0);
+                    vec3 coords_tex = niri_geo_to_tex * coords_geo;
+                    return texture2D(niri_tex, coords_tex.st) * (1.0 - niri_clamped_progress);
+                }
+            "#
+        }
+        horizontal-view-movement {
+            spring damping-ratio=1.0 stiffness=900 epsilon=0.0001
+        }
+        window-movement {
+            spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
+        }
+        window-resize {
+            spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
+        }
+        config-notification-open-close {
+            spring damping-ratio=0.6 stiffness=1200 epsilon=0.001
+        }
+        screenshot-ui-open {
+            duration-ms 300
+            curve "ease-out-quad"
+        }
+        overview-open-close {
+            spring damping-ratio=1.0 stiffness=900 epsilon=0.0001
+        }
+    }

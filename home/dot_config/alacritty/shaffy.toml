@@ -1,0 +1,47 @@
+# Shaffy OS Alacritty defaults: only the values that differ from Alacritty's own
+# (man 5 alacritty). Use array-of-tables syntax for every key binding.
+[env]
+TERM = "xterm-256color"
+WINIT_X11_SCALE_FACTOR = "1.0"
+
+[window]
+dimensions = { columns = 100, lines = 30 }
+padding = { x = 14, y = 14 }
+decorations = "None"
+decorations_theme_variant = "Dark"
+
+[font]
+normal = { family = "JetBrainsMono Nerd Font" }
+size = 9.0
+
+[colors]
+draw_bold_text_with_bright_colors = true
+
+[selection]
+save_to_clipboard = true
+
+[mouse]
+hide_when_typing = true
+
+# Shift+Return and Alt+Shift+Return send their own sequences, so terminal
+# applications can tell them from Return.
+[[keyboard.bindings]]
+key = "Return"
+mods = "Shift"
+chars = "\u001b[13;2u"
+
+[[keyboard.bindings]]
+key = "Return"
+mods = "Alt|Shift"
+chars = "\u001b[13;4u"
+
+# Copy and paste the clipboard with Ctrl+Insert and Shift+Insert.
+[[keyboard.bindings]]
+key = "Insert"
+mods = "Control"
+action = "Copy"
+
+[[keyboard.bindings]]
+key = "Insert"
+mods = "Shift"
+action = "Paste"

@@ -1,0 +1,37 @@
+# Laptop-only files: they stay in this private repository and are left out of the
+# public Shaffy OS export. The personal-literal tests treat exactly these paths as
+# not public.
+
+# Boot tools for the owner's laptop disks and firmware, their files and tests.
+scripts/apply-plymouth-theme.sh export-ignore
+scripts/bootstrap-secure-boot.sh export-ignore
+scripts/build-plymouth-theme.py export-ignore
+scripts/check-resume.py export-ignore
+scripts/configure-plymouth.py export-ignore
+scripts/configure-secure-boot.py export-ignore
+scripts/configure-swap.py export-ignore
+scripts/inspect-boot.py export-ignore
+scripts/reboot-for-acceptance.sh export-ignore
+scripts/test-hibernate.py export-ignore
+files/plymouth/** export-ignore
+files/limine-sbctl-post export-ignore
+files/limine-wallpaper-hash.py export-ignore
+tests/test_plymouth_theme.py export-ignore
+tests/test_secure_boot_guards.py export-ignore
+tests/test_swap_guards.py export-ignore
+tests/test_hibernate_evidence.py export-ignore
+docs/BOOT-APPEARANCE.md export-ignore
+docs/BOOT-CONFIGURATION.md export-ignore
+docs/LAPTOP-TOOLS.md export-ignore
+
+# Tools for this laptop's own data, projects, hardware and NAS.
+scripts/audit-zotero-attachments.py export-ignore
+scripts/development-databases.py export-ignore
+scripts/development-databases.sh export-ignore
+scripts/test-hardware.py export-ignore
+tests/test_container_restore.py export-ignore
+nas-backup.yml export-ignore
+files/sftpgo-restic.compose.override.yml export-ignore
+
+# The implementation plan records this laptop's migration; ARCHITECTURE.md is its public part.
+docs/IMPLEMENTATION-PLAN.md export-ignore

@@ -1,0 +1,15 @@
+{{- $b := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.backup -}}
+# Regenerable caches and local trash.
+$HOME/.cache
+$HOME/.npm
+$HOME/.local/share/Trash
+# Android runtime data needs its own stopped-container recovery procedure.
+$HOME/.local/share/waydroid
+# Transient SSH-agent socket.
+$HOME/.ssh/agent
+{{- with dig "excludes" list $b }}
+# From the settings.
+{{- range . }}
+$HOME/{{ trimPrefix "~/" . }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,2 @@
+{{- /* The effective Shaffy OS settings as JSON: the cached loader, standard library only on a hit. */ -}}
+{{- output "/usr/bin/python3" "-I" "-S" (joinPath .chezmoi.sourceDir "../lib/shaffy/fastload.py") "--checkout" (joinPath .chezmoi.sourceDir "..") -}}

@@ -1,0 +1,7 @@
+{{- /* Only while the ssh integration enables the packaged agent socket; otherwise empty, so removed. */ -}}
+{{- if eq (dig "integrations" "ssh" "state" "" (includeTemplate "shaffy.json" . | fromJson).shaffy) "managed" -}}
+# Keep forwarded agents; otherwise use Arch's socket-activated desktop agent.
+if not set -q SSH_AUTH_SOCK; and set -q XDG_RUNTIME_DIR
+    set -gx SSH_AUTH_SOCK "$XDG_RUNTIME_DIR/ssh-agent.socket"
+end
+{{ end -}}

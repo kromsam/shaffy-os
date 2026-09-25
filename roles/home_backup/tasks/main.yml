@@ -1,0 +1,6 @@
+---
+# The client only; its schedules and repository belong to the home (restic-home).
+- name: Install the home backup client
+  community.general.pacman:
+    name: "{{ shaffy.packages.groups.home_backup }}"
+    state: present

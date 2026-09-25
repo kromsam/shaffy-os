@@ -1,0 +1,32 @@
+---
+- name: Require the operation the wrapper passes
+  ansible.builtin.assert:
+    that:
+      - shaffy_system.op is defined
+      - shaffy_system.op is match('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')
+      - shaffy_system.target.uid is defined
+      - shaffy_system.checkout is defined
+    fail_msg: Run through ./bin/shaffy, which passes the operation in SHAFFY_SYSTEM.
+    quiet: true
+
+- name: Create the root-owned operation directory
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: "{{ shaffy_root_state }}", mode: '0755'}
+    - {path: "{{ shaffy_root_state }}/ops", mode: '0700'}
+    - {path: "{{ shaffy_root_op_dir }}", mode: '0700'}
+  changed_when: false
+
+- name: Copy the root steps into the operation directory
+  ansible.builtin.copy:
+    src: "{{ shaffy_system.checkout }}/lib/shaffy/root_op.py"
+    dest: "{{ shaffy_root_op_dir }}/root_op.py"
+    owner: root
+    group: root
+    mode: '0600'
+  changed_when: false

@@ -1,0 +1,14 @@
+# A synthetic recipe for the AUR package build tests, served from a local git repository in
+# place of the AUR: no sources, one file, and two dependencies every test system has.
+pkgname=shaffy-probe
+pkgver=1.0
+pkgrel=1
+pkgdesc='Shaffy OS AUR package build probe'
+arch=('any')
+license=('0BSD')
+depends=('bash')
+makedepends=('coreutils>=8')
+
+package() {
+  install -Dm644 /dev/null "$pkgdir/usr/share/shaffy-probe/probe"
+}

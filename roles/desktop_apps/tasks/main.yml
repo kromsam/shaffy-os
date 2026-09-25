@@ -1,0 +1,15 @@
+---
+- name: Install the desktop applications using the current synchronized databases
+  community.general.pacman:
+    name: "{{ shaffy.packages.groups.desktop_apps }}"
+    state: present
+
+- name: Install the application and font packages that come from the AUR
+  ansible.builtin.include_role:
+    name: aur_package
+  loop:
+    - { name: beeper-v4-bin }
+    - { name: logseq-og-bin }
+    - { name: ttf-ms-fonts }
+  loop_control:
+    loop_var: aur_package

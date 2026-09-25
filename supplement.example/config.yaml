@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../schema/supplement.schema.json
+# The smallest valid Shaffy OS supplement. Every other setting uses the public
+# defaults in defaults/config.yaml until you override it here.
+schema_version: 1
+supplement_id: my-desktop

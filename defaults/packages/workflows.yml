@@ -1,0 +1,32 @@
+# Development base and native audio.
+packages:
+  - docker
+  - docker-compose
+  - docker-buildx
+  - mise
+  - base-devel
+  - libyaml
+  - libffi
+  - openssl
+  - readline
+  - gmp
+  - rustup
+  - postgresql-libs
+  - mariadb-libs
+  - libvips
+  - reaper
+  # Wine and the dependencies of the reviewed yabridge source, for Windows audio plugins in REAPER.
+  - wine-staging
+  - yabridgectl
+  - asio
+  - bitsery
+  - clap
+  - cmake
+  - function2
+  - ghc-filesystem
+  - libxcb
+  - meson
+  - tomlplusplus
+required:
+  # docker.service is enabled and the target user joins the docker group.
+  - docker

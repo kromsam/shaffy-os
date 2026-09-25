@@ -1,0 +1,22 @@
+// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
+// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
+include "./cfg/animation.kdl"
+include "./cfg/autostart.kdl"
+include "./cfg/keybinds.kdl"
+include "./cfg/input.kdl"
+include "./cfg/display.kdl"
+include "./cfg/layout.kdl"
+include "./cfg/rules.kdl"
+include "./cfg/misc.kdl"
+// Generated colors are applied last; geometry remains in cfg/layout.kdl.
+include "noctalia.kdl"
+// Runtime toggles must follow generated colors, so borders can be disabled.
+include "omarchy-overrides.kdl"
+
+// A named workspace approximates Omarchy scratchpad; it is not sticky floating.
+workspace "scratchpad"
+
+// The supplement's optional fragment comes last, so its bindings override the
+// public ones. Niri inserts outputs and other multipart sections instead of merging
+// them, so each output keeps one owner (desktop.displays).
+include "user.kdl"

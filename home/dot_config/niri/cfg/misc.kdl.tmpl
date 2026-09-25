@@ -1,0 +1,38 @@
+// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
+// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
+    prefer-no-csd
+    screenshot-path "~/{{ (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.folders.pictures | replace "%" "%%" }}/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+    environment {
+        ELECTRON_OZONE_PLATFORM_HINT "auto"
+        QT_QPA_PLATFORM "wayland"
+        QT_QPA_PLATFORMTHEME "gtk3"
+        QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+        XDG_CURRENT_DESKTOP "niri"
+        XDG_SESSION_TYPE "wayland"
+{{- if eq (dig "integrations" "ssh" "state" "" (includeTemplate "shaffy.json" . | fromJson).shaffy) "managed" }}
+        SSH_AUTH_SOCK "/run/user/{{ .chezmoi.uid }}/ssh-agent.socket"
+{{- end }}
+    }
+
+    cursor {
+        xcursor-theme "capitaine-cursors"
+        xcursor-size 24
+        hide-when-typing
+    }
+
+    blur {
+        passes 2        // more passes = stronger blur (default: 3)
+        offset 3.0      // sample distance per pass (default: 3.0)
+        noise 0.03      // grain overlay (default: 0.02)
+        saturation 1.0  // color saturation boost (default: 1.5)
+    }
+
+    debug {
+        // Allows notification actions and window activation from Noctalia.
+        honor-xdg-activation-with-invalid-serial
+    }
+
+    hotkey-overlay {
+       skip-at-startup
+    }

@@ -1,0 +1,17 @@
+---
+# Root record changes, run only by ./bin/shaffy (apply --abandon of a system
+# operation, supplement rebind of a system-bound installation).
+- name: Change the Shaffy OS root records
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    # The operation, as JSON in one environment variable, so its values stay literal.
+    shaffy_system: "{{ lookup('ansible.builtin.env', 'SHAFFY_SYSTEM', default='{}') | from_json }}"
+  tasks:
+    - name: Run the root step
+      ansible.builtin.import_role:
+        name: operation
+        tasks_from: records

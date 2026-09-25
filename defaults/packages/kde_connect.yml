@@ -1,0 +1,6 @@
+# KDE Connect, with its phone file browsing and file chooser support.
+packages:
+  - kdeconnect
+  - sshfs
+  - kdialog
+required: []

@@ -1,0 +1,105 @@
+{{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- $home := .chezmoi.homeDir -}}
+# Plugins come from Noctalia's official and community sources and Noctalia keeps
+# them updated; this repository ships no plugin code. noctalia/bitwarden
+# stays off until upstream signs in without putting the API secret on a command line.
+[plugins]
+enabled = ["rylos/tailnet", "rylos/syncthing", "ahmedhossamdev/sticky-notes", "icefish/phone-connect", "rylos/remmina", "noctalia/screen_recorder", "noctalia/timer", "noctalia/world_clock"]
+auto_update = "all"
+
+[[plugins.source]]
+name = "official"
+kind = "git"
+location = "https://github.com/noctalia-dev/official-plugins"
+enabled = true
+
+[[plugins.source]]
+name = "community"
+kind = "git"
+location = "https://github.com/noctalia-dev/community-plugins"
+enabled = true
+
+[plugin_settings."rylos/tailnet"]
+{{- with dig "tailnet" "login_server" "" $s }}
+admin_url = {{ . | toJson }}
+{{- end }}
+taildrop_dir = {{ printf "%s/%s" $home $s.folders.downloads | toJson }}
+
+[plugin_settings."rylos/syncthing"]
+config_path = {{ printf "%s/.local/state/syncthing/config.xml" $home | toJson }}
+notify_events = false
+
+[widget.tailnet]
+type = "rylos/tailnet:bar"
+
+[widget.syncthing]
+type = "rylos/syncthing:bar"
+
+[plugin_settings."ahmedhossamdev/sticky-notes"]
+save_path = {{ printf "%s/%s/sticky-notes" $home $s.folders.documents | toJson }}
+file_format = "md"
+no_colors = true
+
+[widget.sticky-notes]
+type = "ahmedhossamdev/sticky-notes:bar"
+
+# For noctalia/bitwarden once it is enabled again (server_url from bitwarden.server_url):
+# [plugin_settings."noctalia/bitwarden"]
+# auto_serve = true
+# vault_timeout = "custom"
+# vault_timeout_custom_minutes = 15
+# clear_clipboard_seconds = 30
+
+[plugin_settings."icefish/phone-connect"]
+state_update_interval = 30
+show_device_name = false
+battery_display = "percent"
+enable_charging_animation = false
+enable_clipboard_action = true
+language = "en"
+panel_placement = "attached"
+
+[widget.phone-connect]
+type = "icefish/phone-connect:bar"
+
+[plugin_settings."rylos/remmina"]
+profiles_path = {{ printf "%s/.local/share/remmina" $home | toJson }}
+show_group = true
+max_results = 30
+
+[widget.remmina]
+type = "rylos/remmina:bar"
+
+# Noctalia 5.1 has no generic Panels provider yet. These native config entries
+# open the two plugin panels that do not already have application launchers.
+# Exec commands are fixed: typed input is never interpolated into a shell command.
+[shell.launcher.dmenu.entry.tailnet-panel]
+command = "printf '%s\\n' 'Tailnet — private network'"
+exec = "noctalia msg panel-toggle rylos/tailnet:panel"
+prefix = "tailnet"
+glyph = "topology-star-3"
+global = true
+
+[shell.launcher.dmenu.entry.syncthing-panel]
+command = "printf '%s\\n' 'Syncthing — synchronization panel'"
+exec = "noctalia msg panel-toggle rylos/syncthing:panel"
+prefix = "syncthing"
+glyph = "cloud-network"
+global = true
+
+[plugin_settings."noctalia/screen_recorder"]
+video_source = "portal"
+directory = {{ printf "%s/%s/Recordings" $home $s.folders.videos | toJson }}
+audio_source = "default_output"
+audio_codec = "aac"
+video_codec = "h264"
+hide_inactive = true
+replay_enabled = false
+restore_portal = false
+
+[widget.recorder]
+type = "noctalia/screen_recorder:recorder"
+
+[widget.timer]
+type = "noctalia/timer:bar"
+show_idle_on_horizontal = false

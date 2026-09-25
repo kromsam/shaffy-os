@@ -1,0 +1,13 @@
+# The tools Shaffy OS's own launchers and helpers run. Personal runtimes (for
+# example node and ruby for projects) belong in the supplement's mise fragment,
+# rendered as conf.d/90-supplement.toml.
+[tools]
+claude = "latest"
+codex = "0.155.0"
+bun = "1.4.2"
+bitwarden = "2026.9.0"
+"aqua:quarto-dev/quarto-cli" = "1.9.38"
+"cargo:raine/workmux" = "tag:v0.1.264"
+
+[settings.upgrade]
+auto_prune = false

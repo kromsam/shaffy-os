@@ -1,0 +1,8 @@
+{{- /* What restic-home needs from the settings; the password and SSH key stay unmanaged beside it. */ -}}
+{{- $b := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.backup -}}
+{{- $r := dig "retention" dict $b -}}
+{{- dict "home" .chezmoi.homeDir "host" $b.host "tags" $b.tags
+         "repository" (printf "sftp:restic-home-nas:%s" $b.repository.sftp.path)
+         "repository_id" (dig "id" nil $b.repository)
+         "retention" (dict "daily" (dig "daily" 14 $r) "weekly" (dig "weekly" 8 $r) "monthly" (dig "monthly" 12 $r))
+    | toPrettyJson | trim }}

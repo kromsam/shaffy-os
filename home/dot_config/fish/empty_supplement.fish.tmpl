@@ -1,0 +1,2 @@
+{{- /* The supplement's optional Fish fragment (overrides.fish); empty otherwise. */ -}}
+{{- with (dig "fish" "" (includeTemplate "shaffy.json" . | fromJson).shaffy.overrides) }}{{ include . }}{{ end -}}

@@ -1,0 +1,10 @@
+# Managed by Shaffy OS. Alacritty loads its imports in order and this file last,
+# so this file only lists them: the generated Noctalia colors, then the Shaffy OS
+# defaults (whose colors win over the generated ones, as before), then the
+# supplement's optional fragment (overrides.alacritty), which wins over both.
+[general]
+import = [
+  "~/.config/alacritty/themes/noctalia.toml",
+  "~/.config/alacritty/shaffy.toml",
+  "~/.config/alacritty/supplement.toml",
+]

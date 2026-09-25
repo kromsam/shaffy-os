@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Sticky Notes
+Name[nl]=Plaknotities
+Comment=Notes and checklists in Noctalia
+Exec=noctalia msg panel-open ahmedhossamdev/sticky-notes:panel
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=notes;checklist;
+Keywords[nl]=notities;checklist;

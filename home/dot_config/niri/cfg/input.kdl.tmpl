@@ -1,0 +1,42 @@
+// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
+// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
+// ────────────── Input Configuration ──────────────
+// https://github.com/YaLTeR/niri/wiki/Configuration:-Input
+
+input {
+    keyboard {
+        repeat-delay 250
+        repeat-rate 40
+        xkb {
+            // From the desktop.keyboard setting; empty means Niri follows localectl.
+            // Super+Alt+K switches the globally active layout.
+{{- with (dig "desktop" "keyboard" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings) }}
+            layout "{{ .layouts }}"
+{{- if hasKey . "variants" }}
+            variant "{{ .variants }}"
+{{- end }}
+{{- if hasKey . "options" }}
+            options "{{ .options }}"
+{{- end }}
+{{- end }}
+        }
+        numlock // Enable numlock on startup
+    }
+
+    touchpad {
+        tap // Enable tap-to-click
+        click-method "clickfinger"
+        scroll-factor 0.4
+    }
+
+    mouse {
+        // If you want to disable Mouse Acceleration,
+        // uncomment the lines below.
+        //accel-profile "flat"
+        //accel-speed 0.0
+    }
+
+    focus-follows-mouse // Automatically focus windows under the mouse pointer
+    warp-mouse-to-focus
+    workspace-auto-back-and-forth // Enable workspace back & forth switching
+}

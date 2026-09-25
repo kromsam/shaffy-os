@@ -1,0 +1,2 @@
+{{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- get $s.folders (get (dig "folder_links" dict $s) "Documents") -}}

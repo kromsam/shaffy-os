@@ -1,0 +1,29 @@
+{{- $w := dig "writing" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+# Standard article export; independent of the retired thesis template paths.
+reader: markdown
+writer: pdf
+standalone: true
+pdf-engine: lualatex
+filters:
+  - type: citeproc
+  - "${HOME}/.local/share/pandoc/filters/epigraph.lua"
+  - "${HOME}/.local/share/pandoc/filters/pagebreak.lua"
+  - "${HOME}/.local/share/pandoc/filters/no-latex.lua"
+csl: "${HOME}/.local/share/pandoc/csl/chicago-notes-bibliography-subsequent-ibid-no-url.csl"
+variables:
+  documentclass: article
+  papersize: a4
+  fontsize: 12pt
+  mainfont: EB Garamond
+  mainfontoptions:
+    - Ligatures=TeX
+    - Numbers=OldStyle
+  sansfont: Fira Sans
+  monofont: Fira Code Nerd Font
+  linestretch: 1.25
+metadata:
+{{- with dig "language" "" $w }}
+  lang: {{ . }}
+{{- end }}
+  link-citations: true
+include-in-header: "${HOME}/.local/share/pandoc/writing-header.tex"

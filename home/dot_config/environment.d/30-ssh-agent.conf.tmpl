@@ -1,0 +1,4 @@
+{{- /* Only while the ssh integration enables the packaged agent socket; otherwise empty, so removed. */ -}}
+{{- if eq (dig "integrations" "ssh" "state" "" (includeTemplate "shaffy.json" . | fromJson).shaffy) "managed" -}}
+SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/ssh-agent.socket
+{{ end -}}

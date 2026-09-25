@@ -1,0 +1,75 @@
+# Synthetic supplement exercising every implemented field; values are fictional.
+schema_version: 1
+supplement_id: synthetic-desktop
+ai:
+  mcp_servers:
+    zotero:
+      env:
+        ZOTERO_LOCAL_WRITE: "true"
+    notes:
+      command: "~/.local/bin/example-notes-mcp"
+      args: ["--read-only"]
+desktop:
+  displays:
+    - name: DP-9
+      mode: "2560x1440@59.951"
+      scale: 1.25
+      position: {x: 0, y: 0}
+    - name: HDMI-A-7
+  wallpaper:
+    directory: "~/Wallpapers"
+    image: "/usr/share/backgrounds/example.png"
+  keyboard:
+    layouts: "us,de"
+    variants: "intl,"
+    options: "grp:alt_shift_toggle"
+folders:
+  pictures: "Bilder"
+  videos: "Filme"
+overrides:
+  niri: overrides/niri.kdl
+  noctalia: overrides/noctalia.toml
+  fish: overrides/fish.fish
+  alacritty: overrides/alacritty.toml
+  mise: overrides/mise.toml
+assets:
+  "~/.local/share/fonts/Example-Regular.otf": assets/fonts/Example-Regular.otf
+  "~/Wallpapers/example photo.jpg": assets/wallpapers/example.jpg
+  "~/.local/bin/example-launcher": {file: assets/bin/example-launcher, executable: true}
+  "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
+tailnet:
+  login_server: "https://headscale.example.invalid"
+bitwarden:
+  server_url: "https://vault.example.invalid"
+writing:
+  language: en-GB
+  docx_reference: "~/Templates/reference.docx"
+identity:
+  name: "Test Person"
+  email: "test@example.invalid"
+  signing:
+    # Any readable file stands in for the public key; signing needs it to exist.
+    key: "/etc/os-release"
+folder_links:
+  Pictures: pictures
+  Work: projects
+backup:
+  host: synthetic-laptop
+  tags: [automatic, shaffy]
+  repository:
+    id: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    sftp:
+      host: backup.example.invalid
+      port: 2222
+      user: restic-test
+      path: repository
+      host_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExampleExampleExampleExampleExamp"
+  excludes: ["~/Projects/scratch data"]
+  retention: {daily: 7}
+integrations:
+  nextcloud: managed
+  syncthing: managed
+  ssh: managed
+  reaper: managed
+  zettlr: disabled
+  zotero: managed

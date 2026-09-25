@@ -1,0 +1,11 @@
+{{- $f := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.folders -}}
+# Managed by Shaffy OS from the folders setting.
+XDG_DESKTOP_DIR="$HOME/{{ $f.desktop }}"
+XDG_DOWNLOAD_DIR="$HOME/{{ $f.downloads }}"
+XDG_TEMPLATES_DIR="$HOME/{{ $f.templates }}"
+XDG_PUBLICSHARE_DIR="$HOME/{{ $f.public }}"
+XDG_DOCUMENTS_DIR="$HOME/{{ $f.documents }}"
+XDG_MUSIC_DIR="$HOME/{{ $f.music }}"
+XDG_PICTURES_DIR="$HOME/{{ $f.pictures }}"
+XDG_VIDEOS_DIR="$HOME/{{ $f.videos }}"
+XDG_PROJECTS_DIR="$HOME/{{ $f.projects }}"

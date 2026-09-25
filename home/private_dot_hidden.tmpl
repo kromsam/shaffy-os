@@ -1,0 +1,4 @@
+{{- /* Keeps the compatibility links out of the file manager; see folder_links. */ -}}
+{{- range $name, $_ := dig "folder_links" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{ $name }}
+{{ end -}}

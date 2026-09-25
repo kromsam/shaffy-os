@@ -1,0 +1,5 @@
+---
+- name: Install the desktop equivalents from the current synchronized databases
+  community.general.pacman:
+    name: "{{ shaffy.packages.groups.desktop }}"
+    state: present

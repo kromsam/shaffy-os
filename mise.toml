@@ -1,0 +1,5 @@
+# The Ansible controller Shaffy OS runs. ./bin/shaffy runs it through
+# `mise exec ansible-core` in this checkout; requirements.yml pins its collections.
+# Install it with `mise install ansible-core` (see README, Bootstrap).
+[tools]
+ansible-core = "2.21.4"

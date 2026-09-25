@@ -1,0 +1,35 @@
+# Use with: chezmoi --config ./chezmoi.toml --source ./home ...
+# Changes to the home go through ./bin/shaffy; the hooks below and the check in
+# home/.chezmoiignore.tmpl refuse direct applies. Hooks run with the
+# destination as working directory and are not templated, hence sh and
+# $CHEZMOI_SOURCE_DIR. Never set [edit] apply or watch here.
+# The state lives beside Shaffy OS's own.
+persistentState = "~/.local/state/shaffy/chezmoistate.boltdb"
+
+# home/.chezmoi.toml.tmpl only refuses `chezmoi init`; this config is not generated from it.
+[warnings]
+configFileTemplateHasChanged = false
+
+[hooks.apply.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "apply-pre"]
+
+[hooks.edit.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "edit-pre"]
+
+[hooks.update.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "update-pre"]
+
+[hooks.init.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "init-pre"]
+
+[hooks.destroy.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "destroy-pre"]
+
+[hooks.purge.pre]
+command = "sh"
+args = ["-c", 'exec "$CHEZMOI_SOURCE_DIR/../bin/shaffy" hook "$@"', "hook", "purge-pre"]

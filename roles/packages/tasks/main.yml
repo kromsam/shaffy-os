@@ -1,0 +1,32 @@
+---
+# Packages outside the role groups: the supplement's extras, and the
+# public retirements and supplement removals. Removal uses `pacman -R`, keeping
+# dependencies and private profiles, and happens only because a package is listed.
+- name: Look up which listed names are pacman groups
+  ansible.builtin.command:
+    argv: "{{ ['pacman', '-Sg'] + shaffy.packages.extra + shaffy.packages.remove }}"
+  register: packages_groups
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: (shaffy.packages.extra + shaffy.packages.remove) | length > 0
+
+- name: Refuse group names, which pacman would expand to every member
+  ansible.builtin.assert:
+    that: packages_groups.stdout | default('') | length == 0
+    fail_msg: >-
+      These names are pacman groups, not packages; list the packages instead:
+      {{ packages_groups.stdout_lines | default([]) | map('split') | map('first') | unique | join(', ') }}
+    quiet: true
+
+- name: Install the packages the settings add
+  community.general.pacman:
+    name: "{{ shaffy.packages.extra }}"
+    state: present
+  when: shaffy.packages.extra | length > 0
+
+- name: Remove retired packages and those the settings remove
+  community.general.pacman:
+    name: "{{ shaffy.packages.remove }}"
+    state: absent
+  when: shaffy.packages.remove | length > 0

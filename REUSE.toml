@@ -1,0 +1,113 @@
+# Copyright and licence of every file, in the REUSE format (https://reuse.software).
+# Shaffy OS's own files are MIT (LICENSE). The annotations below it name the
+# third-party files; THIRD-PARTY.md says where each comes from and what changed.
+# The last matching annotation wins.
+version = 1
+
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Sam Simons"
+SPDX-License-Identifier = "MIT"
+
+# Omarchy (github.com/omacom/omarchy) and its Neovim package (omarchy-pkgs), copied.
+[[annotations]]
+path = [
+  "home/dot_config/nvim/lua/config/remote_clipboard.lua",
+  "home/dot_config/nvim/lua/plugins/disable-news-alert.lua",
+  "home/dot_config/nvim/lua/plugins/snacks-animated-scrolling-off.lua",
+  "home/dot_config/noctalia/palettes/OmarchyMatteBlack.json",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "David Heinemeier Hansson"
+SPDX-License-Identifier = "MIT"
+
+# Omarchy material adapted for Shaffy OS.
+[[annotations]]
+path = [
+  "home/dot_config/tmux/tmux.conf",
+  "home/dot_config/fish/conf.d/60-zoxide.fish",
+  "home/dot_config/nvim/lazyvim.json",
+  "home/dot_config/nvim/lua/plugins/theme.lua",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["David Heinemeier Hansson", "2026 Sam Simons"]
+SPDX-License-Identifier = "MIT"
+
+# The LazyVim starter (github.com/LazyVim/starter), copied.
+[[annotations]]
+path = [
+  "home/dot_config/nvim/init.lua",
+  "home/dot_config/nvim/lua/config/lazy.lua",
+  "home/dot_config/nvim/lua/config/keymaps.lua",
+  "home/dot_config/nvim/stylua.toml",
+  "home/dot_config/nvim/dot_neoconf.json",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Folke Lemaitre and LazyVim contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# LazyVim starter files modified for Shaffy OS; options.lua also takes Omarchy's options.
+[[annotations]]
+path = "home/dot_config/nvim/lua/config/autocmds.lua"
+precedence = "override"
+SPDX-FileCopyrightText = ["Folke Lemaitre and LazyVim contributors", "2026 Sam Simons"]
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "home/dot_config/nvim/lua/config/options.lua"
+precedence = "override"
+SPDX-FileCopyrightText = ["Folke Lemaitre and LazyVim contributors", "David Heinemeier Hansson", "2026 Sam Simons"]
+SPDX-License-Identifier = "Apache-2.0 AND MIT"
+
+# CachyOS's Niri configuration (github.com/CachyOS/cachyos-niri-noctalia), modified.
+[[annotations]]
+path = [
+  "home/dot_config/niri/config.kdl",
+  "home/dot_config/niri/cfg/animation.kdl",
+  "home/dot_config/niri/cfg/autostart.kdl",
+  "home/dot_config/niri/cfg/input.kdl.tmpl",
+  "home/dot_config/niri/cfg/keybinds.kdl.tmpl",
+  "home/dot_config/niri/cfg/layout.kdl",
+  "home/dot_config/niri/cfg/misc.kdl.tmpl",
+  "home/dot_config/niri/cfg/rules.kdl",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["CachyOS", "2026 Sam Simons"]
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# Noctalia (github.com/noctalia-dev/noctalia): its Niri colour template, adapted.
+[[annotations]]
+path = "home/dot_config/noctalia/templates/niri.kdl"
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 noctalia-dev", "2026 Sam Simons"]
+SPDX-License-Identifier = "MIT"
+
+# The virtual keyboard protocol, copied unchanged from Noctalia.
+[[annotations]]
+path = "files/desktop-key/virtual-keyboard-unstable-v1.xml"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2008-2011 Kristian Høgsberg",
+  "2010-2013 Intel Corporation",
+  "2012-2013 Collabora, Ltd.",
+  "2018 Purism SPC",
+]
+SPDX-License-Identifier = "MIT"
+
+# The pagebreak Pandoc filter (github.com/pandoc-ext/pagebreak), copied with its licence.
+[[annotations]]
+path = [
+  "home/private_dot_local/private_share/pandoc/filters/pagebreak.lua",
+  "home/private_dot_local/private_share/pandoc/filters/pagebreak-LICENSE",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2017-2025 Benct Philip Jonsson, Albert Krewinkel"
+SPDX-License-Identifier = "ISC AND MIT"
+
+# A Chicago style from citation-style-language/styles, adapted.
+[[annotations]]
+path = "home/private_dot_local/private_share/zotero-data/styles/chicago-notes-bibliography-subsequent-ibid-no-url.csl"
+precedence = "override"
+SPDX-FileCopyrightText = ["Andrew Dunning", "2026 Sam Simons"]
+SPDX-License-Identifier = "CC-BY-SA-3.0"

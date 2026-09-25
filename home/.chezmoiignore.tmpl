@@ -1,0 +1,43 @@
+{{- /* Refuse direct changes first (see .chezmoitemplates/guard). */ -}}
+{{- template "guard" . -}}
+{{- /* Compatibility links not listed in folder_links, and .hidden without any, are
+     left alone rather than removed; a real folder of the same name stays untouched. */ -}}
+{{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
+{{- $links := dig "folder_links" dict $shaffy.settings }}
+{{- range list "Desktop" "Documents" "Downloads" "Music" "Pictures" "Projects" "Public" "Templates" "Videos" "Work" }}
+{{-   if not (hasKey $links .) }}
+{{ . }}
+{{-   end }}
+{{- end }}
+{{- if not $links }}
+.hidden
+{{- end }}
+{{- /* Optional integrations render only while managed: the targets of one
+     that is not requested, disabled or released are ignored, never removed; so are
+     those of one the operation defers until its activate_requires holds. */}}
+{{- $deferred := splitList "," (env "SHAFFY_OP_DEFERRED") }}
+{{- range $name, $integration := $shaffy.integrations }}
+{{-   if or (ne (printf "%v" $integration.state) "managed") (has $name $deferred) }}
+{{-     range $integration.targets }}
+{{ . }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+{{- /* Without backup settings there is nothing for the backup client to use. */}}
+{{- if not (hasKey $shaffy.settings "backup") }}
+.config/restic-home
+.config/restic-home/backup.json
+.config/restic-home/excludes
+.config/restic-home/known_hosts
+.config/restic-home/ssh_config
+.local/bin/restic-home
+.local/state/shaffy/home-backup
+{{-   range list "backup" "maintenance" "check" }}
+.config/systemd/user/restic-home-{{ . }}.service
+.config/systemd/user/restic-home-{{ . }}.timer
+{{-   end }}
+{{- end }}
+{{- /* The comment trims only on its left: the newline after it keeps the last line above
+     apart from the next. */}}
+**/__pycache__
+**/__pycache__/**

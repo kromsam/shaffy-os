@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Restic whole-home backup daily
+
+[Timer]
+OnCalendar=*-*-* 01:15:00
+RandomizedDelaySec=10min
+AccuracySec=1min
+Persistent=true
+Unit=restic-home-backup.service
+
+[Install]
+WantedBy=timers.target

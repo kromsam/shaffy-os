@@ -1,0 +1,4 @@
+# The home backup client; its schedules and repository are the home's (restic-home).
+packages:
+  - restic
+required: []

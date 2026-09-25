@@ -1,0 +1,256 @@
+# Desktop applications
+
+The system apply installs the applications below from package groups in
+`defaults/packages/`, one group per role, in the configured CachyOS and Arch
+repository priority and without refreshing the package databases. Four
+applications come from the AUR ([AUR packages](#aur-packages)).
+Application profiles, accounts and credentials are the applications' own and
+stay outside both the repository and the supplement.
+
+A supplement changes the selection with `packages`: `omit` leaves group
+packages out without uninstalling them, `extra` installs more and `remove`
+removes listed packages (see `defaults/packages/README.md`). The AUR packages
+are installed by their roles, not through a group, so `packages.omit` does not
+leave them out.
+
+## Applications
+
+| Application | Package | Configuration |
+| --- | --- | --- |
+| Zen Browser | `zen-browser-bin` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. |
+| Chromium | `chromium` | A second browser for sites that need it. |
+| Beeper | AUR `beeper-v4-bin` | A launcher entry that keeps Chromium's sandbox; its account and profile are its own. |
+| Logseq OG | AUR `logseq-og-bin` | The file-based Logseq; its launcher keeps the usual `~/.config/Logseq` profile. |
+| Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |
+| Tailscale | `tailscale` | The `tailnet` role, only with `tailnet` settings; see [Tailnet](#tailnet). |
+| Remmina, FreeRDP | `remmina`, `freerdp` | Noctalia's Remmina plugin lists saved connections; profiles stay private. |
+| Neovim with LazyVim | `neovim`, `lazygit`, `tree-sitter-cli` | chezmoi's `~/.config/nvim`; see [LazyVim](#lazyvim). |
+| Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
+| tmux, zoxide, uv | `tmux`, `zoxide`, `uv` | See [workspace tools](WORKSPACE-TOOLS.md). |
+
+The `desktop_apps` group also holds `nodejs` and `yay`, the AUR helper that
+updates the AUR packages. `tailscale` is the group's `required` package: the
+settings loader refuses a supplement that omits it. The writing applications are
+in [Writing tools](#writing-tools).
+
+## Reapply
+
+```sh
+./bin/shaffy check
+./bin/shaffy apply --system --tags desktop_apps
+./bin/shaffy apply --home
+./bin/shaffy status
+```
+
+The system apply asks for the sudo password in the terminal. The `desktop_apps`
+role installs the group, then includes the `aur_package` role for each AUR
+package that is missing; see [AUR packages](#aur-packages).
+
+## Default browser and document types
+
+The `browser` role runs two scripts as the target user:
+
+- `scripts/configure-web-browser.sh` makes the desktop entry in
+  `desktop.browser` (default `zen.desktop`) the default for `http`, `https`,
+  `text/html` and `application/xhtml+xml`. It refuses an entry that is not
+  installed under `/usr/share/applications/`.
+- `scripts/configure-office-apps.sh` keeps Word, Excel and PowerPoint documents,
+  including their macro and template variants, and CSV and TSV opening in
+  LibreOffice Writer, Calc and Impress. The ChatGPT desktop entry registers
+  itself for these types and would otherwise win.
+
+Both leave the ChatGPT callback handler and every other association alone.
+Without an argument they only check and return 1 when something needs applying;
+`--apply` writes. Reapply with `./bin/shaffy apply --system --tags browser`.
+
+`desktop.browser` sets the default for web links and HTML only. Niri's browser
+shortcuts (Super+B, Super+Shift+B, Super+Shift+Return, and Super+Shift+Alt+B for
+a private window) start Zen; a supplement that prefers another browser rebinds
+them in its Niri fragment.
+
+## LazyVim
+
+`~/.config/nvim` is the LazyVim starter with the Neo-tree, Ruby, Docker, JSON,
+Markdown, TOML, YAML and Tailwind extras. It adds Harper with British English
+for Markdown and Git commit messages, markdownlint settings, the remote
+clipboard, absolute line numbers and no animated scrolling. `lazy-lock.json`
+pins the plugins. The colours follow Noctalia's palette through a pinned
+base16 adapter, with Matte Black before the first palette exists; see
+[theme and controls](NOCTALIA-INTEGRATION.md). Super+Shift+E opens LazyVim in
+Alacritty.
+
+The language tools install through Mason with:
+
+```sh
+mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
+```
+
+It installs the 18 tools the script lists, writes the result to
+`~/.local/state/nvim/desktop-tools.json` and exits non-zero when one fails.
+Plugins and Mason's tools are runtime data; only the configuration and the plugin
+lock are in the repository.
+
+## LibreOffice layout
+
+The `writing` role selects LibreOffice's **Tabbed** interface for Writer, Calc,
+Impress and Draw, the full notebook bar described in
+[LibreOffice's interface documentation](https://help.libreoffice.org/latest/en-GB/text/shared/01/notebook_bar.html).
+To check or apply it by hand, close LibreOffice and run as the desktop user,
+without sudo:
+
+```sh
+python3 scripts/configure-libreoffice.py --check
+python3 scripts/configure-libreoffice.py --apply
+```
+
+The check is the default, changes nothing and returns 1 when the preference needs
+applying. `--apply` changes only the eight layout properties in
+`~/.config/libreoffice/4/user/registrymodifications.xcu` and keeps every other
+setting. LibreOffice writes the per-application entries in a longer path form
+when it saves its profile; the script recognises both forms. It refuses while
+LibreOffice is running or its profile is locked, and refuses a linked registry
+file. Before a change it keeps a copy under
+`~/.local/state/shaffy/runs/libreoffice/`; an already configured profile is not
+written and gains no copy.
+
+To switch layouts by hand, use **View → User Interface**, or **☰ → User
+Interface** from the Tabbed layout, and choose **Standard Toolbar** for the
+classic layout. The next system apply that runs the `writing` role selects
+Tabbed again.
+
+## Writing tools
+
+The `writing` group installs Zettlr, Pandoc, TeX Live, LibreOffice, Vale,
+Harper, English spelling and hyphenation dictionaries and the Fira fonts; a
+supplement adds other languages' packages with `packages.extra`, for example
+`libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero comes
+from the AUR's `zotero-bin`, which replaces the distribution's `zotero` package
+only when that one is not newer. Reapply with
+`./bin/shaffy apply --system --tags writing`.
+
+The `zettlr` integration renders Zettlr's DOCX and PDF (LuaLaTeX) export
+profiles. They use the Pandoc filters, LaTeX header and citation style that the
+home apply installs under `~/.local/share/pandoc/`: a Chicago notes and
+bibliography style whose entries leave out URLs and DOIs. Two settings fill in
+the profiles:
+
+```yaml
+writing:
+  language: en-GB                        # lang of every export: hyphenation and quotes
+  docx_reference: "~/Templates/reference.docx"   # styles for DOCX exports
+```
+
+Without `writing.language` the exports set no language, and without
+`writing.docx_reference` DOCX exports use Pandoc's default styles. The
+`zotero` integration and the Zotero MCP server are described in
+[maintenance](MAINTENANCE.md#integrations) and
+[workspace tools](WORKSPACE-TOOLS.md).
+
+## Noctalia plugins
+
+`~/.config/noctalia/95-desktop-apps.toml` enables the Tailnet, Syncthing,
+Sticky Notes, Phone Connect and Remmina plugins, with the screen recorder,
+timer and world clock. They come from Noctalia's
+[official](https://github.com/noctalia-dev/official-plugins) and
+[community](https://github.com/noctalia-dev/community-plugins) sources with
+`auto_update = "all"`, so Noctalia installs and updates them. The fragment only
+enables them and declares their settings; this repository ships no plugin code.
+The home apply reloads a running Noctalia.
+
+- Tailnet's panel links to `tailnet.login_server` as its admin page and saves
+  Taildrop files in the downloads folder.
+- Syncthing reads the user's local Syncthing configuration for its API key, which
+  never enters the source, and posts no event notifications.
+- Sticky Notes and the Bitwarden command line are in
+  [workspace tools](WORKSPACE-TOOLS.md), and Phone Connect in
+  [KDE Connect](KDE-CONNECT.md).
+- Remmina lists the profiles in `~/.local/share/remmina`.
+
+Only the screen recorder and the timer sit on the bar, and the world clocks open
+from the clock. [Desktop setup](DESKTOP-SETUP.md#plugins-in-the-launcher) lists
+the others' launcher entries and prefixes.
+
+## Tailnet
+
+`tailscale` is always installed; the `tailnet` role configures it only when the
+supplement names a Tailnet (Tailscale or a Headscale server):
+
+```yaml
+tailnet:
+  login_server: "https://headscale.example.com"
+  address: "192.0.2.10"         # optional: the address the Tailnet gave this node (placeholder)
+```
+
+Without `tailnet` settings the role leaves the client alone. With them it
+enables `tailscaled.service`, lets the target user operate the client, and then
+requires the machine to be signed in, with its Tailnet host name equal to the
+system host name and, when `tailnet.address` is set, holding that address. On a
+new machine that check stops the first system apply. Sign in, then finish the
+operation:
+
+```sh
+python3 scripts/login-tailnet.py
+./bin/shaffy apply --resume
+```
+
+`scripts/login-tailnet.py` runs `tailscale up` against `tailnet.login_server`
+through sudo, opens the sign-in page in the browser without printing its URL,
+and leaves DNS and routes off until the apply. Never copy authentication keys or
+sign-in URLs into either repository or a log.
+
+The role then connects NetworkManager and systemd-resolved through the standard
+stub: it keeps the original `/etc/resolv.conf`, when that is a regular file, as
+`/var/lib/shaffy/tailnet/resolv.conf.before`, links `/etc/resolv.conf` to
+`/run/systemd/resolve/stub-resolv.conf`, reloads DNS without disconnecting Wi-Fi
+and restarts `tailscaled` once so it detects the resolver again. Finally it
+accepts the Tailnet's DNS settings and subnet routes. No exit node is selected;
+Internet traffic stays direct. See
+[Tailscale's Linux DNS documentation](https://tailscale.com/docs/reference/linux-dns).
+
+### Recovery
+
+Removing the `tailnet` settings stops later applies from changing the client; it
+does not undo earlier changes. To stop using the Tailnet's DNS and routes, and to
+put the original resolver file back:
+
+```sh
+tailscale set --accept-dns=false --accept-routes=false
+sudo rm /etc/resolv.conf
+sudo cp /var/lib/shaffy/tailnet/resolv.conf.before /etc/resolv.conf
+sudo nmcli general reload dns-full
+```
+
+Remove the link before copying, since copying onto it would write through to
+systemd-resolved's stub file. The system operation's snapper pre snapshot of `/`
+also holds the earlier `/etc`.
+
+## AUR packages
+
+Four applications come from the Arch User Repository: Beeper
+(`beeper-v4-bin`), Logseq OG (`logseq-og-bin`, the file-based Logseq that opens
+existing Markdown and Org graphs), the Microsoft core fonts (`ttf-ms-fonts`) and
+Zotero (`zotero-bin`, installed by the `writing` role). The repository keeps no
+recipes.
+
+When one is missing, the `aur_package` role installs it from the AUR's current
+recipe, without an AUR helper and without passwordless sudo:
+`scripts/build-aur-package.sh` clones the recipe into
+`~/.cache/shaffy/build/NAME/` as the target user and reports the repository
+packages it needs, which root installs as dependencies; the same script builds it
+with `makepkg`, as the target user. Root copies the package into the operation
+directory under `/var/lib/shaffy/ops/`, checks the copy's SHA-256 and name,
+records the recipe's AUR commit beside it and installs only that copy. Nothing is
+built as root. An installed package is left alone: updates are yay's.
+
+```sh
+yay            # repository packages and AUR packages together, showing recipe changes
+```
+
+Read what yay shows before confirming: an AUR recipe is code its maintainer can
+change at any time. Two recipes carry the vendor's own terms. Installing
+`ttf-ms-fonts` accepts Microsoft's licence, which the package installs; the set
+has no Calibri, Aptos or Segoe UI. Beeper is proprietary, and its AUR entry
+starts it with `--no-sandbox`: the home apply installs
+`~/.local/share/applications/beeper.desktop`, which overrides that entry and
+keeps Chromium's sandbox. Origins and licences are in
+[THIRD-PARTY.md](../THIRD-PARTY.md).

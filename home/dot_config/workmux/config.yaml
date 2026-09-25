@@ -1,0 +1,42 @@
+# workmux: one git worktree and tmux window per task, opened with `wm add <branch>`.
+# The default panes follow Omarchy's tdl geometry: editor upper left (70%), agent
+# upper right (30%), shell across the bottom (15%). Project .workmux.yaml files
+# may replace `panes` for their own needs.
+nerdfont: true
+agent: claude
+
+panes:
+  - command: nvim .
+    focus: true
+  - split: vertical
+    percentage: 15
+  - command: <agent>
+    split: horizontal
+    percentage: 30
+    target: 0
+
+# `wm add <branch> -l codex` or `-l duo` (Omarchy's `tdl claude codex`).
+layouts:
+  codex:
+    panes:
+      - command: nvim .
+        focus: true
+      - split: vertical
+        percentage: 15
+      - command: codex
+        split: horizontal
+        percentage: 30
+        target: 0
+  duo:
+    panes:
+      - command: nvim .
+        focus: true
+      - split: vertical
+        percentage: 15
+      - command: claude
+        split: horizontal
+        percentage: 30
+        target: 0
+      - command: codex
+        split: vertical
+        target: 2

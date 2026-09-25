@@ -1,0 +1,4 @@
+# The shared agent and the default key. Per-host entries go above this.
+Host *
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes

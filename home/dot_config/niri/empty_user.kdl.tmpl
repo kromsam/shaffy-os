@@ -1,0 +1,2 @@
+{{- /* The supplement's optional Niri fragment (overrides.niri); empty otherwise. */ -}}
+{{- with (dig "niri" "" (includeTemplate "shaffy.json" . | fromJson).shaffy.overrides) }}{{ include . }}{{ end -}}

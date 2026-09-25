@@ -1,0 +1,7 @@
+# Retired: the repository ID moved into the backup settings, and the
+# restore probe gave way to a fresh marker and random samples per backup.
+.config/restic-home/repository-id
+.config/restic-home/restore-probe
+# Retired while the noctalia/bitwarden plugin, whose launcher prefix it
+# opens, is disabled; it comes back with the plugin.
+.local/share/applications/bitwarden-noctalia.desktop

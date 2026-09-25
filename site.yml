@@ -1,0 +1,65 @@
+---
+# The system entry point, run only by ./bin/shaffy apply --system: the
+# operation's root steps come first and last and run with every --tags selection.
+- name: Apply the Shaffy OS system settings
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    # The operation, as JSON in one environment variable, so its values stay literal.
+    shaffy_system: "{{ lookup('ansible.builtin.env', 'SHAFFY_SYSTEM', default='{}') | from_json }}"
+    # The target identity the wrapper verified before escalating.
+    shaffy_target_user: "{{ shaffy_system.target.user }}"
+    shaffy_target_home: "{{ shaffy_system.target.home }}"
+    # The root-owned operation directory, where root keeps its copies.
+    shaffy_op_dir: "{{ shaffy_system.test.state_dir | default('/var/lib/shaffy') }}/ops/{{ shaffy_system.op }}"
+  pre_tasks:
+    - name: Require an Arch-based distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Archlinux'
+        fail_msg: Shaffy OS is an opinionated desktop setup for CachyOS.
+      tags: [always]
+    - name: Begin the system operation
+      ansible.builtin.import_role:
+        name: operation
+        tasks_from: begin
+      tags: [always]
+  # Every routine role, in order; `./bin/shaffy apply --system --tags NAME` runs one of them.
+  # Package groups come first, then the integrations that configure what they installed.
+  roles:
+    - role: packages
+      tags: [packages]
+    - role: desktop
+      tags: [desktop]
+    - role: desktop_apps
+      tags: [desktop_apps]
+    - role: workflows
+      tags: [workflows]
+    - role: writing
+      tags: [writing]
+    - role: sync
+      tags: [sync]
+    - role: home_backup
+      tags: [home_backup]
+    - role: kde_connect
+      tags: [kde_connect]
+    - role: tailnet
+      tags: [tailnet]
+    - role: login
+      tags: [login]
+    # Runs only when named: ./bin/shaffy apply --system --tags login_keyring_migration
+    - role: login_keyring_migration
+      tags: [never, login_keyring_migration]
+    - role: browser
+      tags: [browser]
+    - role: keyboard
+      tags: [keyboard]
+  post_tasks:
+    - name: Finish the system operation
+      ansible.builtin.import_role:
+        name: operation
+        tasks_from: finish
+      tags: [always]

@@ -1,0 +1,5 @@
+# File synchronization clients.
+packages:
+  - nextcloud-client
+  - syncthing
+required: []

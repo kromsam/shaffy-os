@@ -1,0 +1,5 @@
+{{- /* Shaffy OS guard: `chezmoi init` has no use with this source, and
+     `init --purge` or `--one-shot` would delete the whole checkout, .git included,
+     before any other template is read. chezmoi renders this template first, so it
+     refuses every direct init, with or without the repository's chezmoi.toml. */ -}}
+{{- fail "Shaffy OS: chezmoi init is not used with this source; run ./bin/shaffy (see docs/ARCHITECTURE.md, Guards against direct changes)." -}}

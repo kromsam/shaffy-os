@@ -1,0 +1,2 @@
+{{- /* The supplement's optional mise fragment (overrides.mise): personal runtimes; empty otherwise. */ -}}
+{{- with (dig "mise" "" (includeTemplate "shaffy.json" . | fromJson).shaffy.overrides) }}{{ include . }}{{ end -}}

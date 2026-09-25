@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Phone Connect
+Name[nl]=Telefoon verbinden
+Comment=Open the Noctalia KDE Connect panel
+Comment[nl]=Open het KDE Connect-paneel van Noctalia
+Exec=noctalia msg panel-toggle icefish/phone-connect:details
+Icon=kdeconnect
+Terminal=false
+Categories=Network;Utility;
+Keywords=KDE Connect;Phone;Android;
+Keywords[nl]=KDE Connect;Telefoon;Android;

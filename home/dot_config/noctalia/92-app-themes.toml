@@ -1,0 +1,20 @@
+# Noctalia owns generated colors; chezmoi owns the application includes/settings.
+[theme.templates]
+enable_builtin_templates = true
+builtin_ids = ["alacritty", "btop", "gtk3", "gtk4", "kcolorscheme"]
+
+[theme.templates.user.niri]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/niri.kdl"
+output_path = "$XDG_CONFIG_HOME/niri/noctalia.kdl"
+
+# GTK apps launched under Niri do not inherit the GNOME theme name from dconf.
+# The existing Qt gtk3 platform bridge reads these same toolkit settings.
+[theme.templates.user.gtk_settings]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/gtk-settings.ini"
+output_path = ["$XDG_CONFIG_HOME/gtk-3.0/settings.ini", "$XDG_CONFIG_HOME/gtk-4.0/settings.ini"]
+post_hook = "gsettings set org.gnome.desktop.interface icon-theme Yaru-yellow; gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 10'"
+
+# Local templates keep these integrations independent of catalog updates.
+[theme.templates.user.nvim_palette]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/nvim-palette.lua"
+output_path = "$XDG_CONFIG_HOME/nvim/lua/noctalia_palette.lua"

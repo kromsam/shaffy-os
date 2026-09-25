@@ -1,0 +1,12 @@
+[Unit]
+Description=Run a monthly full-data Restic repository check
+
+[Timer]
+OnCalendar=*-*-01 05:30:00
+RandomizedDelaySec=30min
+AccuracySec=1min
+Persistent=true
+Unit=restic-home-check.service
+
+[Install]
+WantedBy=timers.target

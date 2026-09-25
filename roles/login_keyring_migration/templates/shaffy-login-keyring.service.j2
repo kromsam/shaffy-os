@@ -1,0 +1,20 @@
+[Unit]
+Description=Promote the existing encrypted keyring to the login collection before the first login
+After=local-fs.target
+Before=sddm.service
+ConditionPathExists={{ shaffy_target_home }}/.local/share/keyrings/default
+ConditionPathExists=!{{ shaffy_target_home }}/.local/share/keyrings/login.keyring
+
+[Service]
+Type=oneshot
+User={{ shaffy_target_user }}
+Group={{ ansible_facts.getent_passwd[shaffy_target_user][2] }}
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/shaffy/prepare-login-keyring.py --apply
+RemainAfterExit=yes
+TimeoutStartSec=20
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ shaffy_target_home }}/.local/share/keyrings -{{ shaffy_target_home }}/.local/state

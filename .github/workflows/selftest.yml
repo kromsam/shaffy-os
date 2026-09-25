@@ -1,0 +1,34 @@
+# Runs the fresh-clone-safe tests, a secret scan of the history and the REUSE licence
+# check. CI never sees a supplement.
+name: selftest
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    container:
+      image: cachyos/cachyos@sha256:11aa6fe527e88403914010abb9d972c1799c921543ace2a54368de8f3c40a575
+    steps:
+      - name: Install the test toolset
+        run: >-
+          pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
+          chezmoi lua niri noctalia fish tmux gcc pkgconf wayland libxkbcommon gitleaks reuse
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0  # gitleaks scans every commit
+      - name: Run the tests as an unprivileged user
+        env:
+          # The container is disposable, so the home render runs without bubblewrap.
+          SHAFFY_RENDER_DIRECT: '1'
+        run: |
+          useradd --create-home tester
+          chown -R tester: "$GITHUB_WORKSPACE"
+          runuser -u tester -- env HOME=/home/tester sh -c \
+            'cd "$GITHUB_WORKSPACE" && ./bin/shaffy selftest --skip-host -v'
+      - name: Scan the history for secrets
+        run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && gitleaks git --redact --no-banner .'
+      - name: Check copyright and licence information
+        run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && reuse lint'

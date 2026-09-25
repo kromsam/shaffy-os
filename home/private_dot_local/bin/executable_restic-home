@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""Verified home backups to one pinned restic repository; retention touches only this home's snapshots.
+
+The settings (rendered into ~/.config/restic-home/backup.json) name the snapshot
+host and tags, the repository and its ID. `init` creates a new repository and
+`inspect` shows an existing one, so its ID can go into the settings; every other
+mode refuses a repository whose ID differs.
+
+Each backup is verified from the exact new snapshot: a marker written just before
+it proves the snapshot holds this run, and randomly chosen files that did not
+change during the run are restored and compared with the home. Samples come from
+outside hidden directories, where keys and credentials live, because the receipt
+records their SHA-256. The monthly `check` reads all repository data.
+"""
+import argparse
+from datetime import datetime, timezone
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import random
+import re
+import secrets
+import subprocess
+import time
+
+MODES = ['init', 'inspect', 'snapshots', 'dry-run', 'backup', 'verify', 'check', 'retention-plan',
+         'maintenance', 'status']
+SAMPLES = 3  # random files restored after each backup, besides the marker
+SAMPLE_LIMIT = 64 * 1024 * 1024  # larger files are not sampled, to keep verification short
+ATTEMPTS = 40
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def load_settings(home):
+    path = home / '.config/restic-home/backup.json'
+    require(path.is_file(), f'{path} is missing; add backup settings to the supplement and apply the home')
+    settings = json.loads(path.read_text())
+    require(Path(settings['home']) == home, f'{path} was rendered for {settings["home"]}, not {home}')
+    return settings
+
+
+def scope(settings):
+    return ['--host', settings['host'], '--path', settings['home'], '--tag', ','.join(settings['tags'])]
+
+
+def verify_snapshot(snapshot, settings):
+    require(snapshot.get('hostname') == settings['host'] and snapshot.get('paths') == [settings['home']]
+            and set(settings['tags']).issubset(snapshot.get('tags') or []),
+            "Snapshot is outside this home's backup scope")
+
+
+def retention_args(settings):
+    keep = settings['retention']
+    return ['forget', *scope(settings), '--group-by', 'host,paths,tags',
+            '--keep-daily', str(keep['daily']), '--keep-weekly', str(keep['weekly']),
+            '--keep-monthly', str(keep['monthly'])]
+
+
+def parse_backup_summary(path):
+    summary = None
+    with path.open() as stream:
+        for line in stream:
+            record = json.loads(line)
+            if record.get('message_type') == 'summary':
+                summary = record
+    require(summary is not None, 'No backup summary was produced')
+    return summary
+
+
+def save_json(path, value):
+    temp = path.with_suffix('.tmp')
+    with temp.open('w') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    temp.replace(path)
+
+
+def mtime_us(text):
+    """A restic node time (nanoseconds, with offset) as integer microseconds since the epoch."""
+    match = re.fullmatch(r'(.*T\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)', text)
+    require(match, f'Unexpected snapshot time {text!r}')
+    base = datetime.fromisoformat(match[1] + (match[3] if match[3] != 'Z' else '+00:00'))
+    return int(base.timestamp()) * 1_000_000 + int(((match[2] or '') + '000000')[:6])
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as stream:
+        for block in iter(lambda: stream.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+class Backup:
+    def __init__(self, home, settings=None):
+        self.home = home
+        self.settings = settings or load_settings(home)
+        self.config = home / '.config/restic-home'
+        self.cache = home / '.cache/restic-home'
+        self.state = home / '.local/state/shaffy/home-backup'
+        for directory in (self.cache, self.state):
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for name in ['password', 'id_ed25519', 'ssh_config', 'known_hosts', 'excludes']:
+            path = self.config / name
+            require(path.is_file() and not path.is_symlink(), f'Missing or unexpected backup configuration: {name}')
+        self.env = os.environ.copy()
+        # Do not let an inherited Restic setting select another repository/key.
+        for name in list(self.env):
+            if name.startswith('RESTIC_'):
+                self.env.pop(name)
+        self.env.update(RESTIC_REPOSITORY=self.settings['repository'],
+                        RESTIC_PASSWORD_FILE=str(self.config / 'password'),
+                        RESTIC_CACHE_DIR=str(self.cache))
+        self.command = ['/usr/bin/restic', '--retry-lock', '5m',
+                        '-o', f'sftp.command=/usr/bin/ssh -F {self.config / "ssh_config"} restic-home-nas -s sftp',
+                        '-o', 'sftp.connections=2']
+
+    def last_receipt(self):
+        receipt = self.state / 'last-success.json'
+        require(receipt.exists(), 'There is no verified backup yet; run restic-home backup')
+        return json.loads(receipt.read_text())
+
+    def run(self, *args, **kwargs):
+        return subprocess.run([*self.command, *args], env=self.env, check=True, **kwargs)
+
+    def json(self, *args):
+        return json.loads(self.run(*args, stdout=subprocess.PIPE).stdout)
+
+    def repository(self, allow_unpinned=False):
+        actual = self.json('cat', 'config')['id']
+        pinned = self.settings.get('repository_id')
+        require(re.fullmatch('[0-9a-f]{64}', actual), 'Unexpected repository identity format')
+        if allow_unpinned:
+            return actual
+        require(pinned, 'The settings name no repository ID yet; put the ID from restic-home inspect (an '
+                        'existing repository) or init (a new one) into backup.repository.id and apply the home')
+        require(pinned == actual, 'Repository identity differs from backup.repository.id in the settings')
+        return actual
+
+    def init(self):
+        require(not self.settings.get('repository_id'),
+                'The settings already name a repository; init creates a new one only before that')
+        exists = subprocess.run([*self.command, 'cat', 'config'], env=self.env, capture_output=True)
+        require(exists.returncode != 0, 'A repository already exists there; use restic-home inspect to adopt it')
+        self.run('init', stdout=subprocess.DEVNULL)
+        print(json.dumps({'repository_id': self.repository(allow_unpinned=True),
+                          'next': 'put this ID into backup.repository.id, apply the home, then run '
+                                  'restic-home backup'}, indent=2))
+
+    def snapshots(self):
+        snapshots = self.json('snapshots', '--json', *scope(self.settings))
+        for snapshot in snapshots:
+            verify_snapshot(snapshot, self.settings)
+        return snapshots
+
+    def node(self, snapshot_id, path):
+        """The snapshot's entry for one path, or None when the backup left it out."""
+        lines = self.run('ls', '--json', snapshot_id, str(path), stdout=subprocess.PIPE).stdout.splitlines()
+        nodes = [json.loads(line) for line in lines if line.strip()]
+        nodes = [n for n in nodes if n.get('struct_type') == 'node' and n.get('path') == str(path)]
+        return nodes[0] if nodes else None
+
+    def candidate(self, excluded):
+        """A random regular file of the home, reached by a random walk past hidden and excluded paths."""
+        directory = self.home
+        for _ in range(12):
+            try:
+                entries = [e for e in os.scandir(directory) if not e.name.startswith('.') and not e.is_symlink()
+                           and not any(Path(e.path) == x or x in Path(e.path).parents for x in excluded)]
+            except OSError:
+                return None
+            if not entries:
+                return None
+            entry = random.choice(entries)
+            if entry.is_file(follow_symlinks=False):
+                return Path(entry.path)
+            if not entry.is_dir(follow_symlinks=False):
+                return None
+            directory = entry.path
+        return None
+
+    def random_samples(self, snapshot_id, started_us):
+        """Restore random files that did not change during the run and compare them with the home."""
+        excluded = []
+        for line in (self.config / 'excludes').read_text().splitlines():
+            if line.startswith('$HOME/'):
+                excluded.append(self.home / line[len('$HOME/'):])
+        samples, seen = [], set()
+        for _ in range(ATTEMPTS):
+            if len(samples) == SAMPLES:
+                break
+            path = self.candidate(excluded)
+            if path is None or path in seen:
+                continue
+            seen.add(path)
+            try:
+                before = path.stat()
+            except OSError:
+                continue
+            if before.st_size == 0 or before.st_size > SAMPLE_LIMIT or before.st_mtime_ns // 1000 >= started_us:
+                continue
+            node = self.node(snapshot_id, path)
+            if not node or node.get('type') != 'file' or node.get('size') != before.st_size \
+                    or mtime_us(node['mtime']) != before.st_mtime_ns // 1000:
+                continue
+            try:
+                expected = sha256(path)
+                after = path.stat()
+            except OSError:
+                continue
+            if (after.st_mtime_ns, after.st_size) != (before.st_mtime_ns, before.st_size):
+                continue
+            data = self.run('dump', snapshot_id, str(path), stdout=subprocess.PIPE).stdout
+            require(hashlib.sha256(data).hexdigest() == expected,
+                    f'The restored {path} differs from the unchanged file in the home')
+            samples.append({'path': str(path), 'sha256': expected})
+        return samples
+
+    def verify(self, snapshot_id, samples):
+        require(re.fullmatch('[0-9a-f]{64}', snapshot_id), 'Expected a full, exact snapshot ID')
+        verify_snapshot(self.json('cat', 'snapshot', snapshot_id), self.settings)
+        for sample in samples:
+            data = self.run('dump', snapshot_id, sample['path'], stdout=subprocess.PIPE).stdout
+            require(hashlib.sha256(data).hexdigest() == sample['sha256'],
+                    'Restored sample does not match its recorded content')
+        return len(samples)
+
+    def backup(self, dry_run=False):
+        marker = self.state / 'marker'
+        text = f'{secrets.token_hex(16)} {datetime.now(timezone.utc).isoformat()}\n'
+        with marker.open('w') as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        started_us = time.time_ns() // 1000
+        started_at = datetime.now(timezone.utc).isoformat()
+        stdout = self.cache / ('dry-run.jsonl' if dry_run else 'backup.jsonl')
+        stderr = self.cache / ('dry-run.stderr' if dry_run else 'backup.stderr')
+        args = ['backup', '--json', '--host', self.settings['host'], '--tag', ','.join(self.settings['tags']),
+                '--one-file-system', '--exclude-caches', '--exclude-file', str(self.config / 'excludes')]
+        if dry_run:
+            args.append('--dry-run')
+        with stdout.open('w') as out, stderr.open('w') as err:
+            result = subprocess.run([*self.command, *args, str(self.home)], env=self.env,
+                                    stdout=out, stderr=err)
+        require(result.returncode == 0,
+                f'Backup did not complete cleanly (exit {result.returncode}); inspect private {stderr}')
+        summary = parse_backup_summary(stdout)
+        if dry_run:
+            print(json.dumps({'dry_run': True, 'files': summary.get('total_files_processed'),
+                              'bytes': summary.get('total_bytes_processed')}))
+            return
+        snapshot_id = summary.get('snapshot_id', '')
+        samples = [{'path': str(marker), 'sha256': hashlib.sha256(text.encode()).hexdigest()}]
+        self.verify(snapshot_id, samples)
+        samples += self.random_samples(snapshot_id, started_us)
+        receipt = {'started_at': started_at, 'completed_at': datetime.now(timezone.utc).isoformat(),
+                   'snapshot_id': snapshot_id,
+                   'repository_id': self.repository(), 'status': 'verified', 'samples': samples,
+                   'verified_samples': len(samples), 'random_samples': len(samples) - 1,
+                   'files': summary.get('total_files_processed'),
+                   'bytes': summary.get('total_bytes_processed')}
+        save_json(self.state / 'last-success.json', receipt)
+        print(json.dumps({k: v for k, v in receipt.items() if k != 'samples'}))
+
+    def retention(self, apply=False):
+        existing = self.snapshots()
+        allowed = {snapshot['id'] for snapshot in existing}
+        groups = self.json(*retention_args(self.settings), '--dry-run', '--json')
+        remove = [s for group in groups for s in (group.get('remove') or [])]
+        for snapshot in remove:
+            verify_snapshot(snapshot, self.settings)
+            require(snapshot['id'] in allowed, 'Retention selected an unexpected snapshot')
+        print(json.dumps({'snapshots': len(existing), 'snapshots_to_remove': len(remove),
+                          'retention': self.settings['retention']}))
+        if apply:
+            receipt = self.last_receipt()
+            require(receipt['status'] == 'verified' and receipt['repository_id'] == self.repository(),
+                    'Verify a successful backup before enabling maintenance')
+            require(receipt['snapshot_id'] in allowed, 'Last verified backup is missing')
+            self.run(*retention_args(self.settings), '--prune')
+            self.run('check')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('mode', choices=MODES)
+    args = parser.parse_args()
+    home = Path.home()
+    os.umask(0o077)
+    backup = Backup(home)
+    if args.mode == 'status':
+        receipt = backup.last_receipt()
+        print(json.dumps({k: v for k, v in receipt.items() if k != 'samples'}, indent=2))
+        return
+    with (backup.cache / 'operation.lock').open('a') as lock:
+        deadline = time.monotonic() + int(os.environ.get('RESTIC_LOCK_WAIT_SECONDS', '0'))
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                require(time.monotonic() < deadline, 'Another home-backup operation is running')
+                time.sleep(5)
+        if args.mode == 'init':
+            backup.init()
+            return
+        repo_id = backup.repository(allow_unpinned=args.mode == 'inspect')
+        if args.mode == 'inspect':
+            snapshots = backup.json('snapshots', '--json')
+            pinned = backup.settings.get('repository_id')
+            print(json.dumps({'repository_id': repo_id, 'pinned_id': pinned, 'matches_settings': pinned == repo_id,
+                              'snapshots': [
+                {k: s.get(k) for k in ['id', 'time', 'hostname', 'paths', 'tags']}
+                for s in snapshots]}, indent=2))
+        elif args.mode == 'snapshots':
+            print(json.dumps(backup.snapshots(), indent=2))
+        elif args.mode in ['backup', 'dry-run']:
+            backup.backup(dry_run=args.mode == 'dry-run')
+        elif args.mode in ['retention-plan', 'maintenance']:
+            backup.retention(apply=args.mode == 'maintenance')
+        elif args.mode == 'verify':
+            receipt = backup.last_receipt()
+            require(receipt['repository_id'] == repo_id, 'Verification receipt is for a different repository')
+            count = backup.verify(receipt['snapshot_id'], receipt['samples'])
+            print(json.dumps({'snapshot_id': receipt['snapshot_id'], 'verified_samples': count}))
+        elif args.mode == 'check':
+            backup.run('check', '--read-data')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError, KeyError) as error:
+        raise SystemExit(f'STOP: {error}')

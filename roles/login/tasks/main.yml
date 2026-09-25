@@ -1,0 +1,50 @@
+---
+- name: Check every login and keyring prerequisite before writing
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Remove automatic login and its keyring handoff when they are not requested
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop:
+    - /etc/sddm.conf.d/90-shaffy-autologin.conf
+    - /etc/systemd/system/sddm.service.d/20-shaffy-keyring.conf
+  register: login_removed
+  when: not login_autologin
+
+- name: Remove the disk password handoff when automatic login is not requested
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sddm-autologin
+    regexp: '^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$'
+    state: absent
+  when: not login_autologin
+
+- name: Load the configuration without automatic login
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: not login_autologin and login_removed.changed
+
+- name: Stop here unless automatic login is requested
+  ansible.builtin.meta: end_role
+  when: not login_autologin
+
+- name: Ensure the local SDDM configuration directory exists
+  ansible.builtin.file:
+    path: /etc/sddm.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Automatically start Niri for the target user after disk unlock
+  ansible.builtin.template:
+    src: autologin.conf.j2
+    dest: /etc/sddm.conf.d/90-shaffy-autologin.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Unlock the encrypted login keyring using the disk-unlock password
+  ansible.builtin.import_tasks: keyring.yml
+# An existing keyring under another name is promoted to `login` by the separate,
+# explicit login_keyring_migration role.

@@ -1,0 +1,276 @@
+#!/usr/bin/python3
+"""Small Niri/Noctalia adapters. No user text is evaluated by a shell."""
+from contextlib import contextmanager
+import fcntl
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))
+STATE = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'shaffy/desktop-controls'
+SELF = str(Path(__file__).resolve())
+CLOCK_FORMATS = ['{:%A %H:%M}', '{:%a %d %b %H:%M}', '{:%Y-%m-%d %H:%M}']
+
+
+def run(args, **kwargs):
+    return subprocess.run(args, check=True, **kwargs)
+
+
+def ipc(*args):
+    result = run(['noctalia', 'msg', *map(str, args)], capture_output=True, text=True)
+    if result.stdout.startswith('error:'):
+        raise RuntimeError(result.stdout.strip())
+    return result.stdout.strip()
+
+
+def query(what):
+    return json.loads(run(['niri', 'msg', '--json', what], capture_output=True, text=True).stdout)
+
+
+def action(*args):
+    run(['niri', 'msg', 'action', *map(str, args)], stdout=subprocess.DEVNULL)
+
+
+def notify(message):
+    ipc('notification-show', json.dumps({'summary': 'Desktop', 'body': message, 'timeout_ms': 8000}))
+
+
+def atomic_write(path, content, mode=0o600):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as f:
+        try:
+            os.fchmod(f.fileno(), mode)
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+            os.replace(f.name, path)
+        finally:
+            Path(f.name).unlink(missing_ok=True)
+
+
+@contextmanager
+def state_file(name):
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (STATE / (name + '.lock')).open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        path = STATE / (name + '.json')
+        data = json.loads(path.read_text()) if path.exists() else {}
+        yield data
+        atomic_write(path, json.dumps(data))
+
+
+def choose(title, entries):
+    """Only a displayed, fixed choice can dispatch an action. Escape is a no-op."""
+    result = subprocess.run(['noctalia', 'dmenu', '--prompt', title],
+                            input='\n'.join(entries) + '\n', text=True, capture_output=True)
+    return result.stdout.rstrip('\n') if result.returncode == 0 else ''
+
+
+def menu(name='menu'):
+    panels = {label: ['noctalia', 'msg', 'panel-open', 'control-center', tab]
+              for label, tab in [('Audio', 'audio'), ('Network', 'network'), ('Bluetooth', 'bluetooth'),
+                                 ('Display', 'monitor'), ('Power', 'power'), ('Calendar', 'calendar'),
+                                 ('Notifications', 'notifications')]}
+    menus = {
+        'menu': {'Applications': ['noctalia', 'msg', 'panel-open', 'launcher'],
+                 'Capture': [SELF, 'capture'], 'Style': [SELF, 'style'],
+                 'Controls': [SELF, 'controls'], 'Tools': [SELF, 'tools'],
+                 'System': ['noctalia', 'msg', 'panel-open', 'session']},
+        'controls': panels,
+        'style': {'Wallpaper': ['noctalia', 'msg', 'panel-open', 'wallpaper'],
+                  'Theme and shell settings': ['noctalia', 'msg', 'settings-open'],
+                  'Toggle window transparency': ['niri', 'msg', 'action', 'toggle-window-rule-opacity'],
+                  'Toggle gaps and borders': [SELF, 'gaps'],
+                  'Night light': ['noctalia', 'msg', 'nightlight-force-toggle'],
+                  'Toggle top bar': ['noctalia', 'msg', 'bar-toggle']},
+        'capture': {'Screenshot region and annotate': ['noctalia', 'msg', 'screenshot-region'],
+                    'Screenshot monitor': ['noctalia', 'msg', 'screenshot-fullscreen'],
+                    'Record or stop recording': ['noctalia', 'msg', 'plugin', 'noctalia/screen_recorder:service', 'all', 'toggle'],
+                    'Recorder audio and settings': ['noctalia', 'msg', 'settings-open-plugin', 'noctalia/screen_recorder'],
+                    'Pick color': [SELF, 'color'], 'Extract text (OCR)': [SELF, 'ocr'],
+                    'Read QR code': [SELF, 'qr']},
+        'tools': {'Timer': ['noctalia', 'msg', 'panel-open', 'noctalia/timer:panel'],
+                  'World clocks': ['noctalia', 'msg', 'panel-open', 'noctalia/world_clock:panel'],
+                  'Share files (LocalSend)': ['localsend'], 'Convert image or video': [SELF, 'transcode'],
+                  'System monitor': ['alacritty', '--class', 'shaffy-btop', '-e', 'btop'],
+                  'Emoji': ['noctalia', 'msg', 'panel-open', 'launcher', '/emo'],
+                  'Clipboard history': ['noctalia', 'msg', 'panel-open', 'clipboard']},
+    }
+    entries = menus[name]
+    selected = choose(name.capitalize(), entries)
+    if selected in entries:
+        # The dmenu has closed and focus has returned before dispatching.
+        run(entries[selected])
+
+
+def shell_toggle(name):
+    with state_file('shell') as state:
+        if name == 'clock':
+            state['clock'] = (state.get('clock', 0) + 1) % len(CLOCK_FORMATS)
+        else:
+            state['battery_label'] = not state.get('battery_label', True)
+        text = '[widget.clock]\nformat = ' + json.dumps(CLOCK_FORMATS[state.get('clock', 0)])
+        text += '\n\n[widget.battery]\nshow_label = ' + str(state.get('battery_label', True)).lower() + '\n'
+        atomic_write(CONFIG / 'noctalia/99-runtime.toml', text, mode=0o644)
+    ipc('config-reload')
+
+
+def gaps():
+    with state_file('gaps') as state:
+        state['off'] = not state.get('off', False)
+        text = ('layout {\n    gaps 0\n    border { off; }\n}\n'
+                if state['off'] else '// Normal gaps and borders from the base configuration.\n')
+        atomic_write(CONFIG / 'niri/omarchy-overrides.kdl', text, mode=0o644)
+
+
+def square():
+    window = query('focused-window')
+    if not window:
+        return
+    with state_file('square') as state:
+        # Niri IDs are reused after compositor restarts, so scope to this socket.
+        if state.get('session') != os.environ.get('NIRI_SOCKET'):
+            state.clear()
+            state['session'] = os.environ.get('NIRI_SOCKET')
+        key = str(window['id'])
+        previous = state.pop(key, None)
+        width, height = window['layout']['window_size']
+        if previous is None:
+            state[key] = [width, height]
+            width = height = min(width, height)
+        else:
+            width, height = previous
+        action('set-window-width', '--id', key, str(width))
+        action('set-window-height', '--id', key, str(height))
+
+
+def scratchpad():
+    """A dedicated workspace, deliberately not advertised as global sticky windows."""
+    workspaces = query('workspaces')
+    focused = next(w for w in workspaces if w['is_focused'])
+    with state_file('scratchpad') as state:
+        if focused['name'] == 'scratchpad':
+            previous = next((w for w in workspaces if w['id'] == state.get('return_id')
+                             and state.get('session') == os.environ.get('NIRI_SOCKET')), None)
+            if previous:
+                action('focus-monitor', previous['output'])
+                action('focus-workspace', previous['name'] or previous['idx'])
+            else:
+                action('focus-workspace-previous')
+        else:
+            state.update(return_id=focused['id'], session=os.environ.get('NIRI_SOCKET'))
+            action('focus-workspace', 'scratchpad')
+            if not any(w['app_id'] == 'shaffy-scratchpad' for w in query('windows')):
+                subprocess.Popen(['alacritty', '--class', 'shaffy-scratchpad'])
+
+
+def clipboard(operation):
+    window = query('focused-window') or {}
+    terminal = window.get('app_id', '').lower() in {'alacritty', 'shaffy-scratchpad', 'shaffy-btop', 'kitty', 'foot'}
+    if terminal and operation != 'cut':
+        operation = 'terminal-' + operation
+    run([str(Path.home() / '.local/bin/shaffy-desktop-key'), operation])
+
+
+def ocr_languages():
+    """Every installed Tesseract language, English first; supplements install more."""
+    listed = subprocess.run(['tesseract', '--list-langs'], capture_output=True, text=True).stdout.splitlines()
+    languages = {line.strip() for line in listed[1:]} - {'', 'osd', 'equ'}  # the first line is a header
+    return '+'.join(sorted(languages, key=lambda name: (name != 'eng', name))) or 'eng'
+
+
+def capture_text(mode):
+    selection = subprocess.run(['slurp'], capture_output=True, text=True)
+    if selection.returncode or not selection.stdout.strip():
+        return
+    with tempfile.TemporaryDirectory(prefix='shaffy-capture-') as directory:
+        picture = Path(directory) / 'selection.png'
+        run(['grim', '-g', selection.stdout.strip(), str(picture)], capture_output=True)
+        command = (['tesseract', str(picture), 'stdout', '-l', ocr_languages()] if mode == 'ocr'
+                   else ['zbarimg', '--quiet', '--raw', str(picture)])
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode or not result.stdout.strip():
+            notify('No text found.' if mode == 'ocr' else 'No QR/barcode found.')
+            return
+        run(['wl-copy', '--type', 'text/plain;charset=utf-8'], input=result.stdout.rstrip('\n'), text=True)
+    notify('Extracted text copied.' if mode == 'ocr' else 'QR/barcode content copied; no link was opened.')
+
+
+def color():
+    result = subprocess.run(['niri', 'msg', '--json', 'pick-color'], capture_output=True, text=True)
+    if result.returncode:
+        return
+    value = json.loads(result.stdout)
+    if value is None:
+        return
+    rgb = value['rgb']
+    hex_color = '#' + ''.join(f'{max(0, min(255, round(c * 255))):02x}' for c in rgb)
+    run(['wl-copy'], input=hex_color, text=True)
+    notify(f'Copied {hex_color}')
+
+
+def transcode():
+    selected = subprocess.run(['zenity', '--file-selection', '--title=Choose an image or video to convert'],
+                              capture_output=True, text=True)
+    if selected.returncode:
+        return
+    source = Path(selected.stdout.rstrip('\n')).resolve(strict=True)
+    formats = {'MP4 video (H.264 + AAC)': ('.mp4', ['-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p',
+                                                          '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-movflags', '+faststart']),
+               'PNG image': ('.png', ['-frames:v', '1']),
+               'JPEG image': ('.jpg', ['-frames:v', '1', '-q:v', '2']),
+               'WebP image': ('.webp', ['-frames:v', '1', '-q:v', '85'])}
+    selected = choose('Convert to', formats)
+    if selected not in formats:
+        return
+    suffix, flags = formats[selected]
+    destination = source.with_name(source.stem + '.converted' + suffix)
+    # Reserve the output, then publish only a completed conversion. Never overwrite.
+    try:
+        fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        notify('The converted file already exists. Rename it before converting again.')
+        return
+    os.close(fd)
+    try:
+        with tempfile.TemporaryDirectory(prefix='.shaffy-convert-', dir=source.parent) as directory:
+            output = Path(directory) / ('output' + suffix)
+            notify('Conversion started.')
+            run(['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-n', '-i', str(source),
+                 *flags, str(output)], capture_output=True)
+            os.replace(output, destination)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+    notify('Saved ' + destination.name)
+
+
+def main(args):
+    command = args[0] if args else 'menu'
+    if command in {'menu', 'capture', 'controls', 'tools', 'style'}:
+        menu(command)
+    elif command in {'clock', 'battery-label'}:
+        shell_toggle(command)
+    elif command in {'copy', 'cut', 'paste'}:
+        clipboard(command)
+    elif command in {'ocr', 'qr'}:
+        capture_text(command)
+    else:
+        {'gaps': gaps, 'square': square, 'scratchpad': scratchpad, 'color': color, 'transcode': transcode}[command]()
+
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as exc:
+        # Do not put captured text, clipboard data or ffmpeg stderr into notifications.
+        message = f'Desktop action failed ({type(exc).__name__}).'
+        print(message, file=sys.stderr)
+        try:
+            notify(message)
+        except Exception:
+            pass
+        sys.exit(1)

@@ -1,0 +1,22 @@
+{
+  "install_type": "simple",
+  "headless_mode": true,
+  "device": "/dev/vda",
+  "fs_name": "btrfs",
+  "hostcache": false,
+  "subvolumes": "default",
+  "partitions": [
+    {"name": "/dev/vda1", "mountpoint": "/boot", "size": "2G", "fs_name": "vfat", "type": "boot"},
+    {"name": "/dev/vda2", "mountpoint": "/", "size": "100%", "type": "root"}
+  ],
+  "hostname": "shaffy-vm",
+  "timezone": "UTC",
+  "user_name": "demo",
+  "user_pass": "demo",
+  "user_shell": "/usr/bin/fish",
+  "root_pass": "demo",
+  "kernel": "linux-cachyos",
+  "desktop": "niri",
+  "bootloader": "limine",
+  "post_install": "/run/shaffy-share/vm-post-install.sh"
+}

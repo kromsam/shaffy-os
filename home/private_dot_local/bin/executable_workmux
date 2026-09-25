@@ -1,0 +1,3 @@
+#!/bin/sh
+# Pinned mise binary, available to tmux, Niri and Fish before mise activates.
+exec /usr/bin/mise exec -- workmux "$@"

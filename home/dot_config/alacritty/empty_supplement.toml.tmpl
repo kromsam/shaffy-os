@@ -1,0 +1,2 @@
+{{- /* The supplement's optional Alacritty fragment (overrides.alacritty); empty otherwise. */ -}}
+{{- with (dig "alacritty" "" (includeTemplate "shaffy.json" . | fromJson).shaffy.overrides) }}{{ include . }}{{ end -}}

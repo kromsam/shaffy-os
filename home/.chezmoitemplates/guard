@@ -1,0 +1,29 @@
+{{- /* Shaffy OS guard: commands that change the home run only through
+     ./bin/shaffy, which sets SHAFFY_OP_MODE=apply. .chezmoiexternal.toml.tmpl and
+     .chezmoiignore.tmpl call it first; chezmoi reads them for every command that reads
+     the source, even without the repository's chezmoi.toml, and reads the externals
+     first, before any template loads the settings; `chezmoi init`
+     is refused earlier by .chezmoi.toml.tmpl. The render sandbox passes only while its
+     token file exists. Flags are read as chezmoi reads them: `--apply=1` and `-va`
+     apply, only an explicit false value does not, and arguments after `--` count too.
+     bin/shaffy hook applies the same rule; see lib/shaffy/guard.py. */ -}}
+{{- $mode := env "SHAFFY_OP_MODE" -}}
+{{- $token := env "SHAFFY_SANDBOX_TOKEN" -}}
+{{- if not (or (eq $mode "apply") (and (eq $mode "sandbox") $token (stat $token))) -}}
+{{-   $command := .chezmoi.command -}}
+{{-   $mutating := eq $command "apply" "update" "destroy" "purge" "init" -}}
+{{-   if eq $command "edit" -}}
+{{-     if or .chezmoi.config.edit.apply .chezmoi.config.edit.watch -}}{{ $mutating = true }}{{- end -}}
+{{-     range .chezmoi.args -}}
+{{-       if and (regexMatch "^--(apply|watch)(=.*)?$" .) (not (regexMatch "^--(apply|watch)=(0|f|F|false|FALSE|False)$" .)) -}}
+{{-         $mutating = true -}}
+{{-       end -}}
+{{-       if and (not (hasPrefix "--" .)) (regexMatch "^-[a-zA-Z]*a[a-zA-Z]*(=.*)?$" (regexReplaceAll "a=(0|f|F|false|FALSE|False)$" . "")) -}}
+{{-         $mutating = true -}}
+{{-       end -}}
+{{-     end -}}
+{{-   end -}}
+{{-   if $mutating -}}
+{{-     fail (printf "Shaffy OS: run ./bin/shaffy apply instead of chezmoi %s; direct changes bypass its snapshots and records." $command) -}}
+{{-   end -}}
+{{- end -}}

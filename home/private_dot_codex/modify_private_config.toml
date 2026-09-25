@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run the merge script of the checkout that is applying, never a fixed path.
+: "${CHEZMOI_SOURCE_DIR:?run through chezmoi}"
+exec /usr/bin/python3 "$CHEZMOI_SOURCE_DIR/../scripts/merge-ai-config.py" codex

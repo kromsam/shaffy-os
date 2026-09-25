@@ -1,0 +1,175 @@
+{{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- $home := .chezmoi.homeDir -}}
+# Omarchy-inspired layout with Noctalia's built-in Rosé Pine palette in light
+# mode. Managed by Shaffy OS; personal paths come from the settings.
+[theme]
+mode = "light"
+source = "builtin"
+builtin = "Rosé Pine"
+
+[shell]
+font_family = "JetBrainsMono Nerd Font"
+corner_radius_scale = 0.0
+popup_shadows = false
+# The appearance here is managed, so Noctalia's first-run wizard, which stores its own
+# wallpaper, mode and palette choices, stays off.
+setup_wizard_enabled = false
+# Noctalia answers polkit's password requests; set here, not only in CachyOS's skel config.toml.
+polkit_agent = true
+
+[shell.panel]
+shadow = false
+transparency_mode = "solid"
+launcher_placement = "floating"
+launcher_position = "center"
+clipboard_placement = "floating"
+clipboard_position = "center"
+session_placement = "floating"
+session_position = "center"
+wallpaper_placement = "floating"
+wallpaper_position = "center"
+
+[shell.launcher]
+app_grid = false
+compact = true
+categories = false
+show_app_origin_indicator = false
+
+# Search open windows alongside applications.
+[shell.launcher.providers.windows]
+global = true
+
+[shell.screenshot]
+annotate = true
+directory = {{ printf "%s/%s/Screenshots" $home $s.folders.pictures | toJson }}
+save_to_file = true
+copy_to_clipboard = true
+
+[bar.default]
+position = "top"
+thickness = 26
+font_scale = 0.857142857
+margin_ends = 0
+margin_edge = 0
+padding = 10
+radius = 0
+radius_top_left = 0
+radius_top_right = 0
+radius_bottom_left = 0
+radius_bottom_right = 0
+shadow = false
+concave_edge_corners = false
+background_opacity = 1.0
+widget_spacing = 8
+start = ["launcher", "workspaces"]
+center = ["recorder", "timer", "clock", "keyboard_layout"]
+end = ["privacy", "notifications", "tray", "bluetooth", "network", "volume", "battery", "control-center"]
+
+[widget.workspaces]
+style = "minimal"
+show_labels = true
+label_source = "id"
+focused_color = "primary"
+occupied_color = "on_surface"
+empty_color = "on_surface_variant"
+
+[widget.clock]
+format = "{:%A %H:%M}"
+tooltip_format = "{:%A %e %B %Y · W%V}"
+
+[widget.clock.actions]
+left = "panel-toggle control-center calendar"
+right = {{ printf "exec %s/.local/bin/shaffy-desktop clock" $home | toJson }}
+middle = "panel-toggle noctalia/world_clock:panel"
+
+[widget.launcher.actions]
+left = {{ printf "exec %s/.local/bin/shaffy-desktop menu" $home | toJson }}
+right = "exec alacritty"
+
+[widget.volume.actions]
+right = "volume-mute"
+
+[widget.bluetooth.actions]
+right = "bluetooth-toggle"
+
+[widget.battery.actions]
+right = {{ printf "exec %s/.local/bin/shaffy-desktop battery-label" $home | toJson }}
+
+[widget.tray]
+drawer = true
+drawer_columns = 3
+hide_passive = true
+
+[widget.bluetooth]
+show_label = false
+hide_when_adapter_off = true
+hide_when_no_connected_device = true
+
+[widget.network]
+show_label = false
+
+[widget.volume]
+show_label = false
+
+[widget.privacy]
+hide_inactive = true
+
+[widget.notifications]
+hide_when_no_unread = true
+
+[widget.control-center]
+glyph = "adjustments-horizontal"
+
+[widget.control-center.actions]
+right = "panel-toggle session"
+
+# Label the controls moved off the bar; retain the six native quick toggles.
+[control_center]
+sidebar = "full"
+sidebar_section = "full"
+show_shortcut_labels = true
+
+[control_center.calendar]
+show_week_numbers = true
+show_events_card = false
+
+[dock]
+enabled = false
+
+[lockscreen]
+wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_screen.image) | toJson }}
+
+[notification]
+background_opacity = 1.0
+max_visible = 3
+
+[osd]
+background_opacity = 0.97
+position = "bottom_center"
+offset_y = 67
+
+[backdrop]
+enabled = true
+blur_intensity = 0.0
+tint_intensity = 0.5
+
+# Force controls on-demand temperature; the schedule remains disabled.
+[nightlight]
+enabled = false
+force = false
+temperature_day = 6500
+temperature_night = 4000
+
+[wallpaper]
+directory = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.wallpaper.directory) | toJson }}
+transition = ["fade"]
+transition_duration = 300.0
+
+[wallpaper.automation]
+enabled = false
+
+[wallpaper.default]
+path = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.wallpaper.image) | toJson }}
+
+[wallpaper.last]
+path = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.wallpaper.image) | toJson }}

@@ -1,0 +1,33 @@
+---
+- name: Install the writing packages from the current synchronized databases
+  community.general.pacman:
+    name: "{{ shaffy.packages.groups.writing }}"
+    state: present
+
+- name: Select the Tabbed LibreOffice interface in the target user's profile
+  become: true
+  become_user: '{{ shaffy_target_user }}'
+  environment:
+    HOME: '{{ shaffy_target_home }}'
+    XDG_CONFIG_HOME: '{{ shaffy_target_home }}/.config'
+    XDG_STATE_HOME: '{{ shaffy_target_home }}/.local/state'
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - '{{ playbook_dir }}/scripts/configure-libreoffice.py'
+      - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
+  check_mode: false
+  register: libreoffice_layout
+  changed_when: >-
+    'configuration_changed: 1' in libreoffice_layout.stdout or
+    (ansible_check_mode and 'LibreOffice layout needs attention' in libreoffice_layout.stderr)
+  failed_when: >-
+    libreoffice_layout.rc != 0 and not
+    (ansible_check_mode and libreoffice_layout.rc == 1 and
+    'LibreOffice layout needs attention' in libreoffice_layout.stderr)
+
+- name: Install Zotero's binary package from the AUR, replacing an older distribution one
+  ansible.builtin.include_role:
+    name: aur_package
+  vars:
+    aur_package: {name: zotero-bin, replaces: zotero}

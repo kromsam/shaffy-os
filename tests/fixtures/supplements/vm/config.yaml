@@ -1,0 +1,18 @@
+# The supplement of the VM validation (tests/vm/README.md): supplement.example plus
+# the optional integrations that work in a virtual machine without outside
+# services. nextcloud needs a Nextcloud server, backup an SFTP repository and a
+# verified first backup, and gbrain a GBrain installation and source, so they stay
+# unrequested. Every value is synthetic.
+schema_version: 1
+supplement_id: vm-desktop
+identity:
+  name: "Test Person"
+  email: "test@example.invalid"
+writing:
+  language: en-GB
+integrations:
+  reaper: managed
+  ssh: managed
+  syncthing: managed
+  zettlr: managed
+  zotero: managed

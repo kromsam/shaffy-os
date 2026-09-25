@@ -1,0 +1,12 @@
+[Unit]
+Description=Run weekly Restic retention and maintenance
+
+[Timer]
+OnCalendar=Sat *-*-* 04:30:00
+RandomizedDelaySec=20min
+AccuracySec=1min
+Persistent=true
+Unit=restic-home-maintenance.service
+
+[Install]
+WantedBy=timers.target
