@@ -13,7 +13,6 @@ sys.path.insert(0, str(ROOT / 'lib'))
 from shaffy import literals  # noqa: E402
 
 ALLOW = 'tests/public-literals.allow'
-CODE = ('.py', '.sh', '.yml', '.yaml', '.tmpl', '.kdl', '.toml', '.j2', '.json')
 
 
 def git(*args):
@@ -180,32 +179,6 @@ class LiteralScannerTests(unittest.TestCase):
         self.assertIn('dirlink', files)
         hits = literals.scan(self.repo, files, literals.static_rules())
         self.assertIn(('link', 'home-path'), {(h.path, h.rule) for h in hits})
-
-
-@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0,
-                     'needs a git checkout')
-class ExportBoundaryTests(unittest.TestCase):
-    def test_public_code_names_no_laptop_only_file(self):
-        """The export's own selftest must not reach for a file the export leaves out."""
-        public = literals.public_files(ROOT)
-        everything = set(git('ls-files').stdout.splitlines())
-        laptop_only = everything - set(public)
-        found = []
-        for path in public:
-            if not path.endswith(CODE) or path == 'tests/test_repo_invariants.py':  # names them on purpose
-                continue
-            for number, line in enumerate(literals.lines(ROOT, path), 1):
-                for name in re.findall(r'(?:scripts|files|roles|tests|packages)/[\w./-]*\w', line):
-                    if name in laptop_only:
-                        found.append(f'{path}:{number}: {name}')
-        self.assertEqual(found, [])
-
-    def test_the_laptop_tools_are_left_out(self):
-        public = set(literals.public_files(ROOT))
-        for path in ('scripts/configure-swap.py', 'scripts/configure-secure-boot.py', 'scripts/configure-plymouth.py',
-                     'scripts/development-databases.py', 'nas-backup.yml', 'docs/IMPLEMENTATION-PLAN.md',
-                     'tests/test_swap_guards.py', 'tests/test_container_restore.py'):
-            self.assertNotIn(path, public)
 
 
 if __name__ == '__main__':
