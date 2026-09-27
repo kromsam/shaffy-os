@@ -3,11 +3,11 @@
 set -euo pipefail
 [[ $(id -u) != 0 ]] || { echo 'install-publishing-tools: run as the desktop user, not root' >&2; exit 1; }
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-pin() {  # the version home/dot_config/mise/config.toml pins for a tool
+version() {  # the selector home/dot_config/mise/config.toml declares for a tool
   /usr/bin/python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["tools"][sys.argv[2]])' \
     "$repo/home/dot_config/mise/config.toml" "$1"
 }
-mise install -y "aqua:quarto-dev/quarto-cli@$(pin aqua:quarto-dev/quarto-cli)"
+mise install -y "aqua:quarto-dev/quarto-cli@$(version aqua:quarto-dev/quarto-cli)"
 downloads="${XDG_CACHE_HOME:-$HOME/.cache}/shaffy/downloads"
 mkdir -p "$downloads"
 archive="$downloads/qpdf-12.4.1-bin-linux-x86_64.zip"

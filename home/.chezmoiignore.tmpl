@@ -3,6 +3,11 @@
 {{- /* Compatibility links not listed in folder_links, and .hidden without any, are
      left alone rather than removed; a real folder of the same name stays untouched. */ -}}
 {{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
+{{- /* Standard user directories are platform-owned unless explicitly overridden.
+     projects is only a target for optional compatibility links. */}}
+{{- if not (omit (dig "folders" dict $shaffy.settings) "projects") }}
+.config/user-dirs.dirs
+{{- end }}
 {{- $links := dig "folder_links" dict $shaffy.settings }}
 {{- range list "Desktop" "Documents" "Downloads" "Music" "Pictures" "Projects" "Public" "Templates" "Videos" "Work" }}
 {{-   if not (hasKey $links .) }}

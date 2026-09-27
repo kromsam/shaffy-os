@@ -2,7 +2,7 @@
 
 The unprivileged wrapper takes the user lock, captures the settings (the
 loaded settings included), writes the user `pending` entry with scope
-`system` and runs the pinned ansible-playbook as the target user, so sudo
+`system` and runs mise's ansible-playbook as the target user, so sudo
 asks for the password in the terminal. The play's first root tasks copy
 and verify the capture and set root `pending` (lib/shaffy/root_op.py); its
 last clears it. When the play succeeds the wrapper sets `system.bound` and

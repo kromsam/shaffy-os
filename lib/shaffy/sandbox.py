@@ -30,10 +30,13 @@ class RenderError(Exception):
     """The sandbox could not be set up or the render did not produce a result."""
 
 
-def _prepare(root, supplement_path):
+def _prepare(root, supplement_path, user_dirs=None):
     home, work = root / 'home', root / 'work'
     home.mkdir(parents=True)
     work.mkdir()
+    if user_dirs is not None:
+        (home / '.config').mkdir()
+        (home / '.config/user-dirs.dirs').write_text(user_dirs)
     (work / 'passwd').write_text(f'{USER}:x:{UID}:{UID}:Shaffy OS test user:{INSIDE_HOME}:/bin/sh\n')
     (work / 'group').write_text(f'{USER}:x:{UID}:\n')
     (work / 'hostname').write_text(HOST + '\n')
@@ -88,11 +91,12 @@ def _direct(allow_direct):
 
 
 def render(checkout, supplement=None, without=False, home=None, keep=None, timeout=300,
-           allow_direct=True):
+           allow_direct=True, user_dirs=None):
     """Render the selected settings into a fresh synthetic home; return the result dict.
 
     The result has `problems` (a list of strings), `converged`, `identity` and
     `files`. `keep` names an empty directory to keep the rendered home for review.
+    `user_dirs` can seed synthetic installer-owned XDG entries for validation.
     """
     checkout = Path(checkout).resolve()
     selection = resolve(checkout, supplement, without, home)
@@ -105,7 +109,7 @@ def render(checkout, supplement=None, without=False, home=None, keep=None, timeo
             raise RenderError(f'{root} must be empty')
         supplement_path = selection['path']
         inside = supplement_path if direct or not supplement_path else '/tmp/supplement'
-        rendered, work = _prepare(root, inside)
+        rendered, work = _prepare(root, inside, user_dirs)
         if direct:
             base = [str(checkout), str(rendered), str(work)]
             env = {'HOME': str(rendered), 'USER': USER, 'LANG': 'C.UTF-8', 'PATH': PATH,

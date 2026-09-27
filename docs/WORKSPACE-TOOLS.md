@@ -1,47 +1,52 @@
 # Workspace tools
 
 The command-line tools for AI-assisted work and terminal workspaces. tmux,
-zoxide, uv and Node.js are packages in the `desktop_apps` group. The other tools
-are pinned in chezmoi's `~/.config/mise/config.toml` (source
+zoxide, uv, Node.js and npm are packages in the `desktop_apps` group. The other tools
+are declared in chezmoi's `~/.config/mise/config.toml` (source
 `home/dot_config/mise/config.toml`) or in `scripts/install-workspace-tools.sh`,
 which installs them as the desktop user. Launchers in `~/.local/bin` run the
-mise-pinned binaries, so desktop services, tmux, Niri and agent hooks find them
+mise-managed binaries, so desktop services, tmux, Niri and agent hooks find them
 before mise activates in a shell.
 
-| Component | Source and pin |
+| Component | Source and version |
 | --- | --- |
 | Claude Code | mise `claude = "latest"`; the launcher turns off its own updater |
-| Codex CLI | mise `codex` 0.155.0 |
-| Bitwarden CLI (`bw`) | mise `bitwarden` 2026.9.0 |
-| workmux | mise `"cargo:raine/workmux" = "tag:v0.1.264"`, built by cargo |
-| Bun | mise `bun` 1.4.2, the runtime of GBrain |
+| Codex CLI | mise `codex = "latest"` |
+| Bitwarden CLI (`bw`) | mise `bitwarden = "latest"` |
+| workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
+| Bun | mise `bun = "latest"`, the runtime of GBrain |
+| Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
 | GBrain | `garrytan/gbrain` at revision `d13aa742fd68b71bfd6c98be3dda5813791f1d6c`, in `~/.local/share/gbrain/source` |
 | Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.12.4 through uv, with CPU-only PyTorch |
 | tmux, zoxide | the `desktop_apps` package group |
 | Sticky Notes | Noctalia's community plugin `ahmedhossamdev/sticky-notes`, updated by Noctalia |
 
-Personal runtimes, such as a project's Node.js or Ruby, belong in the
+Project-specific runtime choices belong in a project's `mise.toml` or the
 supplement's mise fragment (`overrides.mise`), which renders as
 `~/.config/mise/conf.d/90-supplement.toml` beside the public configuration.
 
 ## Install and update
 
 ```sh
-./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv and Node.js
+./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
 bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, GBrain's source
 ./bin/shaffy status
 ```
 
-The script refuses to run as root. It reads every mise version from
-`home/dot_config/mise/config.toml` and keeps no copy of its own, so an update is
-a change to that file, a home apply and another run of the script. Claude Code
-follows `latest`: its launcher sets `DISABLE_AUTOUPDATER=1`, and a new release
-arrives when the script runs again. The GBrain revision and the Zotero MCP
-version are pinned in the script itself; the `gbrain` launcher names the Bun
-version as well, so a Bun update changes both. Update through the pins, not with
-the tools' own update commands such as `workmux update` or `zotero-mcp update`,
-which would leave the installed version and the pin apart.
+The script refuses to run as root. It reads each mise tool's version selector
+from `home/dot_config/mise/config.toml`; all public mise tools use `latest`.
+Run the script again to install updates. Applying the home changes the
+configuration and launchers, but does not download new tool versions. The
+launchers use the versions installed through mise; Claude's launcher also sets
+`DISABLE_AUTOUPDATER=1`.
+
+The GBrain revision and Zotero MCP version remain pinned in the script itself;
+change those pins before rerunning it to update either tool. Use this install
+path instead of the tools' own update commands, so mise keeps ownership of its
+binaries and the other tools retain their declared versions. Quarto also uses
+`latest` in the mise configuration and is installed or updated by
+`scripts/install-publishing-tools.sh`; that script retains qpdf's separate pin.
 
 The Bitwarden CLI comes from mise because the distribution's `bitwarden-cli`
 package depends on Node.js 22 (`nodejs-lts-jod`), which would replace the
@@ -61,6 +66,15 @@ semantic search need no cloud API key. Semantic search needs an index built with
 `zotero-mcp update-db`; nothing reindexes automatically, and write authorisation
 is not granted. A supplement switches local writes on with
 `ai.mcp_servers.zotero.env.ZOTERO_LOCAL_WRITE: "true"`.
+
+To opt out, set `ai.mcp_servers.zotero.enabled: false` in the supplement and
+run `./bin/shaffy apply --home`. This removes only the `zotero` MCP entry from
+both clients and is independent of the `zotero` home integration and the
+`zotero-bin` package selection. Set `enabled: true`, or remove the override,
+to restore the public default. The same switch works for other named MCP
+servers. Merely deleting a custom server from the supplement leaves an
+existing client entry alone. An unfamiliar inline TOML entry is refused for
+review rather than rewriting the whole Codex configuration.
 
 ## Bitwarden
 
@@ -86,9 +100,10 @@ sign-in state and vault cache are private and stay outside both repositories.
 ## Sticky Notes
 
 The Sticky Notes plugin keeps plain Markdown notes, without colours, in
-`sticky-notes` inside the documents folder (`folders.documents`; by default
-`~/Documents/sticky-notes`), so they travel with whatever synchronises that
-folder. It is not on the bar; search **Sticky Notes** in the launcher.
+`sticky-notes` inside the installation's XDG documents directory, so they travel
+with whatever synchronises that folder. An explicit `folders.documents`
+override takes precedence. It is not on the bar; search **Sticky Notes** in the
+launcher.
 
 ## Directory jumping in Fish
 
@@ -138,12 +153,9 @@ default layout, the `codex` and `duo` layouts and `agent: claude`. Omarchy's
 `tds` layout (it needs `hunk` and `opencode`) and its swarm layout are not
 ported; `wm add NAME -a claude -a codex` creates one worktree per agent instead.
 
-mise's cargo backend builds the tagged workmux release from the upstream
-repository. It needs cargo, which the `rustup` package in the `workflows` group
-provides once a default toolchain is chosen (`rustup default stable`). The bare
-`cargo:raine/workmux` form that upstream documents resolves to Git `HEAD`; the tag
-keeps reinstalls reproducible. `~/.local/bin/workmux` runs the mise binary for
-tmux, Niri and agent hooks.
+mise's GitHub backend downloads workmux's latest published release binary for
+the machine's platform, so workmux needs no Rust toolchain to install.
+`~/.local/bin/workmux` runs the mise binary for tmux, Niri and agent hooks.
 
 Start tmux first: **Super+Alt+Return** attaches to or creates the `Work` session;
 **Super+Return** still opens plain Alacritty. On the first `wm add`, workmux
@@ -222,7 +234,7 @@ ai:
 Then install, apply and scope it, as the desktop user:
 
 ```sh
-bash scripts/install-workspace-tools.sh   # Bun and GBrain's source at the pinned revision
+bash scripts/install-workspace-tools.sh   # latest Bun and GBrain's pinned source revision
 ./bin/shaffy apply --home                 # launchers, proxy, unit and the MCP entry
 bash scripts/configure-gbrain-mcp.sh      # a read-only client for ai.gbrain.source
 ```
@@ -272,9 +284,9 @@ Setting the integration to `disabled` stops managing its files; since it
 enabled nothing, nothing is switched off, and the brain stays as it is. To
 withdraw the AI tools' access, stop the service and delete
 `~/.config/gbrain-mcp/client.json`: the unit no longer starts and the proxy has
-no credentials. The home apply adds and updates MCP entries but never removes
-one, so a `gbrain` entry taken out of `ai.mcp_servers` stays in the AI tools'
-configuration until it is removed there.
+no credentials. Set `ai.mcp_servers.gbrain.enabled: false` and run a home
+apply to remove its entry from both AI clients as well. Taking `gbrain` out
+of `ai.mcp_servers` alone leaves the existing entries in those files.
 
 The copy made before the first registration is the brain as it was then. Restore
 it only with the service stopped, after keeping any later changes.

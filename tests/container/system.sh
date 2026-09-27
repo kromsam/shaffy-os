@@ -9,7 +9,7 @@ set -euo pipefail
 
 # The container is disposable, so a full upgrade stands in for the refreshed databases.
 pacman -Syu --needed --noconfirm mise uv chezmoi python-yaml python-jsonschema snapper git base-devel \
-  bubblewrap sudo >/dev/null
+  bubblewrap xdg-user-dirs sudo >/dev/null
 # Desktop prerequisites a Niri installation brings; check asks for the desktop key's build tools.
 pacman -S --needed --noconfirm wayland libxkbcommon >/dev/null
 useradd --create-home tester
@@ -53,7 +53,8 @@ print(json.dumps({'user_pending': (user['pending'] or {}).get('op'), 'bound': us
 EOF
 }
 
-run mise install ansible-core >/dev/null 2>&1
+run mise trust mise.toml >/dev/null
+run mise install ansible-core >/dev/null
 run mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections >/dev/null
 echo "RESULT check $(run ./bin/shaffy check --no-render --supplement /home/tester/supplement | tail -1)"
 run ./bin/shaffy supplement attach --supplement /home/tester/supplement >/dev/null

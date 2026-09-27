@@ -65,7 +65,7 @@ for an installation from an earlier version).
    omitted `required` package, no `extra` package that a group already
    installs, and no `remove` of a package that is still installed or that
    Shaffy OS itself needs. Integration requests must name catalogued
-   integrations and the settings they depend on. Each MCP server needs a
+   integrations and the settings they depend on. Each enabled MCP server needs a
    command, and backup excludes must keep the backup's verification marker.
 6. Emit one JSON object under the key `shaffy`.
 
@@ -73,12 +73,20 @@ That object holds `selection` (mode, path, source and `supplement_id`),
 `settings` (the effective values), `present` (the dotted keys the supplement
 set, so absence stays distinguishable from a default), `overrides` (absolute
 paths of the fragments), `assets` (target, path, SHA-256 and the `executable`
-and `private` attributes), `system_overrides`, `packages` (each group after
-omissions, the extras and the removals) and `integrations` (each catalogued
+and `private` attributes), `system_overrides`, `packages` (`groups` and `aur`
+hold each group's repository and AUR selections after omissions, alongside
+`extra` and `remove`) and `integrations` (each catalogued
 integration with its requested state, scope, targets and activation records).
 `./bin/shaffy data` prints it.
 
 ### The cached path
+
+The platform's XDG user directories are resolved separately by
+`home/.chezmoitemplates/folders.json`, using `xdg-user-dir` through
+`lib/shaffy/folders.py`. They are not settings-loader inputs or cached settings:
+each home render follows the installation's current directories. Explicit
+`folders` settings take precedence, and the user-directory modifier changes
+only those named standard entries. Without overrides the XDG file is ignored.
 
 Templates read the settings with `includeTemplate "shaffy.json" . | fromJson`.
 `home/.chezmoitemplates/shaffy.json` runs
@@ -335,8 +343,9 @@ terminal, and every task that needs root becomes root through sudo:
 
 1. The wrapper takes the user lock and makes the binding, target, checkout and
    record checks of a home apply. It also requires the system prerequisites
-   (the bootstrap packages, the `ansible-core` pinned in `mise.toml`, the Galaxy
-   collections pinned in `requirements.yml`, Btrfs on `/` and `/home`, and
+   (the bootstrap packages, the installed `ansible-core` selected by `latest`
+   in `mise.toml`, the Galaxy collections pinned in `requirements.yml`, Btrfs
+   on `/` and `/home`, and
    snapper's `root` configuration) and a terminal on standard input, so a system
    apply never starts without someone there to type the password.
 2. It captures the bound supplement, writes the user `pending` entry with scope
@@ -628,6 +637,10 @@ and changes nothing else.
 - `packages.omit` never uninstalls. Packages are removed only because they are
   listed, in the supplement's `packages.remove` or in the public
   `defaults/packages/retired.yml`.
+- MCP entries are merged by name into both AI clients. Setting
+  `ai.mcp_servers.NAME.enabled: false` removes that entry; removing a name
+  from the supplement alone preserves an existing entry or restores its
+  public default. Unrelated entries and client settings remain untouched.
 - Framework-owned files are retired through `home/.chezmoiremove`, never
   directories that hold user data.
 - Databases, credentials and personal folders are never deleted by an apply.
@@ -675,6 +688,13 @@ home with the settings (`./bin/shaffy diff` and `status` do), run the system
 roles, start services, reach the network or a session bus, or fetch Noctalia
 plugins; [the VM validation](../tests/vm/README.md) does those in a freshly
 installed CachyOS guest.
+
+CI installs the declared mise controller and Galaxy collections before the
+self-test, so playbook syntax and settings transport are checked there too.
+A separate disposable-container job exercises real package operations, the
+verified AUR build route, second-apply convergence and recovery between root
+and user record writes. It uses the test snapshot adapter; the VM validation
+still supplies evidence for real snapper, boot, graphical sessions and hardware.
 `chezmoi --destination` alone would not isolate the render, because
 templates and helpers could still reach the real home. `SHAFFY_RENDER_DIRECT=1` renders without bubblewrap only inside a
 disposable container whose account holds no binding, and never for the

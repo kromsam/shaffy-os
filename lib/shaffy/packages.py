@@ -1,10 +1,10 @@
 """Package groups and a supplement's package choices.
 
-defaults/packages/<group>.yml holds a role's `packages` and its `required`
-subset; retired.yml the public retirements. A supplement's `packages.extra`
-installs more, `packages.omit` leaves group packages out without uninstalling
-them, and `packages.remove` removes more. Removal happens only because a
-package is listed, never by inference.
+defaults/packages/<group>.yml holds a role's repository `packages`, optional
+`aur` entries and `required` subset; retired.yml the public retirements. A
+supplement's `packages.extra` installs more, `packages.omit` leaves group
+packages out without uninstalling them, and `packages.remove` removes more.
+Removal happens only because a package is listed, never by inference.
 """
 from pathlib import Path
 import re
@@ -15,7 +15,7 @@ NAME = re.compile(r'^[a-z0-9@_+][a-z0-9@._+-]*$')
 PROTECTED = frozenset({'mise', 'uv', 'chezmoi', 'python-yaml', 'python-jsonschema', 'snapper', 'git',
                        'base-devel', 'bubblewrap', 'base', 'linux', 'systemd', 'pacman', 'sudo', 'python',
                        'niri', 'noctalia', 'linux-cachyos', 'linux-lts', 'sddm', 'limine', 'grub', 'mkinitcpio',
-                       'cryptsetup', 'btrfs-progs'})
+                       'cryptsetup', 'btrfs-progs', 'xdg-user-dirs'})
 
 
 def _names(value, label):
@@ -27,7 +27,7 @@ def _names(value, label):
 
 
 def load_groups(checkout, parse):
-    """Return ({group: {'packages', 'required'}}, retired, problems) from defaults/packages/."""
+    """Return ({group: {'packages', 'aur', 'required'}}, retired, problems)."""
     directory = Path(checkout) / 'defaults/packages'
     groups, owner, problems = {}, {}, []
     for path in sorted(directory.glob('*.yml')):
@@ -35,22 +35,36 @@ def load_groups(checkout, parse):
             continue
         data = parse(path)
         label = f'defaults/packages/{path.name}'
-        if not isinstance(data, dict) or set(data) != {'packages', 'required'}:
-            problems.append(f'{label} must have exactly `packages` and `required`')
+        if not isinstance(data, dict) or not {'packages', 'required'} <= set(data) <= {'packages', 'required', 'aur'}:
+            problems.append(f'{label} must have `packages` and `required`, and optionally `aur`')
             continue
-        problems += _names(data['packages'], f'{label}: packages') + _names(data['required'], f'{label}: required')
+        invalid = _names(data['packages'], f'{label}: packages') + _names(data['required'], f'{label}: required')
+        aur = data.get('aur', [])
+        if not isinstance(aur, list) or not all(
+                isinstance(entry, dict) and {'name'} <= set(entry) <= {'name', 'replaces'}
+                and all(isinstance(value, str) and NAME.fullmatch(value) for value in entry.values())
+                for entry in aur):
+            invalid.append(f'{label}: aur must be a list of {{name, optional replaces}} package entries')
+        if invalid:
+            problems += invalid
+            continue
+        names = data['packages'] + [entry['name'] for entry in aur]
         problems += [f'{label}: required {name} is not in its packages'
-                     for name in data['required'] if name not in data['packages']]
-        for name in data['packages']:
+                     for name in data['required'] if name not in names]
+        for entry in aur:
+            if entry.get('replaces') in PROTECTED or entry.get('replaces') == entry['name']:
+                problems.append(f'{label}: {entry["name"]} cannot replace {entry["replaces"]}')
+        for name in names:
             if name in owner:
                 problems.append(f'{label}: {name} already belongs to the {owner[name]} group')
             owner[name] = path.stem
-        groups[path.stem] = {'packages': list(data['packages']), 'required': list(data['required'])}
+        groups[path.stem] = {'packages': list(data['packages']), 'aur': aur, 'required': list(data['required'])}
     # A checkout without groups or retirements (a partial test copy) has none.
     retired_data = parse(directory / 'retired.yml') if (directory / 'retired.yml').exists() else {'retired': []}
     retired = retired_data.get('retired') if isinstance(retired_data, dict) else None
-    problems += _names(retired, 'defaults/packages/retired.yml: retired')
-    retired = retired if isinstance(retired, list) else []
+    invalid = _names(retired, 'defaults/packages/retired.yml: retired')
+    problems += invalid
+    retired = [] if invalid else retired
     problems += [f'defaults/packages/retired.yml: {name} is retired but belongs to the {owner[name]} group'
                  for name in retired if name in owner]
     problems += [f'defaults/packages/retired.yml: {name} is needed by Shaffy OS itself'
@@ -62,7 +76,8 @@ def resolve(groups, retired, settings):
     """The effective package state, or problems for choices that contradict the groups."""
     chosen = settings.get('packages', {})
     extra, omit, remove = (chosen.get(key, []) for key in ('extra', 'omit', 'remove'))
-    owner = {name: group for group, data in groups.items() for name in data['packages']}
+    owner = {name: group for group, data in groups.items()
+             for name in data['packages'] + [entry['name'] for entry in data['aur']]}
     required = {name: group for group, data in groups.items() for name in data['required']}
     problems = []
     for name in omit:
@@ -74,6 +89,13 @@ def resolve(groups, retired, settings):
         if name in owner:
             problems.append(f'packages.extra: {name} is already in the {owner[name]} group')
     installed = {name for name in owner if name not in omit} | set(extra)
+    aur = {group: [entry for entry in data['aur'] if entry['name'] not in omit]
+           for group, data in groups.items()}
+    for entries in aur.values():
+        for entry in entries:
+            if entry.get('replaces') in installed:
+                problems.append(f'packages: {entry["name"]} replaces {entry["replaces"]}, '
+                                'but both are selected for installation')
     for name in remove:
         if name in PROTECTED:
             problems.append(f'packages.remove: {name} is needed by Shaffy OS itself')
@@ -85,4 +107,4 @@ def resolve(groups, retired, settings):
     removed = sorted((set(retired) - set(extra)) | set(remove))
     return {'groups': {group: [name for name in data['packages'] if name not in omit]
                        for group, data in groups.items()},
-            'extra': list(extra), 'remove': removed}, problems
+            'aur': aur, 'extra': list(extra), 'remove': removed}, problems

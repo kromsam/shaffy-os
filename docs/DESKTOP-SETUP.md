@@ -49,8 +49,8 @@ defaults in `defaults/config.yaml`, overridden by the bound supplement (see
 | `desktop.wallpaper.directory`, `.image` | The picker's folder, and the default and initial image | `/usr/share/noctalia/assets`, and Noctalia's own wallpaper there, `noctalia-wallpaper.png` |
 | `desktop.lock_screen.image` | The lock-screen background | The same image |
 | `desktop.browser` | Default handler for web links and HTML, set by the `browser` role | `zen.desktop` |
-| `folders.pictures`, `folders.videos` | Screenshots in `<pictures>/Screenshots`, recordings in `<videos>/Recordings` | `Pictures`, `Videos` |
-| `folders.downloads`, `folders.documents` | Tailnet file transfers, and Sticky Notes in `<documents>/sticky-notes` | `Downloads`, `Documents` |
+| `folders.pictures`, `folders.videos` | Screenshots in `<pictures>/Screenshots`, recordings in `<videos>/Recordings` | Installation's XDG pictures and videos directories |
+| `folders.downloads`, `folders.documents` | Tailnet file transfers, and Sticky Notes in `<documents>/sticky-notes` | Installation's XDG downloads and documents directories |
 | `tailnet.login_server` | The Tailnet panel's admin link | No admin link |
 
 The folder names themselves are described in [home folders](HOME-FOLDERS.md). An
@@ -194,7 +194,7 @@ The bar is a flat, opaque, square 26 px bar at the top:
 
 | Position | Widgets |
 | --- | --- |
-| Left | Launcher (click: main menu; right-click: terminal), workspaces with minimal numeric labels |
+| Left | Launcher (click: application search; right-click: terminal), workspaces with minimal numeric labels |
 | Centre | Screen recorder (hidden while idle), timer (an hourglass while idle), clock (weekday and time), keyboard layout |
 | Right | Privacy (only while capturing), notifications (only with unread items), tray drawer, Bluetooth (only with a connected device), network, volume, battery, control centre |
 
@@ -209,9 +209,12 @@ The bar is a flat, opaque, square 26 px bar at the top:
   audio, display (brightness), network, Bluetooth, power, calendar,
   notifications, media and system, plus Noctalia's quick toggles. The calendar
   shows ISO week numbers; its events card is hidden.
-- The launcher is a compact list without categories or origin markers, and also
-  searches open windows. The launcher, clipboard history, wallpaper picker and
-  session menu float in the centre; the OSD sits at the bottom centre.
+- **Super+Space** opens Noctalia's native launcher, ready to type. Its compact
+  list searches applications, open windows and the configured desktop controls,
+  without categories or origin markers. This needs no additional plugin.
+  **Super+Alt+Space** opens the nested main menu. The launcher, clipboard history,
+  wallpaper picker and session menu float in the centre; the OSD sits at the
+  bottom centre.
 - At most three notifications show at once; more queue, and history keeps them
   all. There is no dock.
 
@@ -221,7 +224,7 @@ The plugins (Tailnet, Syncthing, Sticky Notes, Phone Connect, Remmina, and the
 screen recorder, timer and world clock) come from Noctalia's official and
 community plugin sources, which Noctalia fetches and keeps updated. Only the
 recorder and the timer sit on the bar, and the world clocks open from the clock.
-Reach the others from the launcher, **Super+Alt+Space**:
+Reach the others from the launcher, **Super+Space**:
 
 | Tool | Launcher access |
 | --- | --- |
@@ -271,8 +274,8 @@ additions (clipboard, capture, panels, notifications, timer, toggles).
 
 | Shortcut | Action |
 | --- | --- |
-| Super+Space | Main menu: applications, capture, style, controls, tools, system |
-| Super+Alt+Space / Super+Ctrl+Return | Application launcher |
+| Super+Space / Super+Ctrl+Return | Noctalia launcher: type to search applications, windows and desktop controls |
+| Super+Alt+Space | Main menu: applications, capture, style, controls, tools, system |
 | Super+Return | Alacritty |
 | Super+Alt+Return | Alacritty attached to the tmux session `Work` |
 | Super+B / Super+Shift+B / Super+Shift+Return | Zen Browser |

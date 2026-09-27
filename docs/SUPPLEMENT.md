@@ -147,11 +147,13 @@ shows home changes only.
 
 ### folders and folder_links
 
-`folders` names the nine home folders (the XDG user directories) relative to
-the home; the public defaults are English. `folder_links` adds links such as
-`~/Pictures` that point at a configured folder, for paths kept from an earlier
-layout. Both are applied by the home apply and described in
-[home folders](HOME-FOLDERS.md).
+Standard directories follow the installation's XDG settings, in any language;
+no `folders` block is needed. `folders` optionally overrides individual roles
+with names relative to the home, preserving all unlisted XDG entries.
+`projects` is nonstandard and only supplies a target for optional links.
+`folder_links` adds aliases such as `~/Pictures` for old saved paths, resolving
+their targets from XDG or an explicit override. Both mechanisms are described
+in [home folders](HOME-FOLDERS.md).
 
 ### identity
 
@@ -164,7 +166,7 @@ layout. Both are applied by the home apply and described in
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
-| `ai.mcp_servers.NAME` | An MCP server, `{command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new name needs a `command`. Other entries in those files stay, and a server removed from the settings is not removed from them. | The default `zotero` server. | home |
+| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from both clients. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new enabled name needs a `command`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `zotero` server. | home |
 | `ai.gbrain.source` | The GBrain source that the read-only MCP server may search; `scripts/configure-gbrain-mcp.sh` reads it (see [workspace tools](WORKSPACE-TOOLS.md)). | The helper refuses. | by hand |
 
 ### tailnet
@@ -213,13 +215,13 @@ lifecycle are in [home backup](HOME-BACKUP.md).
 ```yaml
 packages:
   extra: [gimp, htop]    # also install these
-  omit: [chromium]       # leave these group packages out
+  omit: [chromium, beeper-v4-bin]  # leave these repository and AUR packages out
   remove: [nano]         # remove these
 ```
 
-- `extra` installs packages that no public group in `defaults/packages/`
+- `extra` installs repository packages that no public group in `defaults/packages/`
   contains. A package a group already installs is refused.
-- `omit` leaves a group's package out of its installation request and never
+- `omit` leaves a group's repository or AUR package out of its installation request and never
   uninstalls it. A package that is in no group, or that its group lists as
   `required`, is refused.
 - `remove` uninstalls exactly the listed packages with `pacman -R`, keeping
@@ -227,13 +229,33 @@ packages:
   refused (omit it as well), and so is one Shaffy OS itself runs on, such as
   `chezmoi`, `snapper` or `niri`.
 - Pacman group names are refused in `extra` and `remove`; list the packages.
+- An AUR package and the package it replaces cannot both be selected. To use
+  the repository's `zotero`, for example, omit `zotero-bin` before adding
+  `zotero` to `extra`.
 
 The `packages` role applies `extra` and `remove`; each group's role applies its
 omissions. A package in the public retirement list,
 `defaults/packages/retired.yml`, is removed unless `extra` asks for it. Nothing
 is ever removed because it is missing from a list.
 
+Package choices and home integrations have separate scopes. Omitting or
+removing `zotero-bin` does not change Zotero's home integration or the AI
+clients' MCP entries. To remove that MCP connection on a home apply, set:
+
+```yaml
+ai:
+  mcp_servers:
+    zotero:
+      enabled: false
+```
+
 ### overrides
+
+Supplements contain values and native fragments, not a second Ansible
+application. Shared roles belong in this repository so their changes pass
+through the same validation, capture, snapshots and recovery. For example,
+`overrides.keyboard_hwdb` carries a private hardware mapping to the public
+`keyboard` role; no private copy of the role is needed.
 
 Where a setting is not enough, `overrides` names native fragments inside the
 supplement. They are trusted configuration and may run commands: a Fish
@@ -245,7 +267,7 @@ fragment runs in every shell, and a Niri fragment can start programs.
 | `overrides.noctalia` | home | `~/.config/noctalia/97-supplement.toml` | After the public fragments, before `99-runtime.toml`, an unmanaged `config.toml` and Noctalia's state, which win for a key they also set. |
 | `overrides.fish` | home | `~/.config/fish/supplement.fish` | Sourced at the end of `config.fish`, after `conf.d/`, so it can replace functions defined there. |
 | `overrides.alacritty` | home | `~/.config/alacritty/supplement.toml` | The last import, so it wins over the generated colours and `shaffy.toml`. |
-| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public pin. |
+| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public tool's `latest` selector. |
 | `overrides.keyboard_hwdb` | system | `/etc/udev/hwdb.d/90-shaffy-keyboard.hwdb` | Keyboard key maps for systemd's hardware database, installed by the `keyboard` role (see [keyboard setup](KEYBOARD-SETUP.md)). |
 
 A home fragment renders into a file that stays when the setting is removed:

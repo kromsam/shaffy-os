@@ -5,6 +5,12 @@ layouts, and `overrides.keyboard_hwdb` remaps keys of a particular keyboard in
 systemd's hardware database. Without either, Niri follows the system's
 `localectl` settings and no key is remapped.
 
+The public role owns installation, permissions and reloading of the fragment;
+the supplement owns its hardware match and scancodes. A supplement does not
+need its own Ansible role for this. Keeping the mechanism here lets it use the
+same validation, captured settings and snapshots as the rest of the system.
+General desktop shortcuts and repeat speed are part of the public desktop.
+
 ## Layouts
 
 `desktop.keyboard` sets Niri's XKB `layouts` (required), `variants` and

@@ -15,22 +15,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def aur_packages():
-    """The names the roles install with the aur_package role."""
-    names = []
-    for role in ('desktop_apps', 'writing'):
-        for task in yaml.safe_load((ROOT / f'roles/{role}/tasks/main.yml').read_text()):
-            if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package':
-                names += [entry['name'] for entry in task.get('loop', [])]
-                if 'vars' in task:
-                    names.append(task['vars']['aur_package']['name'])
-    return sorted(names)
+    """The default AUR names, declared alongside the repository packages."""
+    return sorted(entry['name'] for path in (ROOT / 'defaults/packages').glob('*.yml')
+                  for entry in yaml.safe_load(path.read_text()).get('aur', []))
 
 
 class RoleTests(unittest.TestCase):
+    def test_roles_install_only_the_resolved_aur_selection(self):
+        for role in ('desktop_apps', 'writing'):
+            tasks = yaml.safe_load((ROOT / f'roles/{role}/tasks/main.yml').read_text())
+            installs = [task for task in tasks
+                        if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package']
+            self.assertEqual(len(installs), 1)
+            self.assertEqual(installs[0]['loop'], '{{ shaffy.packages.aur.' + role + ' }}')
+            self.assertEqual(installs[0]['loop_control']['loop_var'], 'aur_package')
+            self.assertNotIn('aur_package', installs[0].get('vars', {}))
+
     def test_the_roles_take_these_packages_from_the_aur_and_the_repository_keeps_no_recipes(self):
         self.assertEqual(aur_packages(), ['beeper-v4-bin', 'logseq-og-bin', 'ttf-ms-fonts', 'zotero-bin'])
         self.assertFalse((ROOT / 'packages').exists())
-        self.assertEqual(list(ROOT.glob('**/PKGBUILD')), [ROOT / 'tests/fixtures/packages/shaffy-probe/PKGBUILD'])
+        files = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z', '-co', '--exclude-standard'],
+                               capture_output=True, text=True, check=True).stdout.split('\0')
+        self.assertEqual(sorted({path for path in files if Path(path).name == 'PKGBUILD'}),
+                         ['tests/fixtures/packages/shaffy-probe/PKGBUILD'])
 
     def test_yay_is_declared_for_their_updates(self):
         group = yaml.safe_load((ROOT / 'defaults/packages/desktop_apps.yml').read_text())

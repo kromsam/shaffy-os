@@ -15,7 +15,7 @@ from shaffy import sandbox  # noqa: E402
 from shaffy.sandbox import RenderError, render  # noqa: E402
 
 DIRECT = os.environ.get('SHAFFY_RENDER_DIRECT') == '1'
-TOOLS = ('chezmoi', 'niri', 'noctalia', 'fish')
+TOOLS = ('chezmoi', 'niri', 'noctalia', 'fish', 'xdg-user-dir')
 
 
 def _unavailable():
@@ -40,7 +40,7 @@ class RenderTests(unittest.TestCase):
     def assertClean(self, result):
         self.assertEqual(result['problems'], [])
         self.assertTrue(result['converged'])
-        self.assertGreater(result['files'], 80)  # the managed home; plugins come from Noctalia
+        self.assertGreaterEqual(result['files'], 80)  # the managed home; plugins come from Noctalia
 
     def test_public_defaults_render_validate_and_converge(self):
         result = render(ROOT, without=True)
@@ -50,6 +50,71 @@ class RenderTests(unittest.TestCase):
 
     def test_minimal_example_renders_like_the_defaults(self):
         self.assertClean(render(ROOT, supplement=ROOT / 'supplement.example'))
+
+    def test_public_defaults_preserve_installer_directories_in_any_language(self):
+        import tomllib
+        for pictures, documents, downloads, videos in (
+                ('Images', 'Documents personnels', 'Téléchargements', "Vidéos d'été"),
+                ('画像 & 100%', '書類', 'ダウンロード', '動画')):
+            with self.subTest(pictures=pictures), tempfile.TemporaryDirectory() as keep:
+                native = ('# Installer-owned; keep comments and unrelated entries\n'
+                          f'XDG_PICTURES_DIR="$HOME/{pictures}"\n'
+                          f'XDG_DOCUMENTS_DIR="$HOME/{documents}"\n'
+                          f'XDG_DOWNLOAD_DIR="$HOME/{downloads}"\n'
+                          f'XDG_VIDEOS_DIR="$HOME/{videos}"\n'
+                          'XDG_MUSIC_DIR="$HOME/"\nXDG_TEMPLATES_DIR="/srv/templates"\n')
+                self.assertClean(render(ROOT, without=True, keep=keep, user_dirs=native))
+                home = Path(keep) / 'home'
+                prefix = str(home) if DIRECT else '/home/tester'
+                self.assertEqual((home / '.config/user-dirs.dirs').read_text(), native)
+                self.assertEqual((home / '.config/user-dirs.dirs').stat().st_mode & 0o777, 0o644)
+                omarchy = tomllib.loads((home / '.config/noctalia/90-omarchy.toml').read_text())
+                apps = tomllib.loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())
+                self.assertEqual(omarchy['shell']['screenshot']['directory'], f'{prefix}/{pictures}/Screenshots')
+                self.assertEqual(apps['plugin_settings']['rylos/tailnet']['taildrop_dir'], f'{prefix}/{downloads}')
+                self.assertEqual(apps['plugin_settings']['ahmedhossamdev/sticky-notes']['save_path'],
+                                 f'{prefix}/{documents}/sticky-notes')
+                self.assertEqual(apps['plugin_settings']['noctalia/screen_recorder']['directory'],
+                                 f'{prefix}/{videos}/Recordings')
+                niri = (home / '.config/niri/cfg/misc.kdl').read_text()
+                self.assertIn(pictures.replace('%', '%%') + '/Screenshots/', niri)
+                for name in ('Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Projects',
+                             'Public', 'Templates', 'Videos', 'Work', '.hidden'):
+                    self.assertFalse(os.path.lexists(home / name), name)
+
+    def test_partial_folder_overrides_keep_the_other_installer_entries(self):
+        native = ('# Installer choice\nXDG_PICTURES_DIR="$HOME/Images"\n'
+                  'XDG_DOCUMENTS_DIR="$HOME/Documents personnels"\n'
+                  'XDG_DOWNLOAD_DIR="$HOME/Téléchargements"\nXDG_MUSIC_DIR="$HOME/"\n')
+        with tempfile.TemporaryDirectory() as keep:
+            self.assertClean(render(ROOT, supplement=ROOT / 'tests/fixtures/supplements/comprehensive',
+                                    keep=keep, user_dirs=native))
+            home = Path(keep) / 'home'
+            expected = native.replace('$HOME/Images', '$HOME/Bilder') + 'XDG_VIDEOS_DIR="$HOME/Filme"\n'
+            self.assertEqual((home / '.config/user-dirs.dirs').read_text(), expected)
+            apps = __import__('tomllib').loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())
+            prefix = str(home) if DIRECT else '/home/tester'
+            self.assertEqual(apps['plugin_settings']['ahmedhossamdev/sticky-notes']['save_path'],
+                             f'{prefix}/Documents personnels/sticky-notes')
+
+    def test_niri_screenshot_path_escapes_native_quotes_and_strftime_percent(self):
+        native = 'XDG_PICTURES_DIR="$HOME/Photos \\"été\\" & 100%"\n'
+        with tempfile.TemporaryDirectory() as keep:
+            self.assertClean(render(ROOT, without=True, keep=keep, user_dirs=native))
+            niri = (Path(keep) / 'home/.config/niri/cfg/misc.kdl').read_text()
+            self.assertIn('Photos \\"été\\" & 100%%/Screenshots/', niri)
+
+    def test_standard_compatibility_links_need_no_folder_overrides(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as keep:
+            supplement = Path(directory)
+            (supplement / 'config.yaml').write_text(
+                'schema_version: 1\nsupplement_id: aliases\nfolder_links:\n  Pictures: pictures\n')
+            self.assertClean(render(ROOT, supplement=supplement, keep=keep,
+                                    user_dirs='XDG_PICTURES_DIR="$HOME/Images"\n'))
+            home = Path(keep) / 'home'
+            self.assertEqual(os.readlink(home / 'Pictures'), 'Images')
+            self.assertEqual((home / '.config/user-dirs.dirs').read_text(),
+                             'XDG_PICTURES_DIR="$HOME/Images"\n')
 
     def test_supplement_settings_reach_the_rendered_files(self):
         with tempfile.TemporaryDirectory() as keep:
@@ -136,7 +201,8 @@ class RenderTests(unittest.TestCase):
                              '[gpg]\n    format = ssh\n[commit]\n    gpgsign = true\n')
             dirs = (home / '.config/user-dirs.dirs').read_text()
             self.assertIn('XDG_PICTURES_DIR="$HOME/Bilder"', dirs)
-            self.assertIn('XDG_DOCUMENTS_DIR="$HOME/Documents"', dirs)
+            self.assertNotIn('XDG_DOCUMENTS_DIR=', dirs)
+            self.assertNotIn('XDG_PROJECTS_DIR=', dirs)
             self.assertEqual(os.readlink(home / 'Pictures'), 'Bilder')
             self.assertEqual(os.readlink(home / 'Work'), 'Projects')
             self.assertFalse(os.path.lexists(home / 'Documents'))
@@ -181,7 +247,8 @@ class RenderTests(unittest.TestCase):
             login = (home / '.local/bin/bitwarden-login').read_text()
             self.assertIn("bw\" config server 'https://vault.example.invalid'", login)
             self.assertNotIn('noctalia', login)  # its launcher plugin is disabled
-            self.assertIn('screenshot-path "~/Bilder/Screenshots/', (home / '.config/niri/cfg/misc.kdl').read_text())
+            self.assertIn(f'screenshot-path "{home if DIRECT else "/home/tester"}/Bilder/Screenshots/',
+                          (home / '.config/niri/cfg/misc.kdl').read_text())
             docx = (home / preset).read_text()
             self.assertIn('  lang: en-GB', docx)
             self.assertIn('reference-doc: "${HOME}/Templates/reference.docx"', docx)
@@ -194,7 +261,8 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             self.assertNotIn('admin_url', (home / '.config/noctalia/95-desktop-apps.toml').read_text())
             self.assertNotIn('config server', (home / '.local/bin/bitwarden-login').read_text())
-            self.assertIn('screenshot-path "~/Pictures/Screenshots/', (home / '.config/niri/cfg/misc.kdl').read_text())
+            self.assertIn(f'screenshot-path "{home if DIRECT else "/home/tester"}/Screenshots/',
+                          (home / '.config/niri/cfg/misc.kdl').read_text())
             self.assertTrue((home / '.local/share/pandoc/csl').is_dir())
 
     def test_integrations_render_only_while_managed(self):
@@ -258,13 +326,14 @@ class RenderTests(unittest.TestCase):
             self.assertNotIn('output "', (home / '.config/niri/cfg/display.kdl').read_text())
             self.assertNotIn('layout "', (home / '.config/niri/cfg/input.kdl').read_text())
             keybinds = (home / '.config/niri/cfg/keybinds.kdl').read_text()
-            self.assertNotRegex(keybinds, r'(?<![\w.-])/home/(?!tester/)')  # no other account's home
+            self.assertNotRegex(keybinds, r'(?<![\w.-])/home/(?!tester(?:/|"))')  # no other account's home
             self.assertIn(f'"{home if DIRECT else "/home/tester"}/.local/bin/shaffy-desktop"', keybinds)
             for fragment in ('90-omarchy.toml', '94-desktop-controls.toml', '95-desktop-apps.toml'):
-                self.assertNotRegex((home / '.config/noctalia' / fragment).read_text(), r'(?<![\w.-])/home/(?!tester/)')
-            self.assertIn('Pictures/Screenshots', (home / '.config/noctalia/90-omarchy.toml').read_text())
+                self.assertNotRegex((home / '.config/noctalia' / fragment).read_text(), r'(?<![\w.-])/home/(?!tester(?:/|"))')
+            self.assertIn(f'directory = "{home if DIRECT else "/home/tester"}/Screenshots"',
+                          (home / '.config/noctalia/90-omarchy.toml').read_text())
             self.assertEqual((home / '.config/git/config').read_text(), '[init]\n    defaultBranch = main\n')
-            self.assertIn('XDG_PROJECTS_DIR="$HOME/Projects"', (home / '.config/user-dirs.dirs').read_text())
+            self.assertFalse((home / '.config/user-dirs.dirs').exists())
             for name in ('Documents', 'Work', '.hidden'):
                 self.assertFalse(os.path.lexists(home / name), name)
 

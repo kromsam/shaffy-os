@@ -2,7 +2,9 @@
 
 A host-bound test runs only where its tools, folders or storage exist. Setting
 SHAFFY_SKIP_HOST_TESTS=1 skips all of them, which matches CI as long as CI installs
-the tools the remaining tests need (git, chezmoi, lua, PyYAML, jsonschema).
+the tools the remaining tests need, including the declared Ansible controller
+and collections. Controller tests use synthetic settings and temporary files;
+they do not require this machine's configuration.
 """
 import os
 from pathlib import Path

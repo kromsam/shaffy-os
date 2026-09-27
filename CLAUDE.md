@@ -9,8 +9,22 @@ repository holds the public defaults and the mechanisms: the chezmoi source in
 and the `./bin/shaffy` wrapper. The bound supplement, a private repository
 beside the checkout, holds one person's values; `./bin/shaffy status` shows
 which supplement is bound and where it is. `./bin/shaffy apply` renders the two
-into the home and the system. The live system is an output of both, never an
-input to either.
+into the home and the system. Managed configuration is an output of both,
+never copied back into either source. Platform-owned settings can remain with
+the installation: standard home directories follow XDG in any language unless
+the supplement explicitly overrides them.
+
+## Product scope
+
+The public default is the complete, opinionated Shaffy OS desktop: its chosen
+applications, appearance, shortcuts and workflows. Keep that experience as the
+default. Package omissions let a supplement customize it; they are not a reason
+to turn the default application set into opt-in bundles.
+
+Work from the supported fresh CachyOS Niri/Noctalia installation. Keep only the
+configuration needed to produce the Shaffy OS differences, with the shared
+structure those differences require. An already-installed package or an
+already-correct setting should cause no change on apply.
 
 ## The rule
 
@@ -37,10 +51,11 @@ Reading the live system is always fine, and is often the right first step.
 ## Decide first whether the value is personal
 
 A value is personal when it identifies a person, a machine or an account, or
-records one person's choice: names and e-mail addresses, host names, addresses
-and server endpoints, displays and keyboards, folder names, wallpapers and
-fonts, package selections, and paths inside one home. Everything else is a
-public default or a mechanism.
+adapts the public desktop to one installation: names and e-mail addresses,
+host names, server endpoints, display geometry, keyboard hardware mappings,
+deliberate folder overrides, private wallpaper paths and extra or omitted packages.
+The product's chosen applications, fonts, theme and general keybindings are
+public defaults, even when they reflect its author's preferences.
 
 - **Personal values go in the supplement:** fields of its `config.yaml`,
   validated by `schema/supplement.schema.json`; native fragments named under

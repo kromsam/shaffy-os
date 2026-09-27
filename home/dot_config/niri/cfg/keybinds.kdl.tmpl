@@ -149,7 +149,7 @@ binds {
     Mod+Alt+K repeat=false hotkey-overlay-title="Switch keyboard layout" { switch-layout "next"; }
 
     // Omarchy equivalents using native Niri/Noctalia actions.
-    Mod+Alt+Space { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    Mod+Alt+Space repeat=false hotkey-overlay-title="Desktop menu" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "menu"; }
     Mod+Shift+Space hotkey-overlay-title="Toggle top bar" { spawn "noctalia" "msg" "bar-toggle"; }
     Mod+Ctrl+Space hotkey-overlay-title="Wallpaper selector" { spawn "noctalia" "msg" "panel-toggle" "wallpaper"; }
     Mod+Shift+B { spawn "zen-browser"; }
@@ -171,7 +171,7 @@ binds {
     Mod+Shift+0 { move-window-to-workspace 10; }
 
     // Omarchy controls, with explicitly labelled Niri adaptations.
-    Mod+Space repeat=false hotkey-overlay-title="Main menu" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "menu"; }
+    Mod+Space repeat=false hotkey-overlay-title="Search applications and desktop controls" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
     Mod+C repeat=false hotkey-overlay-title="Universal copy" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "copy"; }
     Mod+X repeat=false hotkey-overlay-title="Universal cut" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "cut"; }
     Mod+V repeat=false hotkey-overlay-title="Universal paste" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "paste"; }

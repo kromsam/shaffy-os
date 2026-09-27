@@ -1,146 +1,124 @@
 # Home folders
 
-Two supplement settings shape the folders in the home. `folders` names the
-XDG user directories, the folders that file managers, file choosers and
-applications use for documents, pictures, downloads and the like. `folder_links`
-adds compatibility links under English names that point at those folders, so
-paths from an earlier layout keep working. Both are applied by the home apply.
-No apply creates, moves or renames a folder; the folders themselves are the
-user's data.
+Shaffy OS follows the XDG directories configured by the installation, in any
+language. A Dutch, French or Japanese installation needs no `folders` block
+and no English aliases. The public defaults leave `~/.config/user-dirs.dirs`
+untouched and create no standard folders or compatibility links.
 
-## Folder names
+The templates resolve paths with `xdg-user-dir` when the home is rendered.
+Screenshots, recordings, received files and notes therefore follow the actual
+XDG paths, including custom locations. The settings loader does not cache
+those paths or copy them into the supplement. If the platform changes a
+folder setting, the next home apply updates the applications that use it.
 
-`folders` has one key per XDG role. Each value is a folder name relative to the
-home. The public defaults, in `defaults/config.yaml`, are the English names:
+| Role | XDG variable | Shaffy OS also uses it for |
+| --- | --- | --- |
+| `desktop` | `XDG_DESKTOP_DIR` | |
+| `documents` | `XDG_DOCUMENTS_DIR` | Sticky Notes, in `<documents>/sticky-notes` |
+| `downloads` | `XDG_DOWNLOAD_DIR` | Files received over the Tailnet |
+| `music` | `XDG_MUSIC_DIR` | |
+| `pictures` | `XDG_PICTURES_DIR` | Screenshots, in `<pictures>/Screenshots` |
+| `public` | `XDG_PUBLICSHARE_DIR` | |
+| `templates` | `XDG_TEMPLATES_DIR` | |
+| `videos` | `XDG_VIDEOS_DIR` | Screen recordings, in `<videos>/Recordings` |
 
-| Key | XDG variable | Public default | Also used for |
-| --- | --- | --- | --- |
-| `desktop` | `XDG_DESKTOP_DIR` | `Desktop` | |
-| `documents` | `XDG_DOCUMENTS_DIR` | `Documents` | Sticky Notes, in `<documents>/sticky-notes` |
-| `downloads` | `XDG_DOWNLOAD_DIR` | `Downloads` | Files received over the Tailnet |
-| `music` | `XDG_MUSIC_DIR` | `Music` | |
-| `pictures` | `XDG_PICTURES_DIR` | `Pictures` | Screenshots, in `<pictures>/Screenshots` |
-| `projects` | `XDG_PROJECTS_DIR` | `Projects` | |
-| `public` | `XDG_PUBLICSHARE_DIR` | `Public` | |
-| `templates` | `XDG_TEMPLATES_DIR` | `Templates` | |
-| `videos` | `XDG_VIDEOS_DIR` | `Videos` | Screen recordings, in `<videos>/Recordings` |
+To inspect a directory, run `xdg-user-dir PICTURES` or
+`xdg-user-dir DOCUMENTS`. Shaffy OS keeps the native tool's fallback for an
+unset directory rather than guessing a translation. A directory explicitly
+set to `$HOME/` stays set to the home.
 
-A supplement sets only the roles it changes; the others keep their defaults. A
-name is a single folder directly in the home: it may contain spaces and
-apostrophes, but not `/`, `"`, `\`, `$`, a backquote or a line break.
+## Explicit overrides
 
-The home apply renders `~/.config/user-dirs.dirs` (mode 0600) from
-`home/dot_config/private_user-dirs.dirs.tmpl`, with all nine variables. It is a
-managed file: `xdg-user-dir PICTURES` and the applications that follow the XDG
-convention read it, and the next apply replaces any change made to it in place.
-
-Create each configured folder before the apply that names it. At the start of
-every session `xdg-user-dirs-update` resets an entry whose folder does not
-exist to the home itself; `./bin/shaffy status` then reports the file as drift,
-and the next apply writes the configured name back.
-
-## Compatibility links
-
-`folder_links` maps an English link name to a folder role. The possible names
-are `Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`, `Projects`,
-`Public`, `Templates`, `Videos` and `Work`, one template each in `home/`
-(`home/symlink_Desktop.tmpl` to `home/symlink_Work.tmpl`, ten in all). Each
-renders a relative link in the home, such as `~/Pictures` pointing at the
-configured pictures folder. `Work` is an extra name for tools that expect
-`~/Work`; like the others it may point at any role.
-
-- Only the names listed are managed. An unlisted name is ignored: a real folder
-  or an older link of that name is left exactly as it is, never removed.
-- While any link is configured, the home apply also renders `~/.hidden` (mode
-  0600) from `home/private_dot_hidden.tmpl`, listing the link names, so that
-  file managers and file choosers built on GIO, such as Nautilus, leave the
-  links out of their normal listing; showing hidden files reveals them. The
-  file then holds exactly the link names. Without links, an existing
-  `~/.hidden` is left alone.
-- A link is a second path to the same folder, not a copy. Hiding it does not
-  mean that it can be removed: remove it only after nothing refers to the old
-  path any more.
-
-`./bin/shaffy check` and the preflight of every home apply refuse, before
-anything is written:
-
-- a link whose name is a real folder or file in the home, so a link never
-  replaces a folder with its contents: move the contents into the configured
-  folder and remove the old one, or drop the link from the settings;
-- a link whose folder does not exist: create or rename the folder first, or
-  drop the link.
-
-A link that already exists with another target is replaced.
-
-## Example: a supplement with Dutch folder names
-
-A supplement that names three folders in Dutch and keeps the English paths
-working as links:
+Use `folders` only when the installation's existing choice should change:
 
 ```yaml
 folders:
-  documents: "Documenten"
-  music: "Muziek"
-  pictures: "Afbeeldingen"
+  pictures: "Photos"
+```
+
+The home apply changes only `XDG_PICTURES_DIR` in this example, preserving
+all other entries and comments. The screenshot settings use `Photos` on that
+same apply. An already-correct entry is left as it is. Explicit overrides
+are folder names directly under the home; spaces, accents and apostrophes are
+allowed. They cannot contain `/`, `"`, `\`, `$`, a backquote or a line break.
+
+Create or migrate the target folder before applying an override. An apply
+never creates, moves or renames these folders: they hold the user's data.
+`xdg-user-dirs-update` can reset a missing directory to the home at login.
+
+Removing an override stops managing that entry; it does not undo the last
+value. Removing all standard overrides leaves the entire XDG file alone.
+An existing supplement that repeats the installation's directory settings can
+drop those entries without changing the current paths. Remove `folders`
+entirely when no entries remain, rather than leaving an empty mapping.
+
+`projects` is not a standard XDG role. There is no default project folder and
+Shaffy OS no longer writes `XDG_PROJECTS_DIR`. An explicit `folders.projects`
+can supply a target for a compatibility link; otherwise it is unnecessary.
+An older `XDG_PROJECTS_DIR` entry is left alone as unmanaged content.
+
+## Compatibility links
+
+XDG-aware applications do not need aliases. Use `folder_links` only when an
+existing application, bookmark or script still uses an old literal path:
+
+```yaml
 folder_links:
-  Documents: documents
-  Music: music
   Pictures: pictures
 ```
 
-`~/.config/user-dirs.dirs` then names `$HOME/Documenten`, `$HOME/Muziek` and
-`$HOME/Afbeeldingen`, and keeps the English defaults for the other six roles;
-`~/Documents`, `~/Music` and `~/Pictures` become links to the Dutch folders.
+Here `~/Pictures` points at the installation's pictures directory, without
+needing to repeat its localized name. An explicit `folders.pictures`, if
+present, takes precedence. Links within the home are relative; targets
+outside it use an absolute path.
 
-## Renaming a folder
+Allowed link names are `Desktop`, `Documents`, `Downloads`, `Music`,
+`Pictures`, `Projects`, `Public`, `Templates`, `Videos` and `Work`. Each can
+point at a standard role or at an explicit `folders.projects`. For example:
 
-An apply never renames a folder, so a new name for an existing folder is a
-step of its own, taken before the apply. For the pictures folder in the example
-above:
+```yaml
+folders:
+  projects: "Code"
+folder_links:
+  Work: projects
+```
 
-1. Close the applications that have files open in the folder.
-2. Rename it, only if the new name is still free. Take a snapshot first if you
-   want a restore point, since no apply's snapper pair covers this step:
+Only listed links are managed. Unlisted names, including real directories
+and older symlinks, are left alone. While links are configured, `~/.hidden`
+lists their names so GIO file managers hide the aliases in normal listings.
+Without links, an existing `~/.hidden` is also left alone.
 
-   ```sh
-   snapper -c home create --description "before renaming Pictures"
-   test ! -e ~/Afbeeldingen && mv ~/Pictures ~/Afbeeldingen
-   ```
+`check` and the home apply refuse links that would replace real files or
+folders, point at missing targets, or point to themselves. A matching English
+XDG directory does not need a link to itself. Removing a link declaration
+stops managing it; remove the actual symlink only after its old path is no
+longer needed.
 
-3. Set `folders.pictures: "Afbeeldingen"` in the supplement, and
-   `folder_links: {Pictures: pictures}` if the old path should keep working.
-4. Review and apply:
+## Changing a directory deliberately
 
-   ```sh
-   ./bin/shaffy check
-   ./bin/shaffy diff
-   ./bin/shaffy apply --home
-   ```
+Close applications using the directory, take a snapshot, and move its data
+before naming the new target in the supplement. For example, when the current
+pictures directory should become `Photos`:
 
-A rename within the home keeps the folder's contents, permissions, hard links
-and relative links. Absolute paths that name the old folder, in application
-settings, bookmarks or scripts, work again only through the link. With the link
-configured, an apply before the rename is refused, since the link would replace
-the real `~/Pictures` and point at a folder that does not exist yet.
+```sh
+old_pictures=$(xdg-user-dir PICTURES)
+snapper -c home create --description "before moving the pictures directory"
+test "${old_pictures%/}" != "${HOME%/}" && test ! -e "$HOME/Photos" && \
+  mv -- "$old_pictures" "$HOME/Photos"
+```
 
-## Recovery
+Set `folders.pictures: "Photos"`, then review and apply:
 
-- A refused apply has changed nothing; do what its message names.
-- To undo the rename above, remove the link, rename the folder back, restore
-  the previous settings and apply again:
+```sh
+./bin/shaffy check
+./bin/shaffy diff
+./bin/shaffy apply --home
+```
 
-  ```sh
-  rm ~/Pictures                  # the link only; no trailing slash
-  test ! -e ~/Pictures && mv ~/Afbeeldingen ~/Pictures
-  ```
+The manual move happens before the apply's snapshots. To undo it, restore the
+data and the corresponding settings together. The apply keeps copies and a
+Snapper pair for the configuration files it changes; restoring only a managed
+file without changing its source would be undone by the next apply.
 
-- A name dropped from `folder_links` is no longer managed, and its link stays
-  in place until you remove it the same way.
-- `~/.config/user-dirs.dirs`, `~/.hidden` and the links are ordinary managed
-  files. Each home apply keeps copies of the files it changes and a snapper
-  pair of `/home`; restore a single file from the pair with
-  `snapper -c home undochange PRE..POST ~/.config/user-dirs.dirs`, and keep the
-  supplement in step, or the next apply brings the change back.
-
-References: `user-dirs.dirs(5)` and `xdg-user-dirs-update(1)`, from the
-xdg-user-dirs package.
+Reference: [xdg-user-dirs](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/)
+and the installed `xdg-user-dir(1)` and `user-dirs.dirs(5)` manuals.

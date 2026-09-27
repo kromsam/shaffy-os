@@ -1,7 +1,8 @@
 // Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
 // GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
     prefer-no-csd
-    screenshot-path "~/{{ (includeTemplate "shaffy.json" . | fromJson).shaffy.settings.folders.pictures | replace "%" "%%" }}/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+{{- $folders := includeTemplate "folders.json" . | fromJson }}
+    screenshot-path {{ printf "%s/Screenshots/Screenshot from %%Y-%%m-%%d %%H-%%M-%%S.png" ($folders.pictures | replace "%" "%%") | toJson | replace "\\u0026" "&" | replace "\\u003c" "<" | replace "\\u003e" ">" }}
 
     environment {
         ELECTRON_OZONE_PLATFORM_HINT "auto"

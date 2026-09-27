@@ -9,9 +9,10 @@ stay outside both the repository and the supplement.
 
 A supplement changes the selection with `packages`: `omit` leaves group
 packages out without uninstalling them, `extra` installs more and `remove`
-removes listed packages (see `defaults/packages/README.md`). The AUR packages
-are installed by their roles, not through a group, so `packages.omit` does not
-leave them out.
+removes listed packages (see `defaults/packages/README.md`). These rules cover
+both repository and AUR packages. For example, `omit: [beeper-v4-bin]` leaves
+Beeper out; adding `remove: [beeper-v4-bin]` also uninstalls it on the next
+system apply. Application profiles remain untouched.
 
 ## Applications
 
@@ -28,7 +29,7 @@ leave them out.
 | Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
 | tmux, zoxide, uv | `tmux`, `zoxide`, `uv` | See [workspace tools](WORKSPACE-TOOLS.md). |
 
-The `desktop_apps` group also holds `nodejs` and `yay`, the AUR helper that
+The `desktop_apps` group also holds `nodejs`, `npm` and `yay`, the AUR helper that
 updates the AUR packages. `tailscale` is the group's `required` package: the
 settings loader refuses a supplement that omits it. The writing applications are
 in [Writing tools](#writing-tools).
@@ -74,12 +75,15 @@ them in its Niri fragment.
 Markdown, TOML, YAML and Tailwind extras. It adds Harper with British English
 for Markdown and Git commit messages, markdownlint settings, the remote
 clipboard, absolute line numbers and no animated scrolling. `lazy-lock.json`
-pins the plugins. The colours follow Noctalia's palette through a pinned
+pins the plugins. Startup captures those versions before LazyVim's staged
+plugin discovery, so a first installation keeps the managed lock unchanged.
+The colours follow Noctalia's palette through a pinned
 base16 adapter, with Matte Black before the first palette exists; see
 [theme and controls](NOCTALIA-INTEGRATION.md). Super+Shift+E opens LazyVim in
 Alacritty.
 
-The language tools install through Mason with:
+The language tools install through Mason after the system packages and
+`scripts/install-workspace-tools.sh` have supplied npm and Ruby:
 
 ```sh
 mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua

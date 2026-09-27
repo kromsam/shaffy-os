@@ -24,6 +24,7 @@ desktop:
     variants: "intl,"
     options: "grp:alt_shift_toggle"
 folders:
+  projects: "Projects"
   pictures: "Bilder"
   videos: "Filme"
 overrides:

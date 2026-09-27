@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest import mock
 
@@ -88,6 +89,39 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIn('supplement attach', result.stderr)
         self.assertFalse((self.home / '.codex').exists())
 
+    def test_defaults_follow_platform_directory_changes_without_owning_the_file(self):
+        dirs = self.home / '.config/user-dirs.dirs'
+        dirs.write_text('# Installation\nXDG_PICTURES_DIR="$HOME/Images"\n')
+        attached = self.shaffy('supplement', 'attach', '--none')
+        self.assertEqual(attached.returncode, 0, attached.stderr)
+        for name in ('Images', '画像'):
+            text = f'# Installation\nXDG_PICTURES_DIR="$HOME/{name}"\n'
+            dirs.write_text(text)  # simulate the platform updating its own XDG setting
+            applied = self.shaffy('apply', '--home')
+            self.assertEqual(applied.returncode, 0, applied.stderr)
+            self.assertEqual(dirs.read_text(), text)
+            self.assertEqual(dirs.stat().st_mode & 0o777, 0o644)
+            omarchy = tomllib.loads((self.home / '.config/noctalia/90-omarchy.toml').read_text())
+            self.assertEqual(omarchy['shell']['screenshot']['directory'],
+                             f'{self.home}/{name}/Screenshots')
+        repeated = self.shaffy('apply', '--home')
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertIn('(0 target(s) changed)', repeated.stdout)
+
+    def test_removing_a_folder_override_preserves_the_xdg_entry(self):
+        self.attach()
+        first = self.shaffy('apply', '--home')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        dirs = self.home / '.config/user-dirs.dirs'
+        original = dirs.read_text()
+        config = self.supplement / 'config.yaml'
+        config.write_text(config.read_text().replace('  pictures: "Bilder"\n', '')
+                          .replace('  videos: "Filme"\n', ''))
+        second = self.shaffy('apply', '--home')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(dirs.read_text(), original)
+        self.assertIn('(0 target(s) changed)', second.stdout)
+
     def test_apply_snapshots_copies_applies_and_converges(self):
         self.attach()
         first = self.shaffy('apply', '--home')
@@ -107,6 +141,24 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIn('(0 target(s) changed)', second.stdout)
         self.assertNotIn('daemon-reload', second.stdout)
         self.assertEqual(self.events(self.record()['last_completed_op']), ['begin', 'phase-start', 'phase-done'])
+
+    def test_disabling_an_mcp_server_removes_it_from_both_clients_and_converges(self):
+        self.attach()
+        first = self.shaffy('apply', '--home')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertIn('zotero', tomllib.loads(self.codex())['mcp_servers'])
+        config = self.supplement / 'config.yaml'
+        config.write_text(config.read_text().replace('    zotero:\n', '    zotero:\n      enabled: false\n'))
+        applied = self.shaffy('apply', '--home')
+        self.assertEqual(applied.returncode, 0, applied.stderr)
+        codex = tomllib.loads(self.codex())['mcp_servers']
+        claude = json.loads((self.home / '.claude.json').read_text())['mcpServers']
+        for servers in (codex, claude):
+            self.assertNotIn('zotero', servers)
+            self.assertIn('notes', servers)
+        second = self.shaffy('apply', '--home')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn('(0 target(s) changed)', second.stdout)
 
     def test_changed_unit_files_alone_still_ask_for_a_reload(self):
         from shaffy.apply import HomeApply
@@ -424,7 +476,10 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start',
                                      checkout=other).returncode, -signal.SIGKILL)
         defaults = other / 'defaults/config.yaml'
-        defaults.write_text(defaults.read_text().replace('music: "Music"', 'music: "Muziek"'))
+        original = defaults.read_text()
+        changed = original.replace('browser: "zen.desktop"', 'browser: "example-browser.desktop"')
+        self.assertNotEqual(changed, original)
+        defaults.write_text(changed)
         refused = self.shaffy('apply', '--resume', checkout=other)
         self.assertEqual(refused.returncode, 1)
         self.assertIn('effective settings differ', refused.stderr)
@@ -615,7 +670,8 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_a_managed_integration_left_out_of_the_settings_is_refused(self):
         self.attach()
-        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        applied = self.shaffy('apply', '--home')
+        self.assertEqual(applied.returncode, 0, applied.stderr)
         self.set_integration('syncthing', None)
         refused = self.shaffy('apply', '--home')
         self.assertEqual(refused.returncode, 1)

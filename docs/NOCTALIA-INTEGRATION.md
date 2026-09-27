@@ -49,8 +49,10 @@ changed palette, unless another colour scheme has been selected in it.
 
 ## Searchable controls
 
-Open the launcher (**Super+Alt+Space**), type part of an entry's description and
-select it. A slash prefix narrows the results to that entry:
+Open Noctalia's native launcher with **Super+Space** and type immediately to
+search applications, open windows or an entry's description. The compact list
+and configured controls need no additional plugin. A slash prefix narrows the
+results to that entry:
 
 | Search for | Prefix | Action |
 | --- | --- | --- |

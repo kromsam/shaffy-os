@@ -84,7 +84,7 @@ def _controller_ready():
                           check=False).returncode == 0 if bootstrap.shutil.which('mise') else False
 
 
-@unittest.skipUnless(_controller_ready(), 'the pinned controller is not installed')
+@unittest.skipUnless(_controller_ready(), 'the mise controller is not installed')
 class PackagesEvaluationTests(unittest.TestCase):
     """The packages role's expressions evaluate with the public defaults' empty lists: its group
     check once read the output of a skipped lookup, and the first system apply of a VM failed."""

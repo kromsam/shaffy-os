@@ -1,6 +1,0 @@
-// Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
-// GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
-// ────────────── Startup Applications ──────────────
-// https://github.com/YaLTeR/niri/wiki/Configuration:-Miscellaneous#spawn-sh-at-startup
-
-    spawn-at-startup "noctalia"

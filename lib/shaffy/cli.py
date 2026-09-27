@@ -43,8 +43,12 @@ def _tracked_config_problem():
                                               .get('args', []))]
     if missing:
         return 'chezmoi.toml lacks the Shaffy OS hooks for: ' + ', '.join(missing)
-    result = subprocess.run(['chezmoi', '--config', str(ROOT / 'chezmoi.toml'), '--source', str(ROOT / 'home'),
-                             'dump-config', '--format', 'json'], capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(['chezmoi', '--config', str(ROOT / 'chezmoi.toml'), '--source', str(ROOT / 'home'),
+                                 'dump-config', '--format', 'json'], capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        from shaffy.bootstrap import pacman_step
+        return f'missing packages: chezmoi; run {pacman_step()}'
     actual = json.loads(result.stdout).get('persistentState') if result.returncode == 0 else None
     if actual != str(chezmoi_state_path()):
         return f'chezmoi state resolves to {actual}, expected {chezmoi_state_path()}'

@@ -1,2 +1,6 @@
 {{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
-{{- get $s.folders (get (dig "folder_links" dict $s) "Desktop") -}}
+{{- $folders := includeTemplate "folders.json" . | fromJson -}}
+{{- $target := get $folders (get (dig "folder_links" dict $s) "Desktop") -}}
+{{- if hasPrefix (printf "%s/" .chezmoi.homeDir) $target -}}
+{{- trimPrefix (printf "%s/" .chezmoi.homeDir) $target -}}
+{{- else -}}{{ $target }}{{- end -}}

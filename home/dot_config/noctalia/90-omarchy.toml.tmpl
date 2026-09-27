@@ -1,5 +1,6 @@
 {{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
 {{- $home := .chezmoi.homeDir -}}
+{{- $folders := includeTemplate "folders.json" . | fromJson -}}
 # Omarchy-inspired layout with Noctalia's built-in Rosé Pine palette in light
 # mode. Managed by Shaffy OS; personal paths come from the settings.
 [theme]
@@ -41,7 +42,7 @@ global = true
 
 [shell.screenshot]
 annotate = true
-directory = {{ printf "%s/%s/Screenshots" $home $s.folders.pictures | toJson }}
+directory = {{ printf "%s/Screenshots" $folders.pictures | toJson }}
 save_to_file = true
 copy_to_clipboard = true
 
@@ -83,7 +84,7 @@ right = {{ printf "exec %s/.local/bin/shaffy-desktop clock" $home | toJson }}
 middle = "panel-toggle noctalia/world_clock:panel"
 
 [widget.launcher.actions]
-left = {{ printf "exec %s/.local/bin/shaffy-desktop menu" $home | toJson }}
+left = "panel-toggle launcher"
 right = "exec alacritty"
 
 [widget.volume.actions]

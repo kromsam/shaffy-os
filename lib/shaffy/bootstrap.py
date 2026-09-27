@@ -14,9 +14,10 @@ import shutil
 import subprocess
 
 PACKAGES = ('mise', 'uv', 'chezmoi', 'python-yaml', 'python-jsonschema', 'snapper', 'git',
-            'base-devel', 'bubblewrap')
+            'base-devel', 'bubblewrap', 'xdg-user-dirs')
 COMMANDS = {'mise': 'mise', 'uv': 'uv', 'chezmoi': 'chezmoi', 'snapper': 'snapper', 'git': 'git',
-            'makepkg': 'base-devel', 'cc': 'base-devel', 'bwrap': 'bubblewrap'}
+            'makepkg': 'base-devel', 'cc': 'base-devel', 'bwrap': 'bubblewrap',
+            'xdg-user-dir': 'xdg-user-dirs'}
 MODULES = {'yaml': 'python-yaml', 'jsonschema': 'python-jsonschema'}
 UNTRUSTED = re.compile(r'Config files in (\S+) are not trusted')
 
@@ -39,7 +40,7 @@ def _packages():
 
 
 def _controller(checkout):
-    """The pinned ansible-core from the checkout's mise.toml, or what to run to get it."""
+    """The mise-managed ansible-core, or what to run to install it."""
     try:
         result = subprocess.run(['mise', 'where', 'ansible-core'], cwd=checkout, capture_output=True,
                                 text=True, timeout=30, check=False)
@@ -51,7 +52,7 @@ def _controller(checkout):
     if untrusted:
         return [f'mise does not trust {untrusted.group(1)}; review it, then run mise trust {untrusted.group(1)}']
     if 'not installed' in result.stderr:
-        return [f'the pinned ansible-core is not installed; run mise install ansible-core in {checkout}']
+        return [f'ansible-core is not installed; run mise install ansible-core in {checkout}']
     return ['mise where ansible-core failed: ' + result.stderr.strip()[-300:]]
 
 
@@ -104,7 +105,7 @@ def problems(checkout, snapshots=True):
 
 
 def ansible_command(checkout, *arguments):
-    """The pinned controller's command and environment, run from the checkout. Inherited ANSIBLE_*
+    """The mise-managed controller's command and environment, run from the checkout. Inherited ANSIBLE_*
     settings are dropped: ANSIBLE_SKIP_TAGS=always would skip the operation's root steps, and
     ANSIBLE_COLLECTIONS_PATH would replace the pinned collections."""
     env = {key: value for key, value in os.environ.items() if not key.startswith('ANSIBLE_')}

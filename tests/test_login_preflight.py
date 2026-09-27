@@ -47,7 +47,7 @@ def _controller_ready():
                           check=False).returncode == 0 if bootstrap.shutil.which('mise') else False
 
 
-@unittest.skipUnless(_controller_ready(), 'the pinned controller is not installed')
+@unittest.skipUnless(_controller_ready(), 'the mise controller is not installed')
 class PreflightEvaluationTests(unittest.TestCase):
     """The preflight's expressions evaluate: structure alone once hid a filter that always failed."""
 

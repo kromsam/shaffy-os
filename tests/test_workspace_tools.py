@@ -33,6 +33,54 @@ class WorkspaceToolsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             merge['merge_codex']('[mcp_servers]\nzotero={command="old"}\n', {'zotero': {'command': 'new'}})
 
+    def test_disabling_a_codex_server_removes_only_its_tables_and_converges(self):
+        for header in ('zotero', '"zotero"', "'zotero'"):
+            with self.subTest(header=header):
+                source = ('# preference\nmodel="kept"\n'
+                          f'[mcp_servers.{header}]\ncommand="old"\n'
+                          f'[mcp_servers.{header}.env]\nWRITE="false"\n'
+                          '[mcp_servers.other]\nurl="http://localhost:1234"\n'
+                          '[projects."/some project"]\ntrust_level="trusted"\n')
+                expected = tomllib.loads(source)
+                del expected['mcp_servers']['zotero']
+                output = merge['merge_codex'](source, {'zotero': None})
+                self.assertEqual(tomllib.loads(output), expected)
+                self.assertTrue(output.startswith('# preference\nmodel="kept"\n'))
+                self.assertEqual(merge['merge_codex'](output, {'zotero': None}), output)
+
+    def test_disabling_the_last_codex_server_handles_an_implicit_or_explicit_parent(self):
+        for source, expected in (
+                ('[mcp_servers.zotero]\ncommand="old"', {}),
+                ('[mcp_servers]\n  [mcp_servers.zotero]\ncommand="old"', {'mcp_servers': {}})):
+            with self.subTest(source=source):
+                output = merge['merge_codex'](source, {'zotero': None})
+                self.assertEqual(tomllib.loads(output), expected)
+                self.assertEqual(merge['merge_codex'](output, {'zotero': None}), output)
+
+    def test_disabling_an_inline_codex_entry_still_refuses_an_unreviewed_rewrite(self):
+        with self.assertRaisesRegex(ValueError, 'Review the existing inline MCP entry for zotero'):
+            merge['merge_codex']('[mcp_servers]\nzotero={command="old"}\n', {'zotero': None})
+
+    def test_disabling_an_absent_server_changes_neither_clients_configuration(self):
+        for client, sources in (('codex', ['', '# preference\nmodel="kept"\n']),
+                                ('claude', ['{}', '{"account":{"id":"private"}}'])):
+            for source in sources:
+                with self.subTest(client=client, source=source):
+                    self.assertEqual(merge[f'merge_{client}'](source, {'zotero': None}), source)
+
+    def test_a_fresh_claude_file_is_valid_json_when_every_server_is_disabled(self):
+        output = merge['merge_claude']('', {'zotero': None})
+        self.assertEqual(json.loads(output), {})
+        self.assertEqual(merge['merge_claude'](output, {'zotero': None}), output)
+
+    def test_disabling_a_claude_server_preserves_accounts_and_other_servers(self):
+        original = {'account': {'id': 'private'},
+                    'mcpServers': {'other': {'command': 'kept'}, 'zotero': {'command': 'old'}}}
+        output = merge['merge_claude'](json.dumps(original), {'zotero': None})
+        del original['mcpServers']['zotero']
+        self.assertEqual(json.loads(output), original)
+        self.assertEqual(merge['merge_claude'](output, {'zotero': None}), output)
+
     def test_claude_preserves_account_and_other_servers(self):
         original = {'account': {'id': 'private'}, 'mcpServers': {'other': {'command': 'kept'}}}
         output = json.loads(merge['merge_claude'](json.dumps(original), {'zotero': {'command': 'new'}}))
@@ -61,14 +109,15 @@ class WorkspaceToolsTests(unittest.TestCase):
         for layout in config['layouts'].values():
             self.assertEqual(len([p for p in layout['panes'] if p.get('focus')]), 1)
 
-    def test_workmux_is_pinned_through_mise_everywhere(self):
-        pin = '"cargo:raine/workmux" = "tag:v0.1.264"'
-        self.assertIn(pin, (HOME / 'dot_config/mise/config.toml').read_text())
+    def test_workspace_tools_use_latest_through_mise_everywhere(self):
+        tools = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())['tools']
+        self.assertTrue(all(version == 'latest' for version in tools.values()))
+        self.assertIn('github:raine/workmux', tools)
         # The install script takes every version from that file: it keeps no copy of its own.
         script = (REPO / 'scripts/install-workspace-tools.sh').read_text()
         self.assertIn('home/dot_config/mise/config.toml', script)
+        self.assertIn('github:raine/workmux', script)
         self.assertNotIn('@tag:v', script)
-        self.assertNotIn('0.155.0', script)
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
 

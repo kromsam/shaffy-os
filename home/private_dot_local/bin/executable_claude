@@ -1,4 +1,4 @@
 #!/bin/sh
-# Pinned mise binary, available to desktop services as well as Fish.
+# mise-managed binary, available to desktop services as well as Fish.
 export DISABLE_AUTOUPDATER=1
 exec /usr/bin/mise exec -- claude "$@"

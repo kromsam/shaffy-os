@@ -39,8 +39,9 @@ It has two halves:
   (`ISO` and `ISO_SHA256`), currently
   `~/Downloads/cachyos-desktop-linux-260809.iso`. To use another image, name
   it with its checksum: `--iso PATH --sha256 SHA256`.
-- A network connection. The guest downloads packages, the pinned Ansible and
-  its collections, and Noctalia's plugins.
+- A network connection. The guest downloads packages, the latest Ansible
+  controller, its pinned collections, and Noctalia's plugins. The mise tools
+  follow `latest`, so separate VM installations can use different tool versions.
 
 ## The host's files
 
@@ -175,9 +176,18 @@ Then run the stages in this order, each as
 | `prerequisites` | First | CachyOS booted through UEFI; `/` and `/home` are the Btrfs subvolumes `@` and `@home`; snapper has its `root` configuration; Niri, Noctalia and SDDM are installed, SDDM is enabled, and the terminal runs in a Niri session with Noctalia running; the guest has a render node; the account can use sudo; the network reaches GitHub; the share holds a valid bundle and both supplements. |
 | `bootstrap` | Next | Clones the bundle into `~/Projects/shaffy-os`, or fast-forwards an earlier clone. Runs `check --no-render` to show what is missing, then each command of the Bootstrap section of the top-level README in turn, trusting `mise.toml` if mise asks, as that section says it may. `check` must then report the system scope ready and render the home. |
 | `defaults` | Next | `supplement attach --none`, `check` and `diff`; `apply --system`, which must create snapper's `home` configuration; `apply --home`; `status`. Then both applies once more, which must change nothing, and a snapper pre and post pair, marked important, for every apply: `root` and `home` for the system, `home` for the home. |
-| `after-reboot` | After a reboot and a fresh login | The guest booted after the last apply; the session is Niri on Wayland, started by SDDM; Niri and Noctalia answer; no user or system unit failed; `docker.service` is active; every managed helper in `~/.local/bin` and `shaffy-desktop-key` is installed; Noctalia fetched and enabled every configured plugin, each from one of its configured sources, and knows both sources; the units of managed integrations are enabled and running; `status` shows nothing unfinished and no drift. Three observations are asked of you: the login screen, the bar and wallpaper, and the main menu on Super+Space. |
-| `supplement` | Next | Copies and checks `supplement.example`, as the top-level README's Supplement section starts one; copies and checks the VM supplement and previews it with `diff --supplement`; moves the binding to it with `supplement rebind --path PATH --new-id`; applies the system and the home. Each requested integration must become managed, its units enabled and running. It then asks you to start REAPER, Zettlr and Zotero once: a home apply afterwards must set the keys each integration manages in their files, and Zotero's local API must answer. Both applies once more change nothing, `status` names the binding, and the snapper pairs are checked. |
+| `after-reboot` | After a reboot and a fresh login | The guest booted after the last apply; the session is Niri on Wayland, started by SDDM; Niri and Noctalia answer; no user or system unit failed; `docker.service` is active; every managed helper in `~/.local/bin` and `shaffy-desktop-key` is installed; Noctalia fetched and enabled every configured plugin, each from one of its configured sources, and knows both sources; the units of managed integrations are enabled and running; `status` shows nothing unfinished and no drift. Three observations are asked of you: the login screen, the bar and wallpaper, and the launcher on Super+Space, ready for typing. |
+| `supplement` | Next | Copies and checks `supplement.example`, as the top-level README's Choose the settings section starts one; copies and checks the VM supplement and previews it with `diff --supplement`; moves the binding to it with `supplement rebind --path PATH --new-id`; applies the system and the home. Each requested integration must become managed, its units enabled and running. It then asks you to start REAPER, Zettlr and Zotero once: a home apply afterwards must set the keys each integration manages in their files, and Zotero's local API must answer. Both applies once more change nothing, `status` names the binding, and the snapper pairs are checked. |
 | `after-reboot` | After another reboot | As before, now with the integrations' units. |
+
+The public defaults follow the installed user's XDG directories. No English
+home folders need to be created before `defaults`. If testing a supplement
+with explicit directory overrides, create or migrate those targets first.
+After `defaults` and before the first reboot, follow its
+[user-level tool and icon installation steps](../../README.md#apply-and-finish-installation)
+inside the guest. The stages validate package and configuration applies; they
+do not run those separate installers. Verify the installed tools in the guest
+as well: executable launchers alone do not prove that their binaries exist.
 
 The guest keeps the checkout in `~/Projects/shaffy-os` and the two supplement
 copies beside it, in `~/Projects/example-supplement` and
@@ -225,9 +235,9 @@ pattern matches, and `--on REGEX=COMMAND` to run a command in the guest session
 first, for example starting REAPER, Zettlr and Zotero; take screenshots before
 answering the questions about what the screen shows. A question no rule matches
 is skipped, and the stage records it as unanswered. `drive.py keys meta_l-spc`
-presses Super+Space, and `drive.py poweroff` shuts the guest down through SSH
-and sudo; it presses the power button only when SSH does not answer, and in a
-Niri session that suspends the guest instead.
+presses Super+Space to open the launcher, and `drive.py poweroff` shuts the guest
+down through SSH and sudo; it presses the power button only when SSH does not
+answer, and in a Niri session that suspends the guest instead.
 
 ## The VM supplement
 
@@ -279,5 +289,10 @@ the whole folder with its evidence, and run `install` again.
 - QEMU 11.1 can end with a segmentation fault when it exits after a `--headless`
   run (exit status 139), after the guest has shut down; the guest's work is
   unaffected.
+- If the host's graphics driver faults while QEMU renders the guest, stop the
+  VM and retry with Mesa's software renderer:
+  `LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe tests/vm/run-vm.sh --headless run`.
+  This keeps the guest's virtual graphics device but uses the host CPU for
+  rendering. It is slower and does not validate hardware acceleration.
 - `run-vm.sh --dry-run` and `tests/test_vm_kit.py` check the kit without a VM;
   only a person at the VM runs the stages.

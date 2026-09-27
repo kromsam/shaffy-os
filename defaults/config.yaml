@@ -9,16 +9,6 @@ ai:
       env:
         ZOTERO_LOCAL: "true"
         ZOTERO_LOCAL_WRITE: "false"
-folders:
-  desktop: "Desktop"
-  documents: "Documents"
-  downloads: "Downloads"
-  music: "Music"
-  pictures: "Pictures"
-  projects: "Projects"
-  public: "Public"
-  templates: "Templates"
-  videos: "Videos"
 desktop:
   browser: "zen.desktop"
   # Noctalia's own wallpaper, which the noctalia package installs.

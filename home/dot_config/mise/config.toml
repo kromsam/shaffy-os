@@ -1,13 +1,15 @@
-# The tools Shaffy OS's own launchers and helpers run. Personal runtimes (for
-# example node and ruby for projects) belong in the supplement's mise fragment,
-# rendered as conf.d/90-supplement.toml.
+# The tools Shaffy OS's own launchers and helpers run. Ruby supplies the editor's
+# Ruby language tools. Project-specific runtime choices belong in the supplement's
+# mise fragment, rendered as conf.d/90-supplement.toml, or in a project's mise.toml.
+# Public tools follow latest when installed or updated through mise.
 [tools]
 claude = "latest"
-codex = "0.155.0"
-bun = "1.4.2"
-bitwarden = "2026.9.0"
-"aqua:quarto-dev/quarto-cli" = "1.9.38"
-"cargo:raine/workmux" = "tag:v0.1.264"
+codex = "latest"
+bun = "latest"
+ruby = "latest"
+bitwarden = "latest"
+"aqua:quarto-dev/quarto-cli" = "latest"
+"github:raine/workmux" = "latest"
 
 [settings.upgrade]
 auto_prune = false

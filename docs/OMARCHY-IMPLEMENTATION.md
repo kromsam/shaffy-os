@@ -4,9 +4,10 @@ Shaffy OS reproduces the behaviour and geometry of Omarchy's Quattro desktop on
 Niri and Noctalia 5.1. It keeps Noctalia's built-in Rosé Pine palette in light
 mode rather than Omarchy's default Tokyo Night or its Matte Black theme, so the
 colours differ while the layout, controls and shortcuts follow the pinned
-reference (see [sources](#sources)). Manual locking, the supplement's wallpapers,
-keyboard layouts and displays are deliberate departures from a fresh Omarchy
-installation. Everyday use is in [desktop setup](DESKTOP-SETUP.md), the palette in
+reference (see [sources](#sources)). Direct launcher search on Super+Space,
+manual locking, the supplement's wallpapers, keyboard layouts and displays are
+deliberate departures from a fresh Omarchy installation. Everyday use is in
+[desktop setup](DESKTOP-SETUP.md), the palette in
 [theme and controls](NOCTALIA-INTEGRATION.md).
 
 ## Configuration
@@ -23,8 +24,8 @@ installation. Everyday use is in [desktop setup](DESKTOP-SETUP.md), the palette 
 | Icons | Yaru and Yaru-yellow from a checked upstream release, installed per user by `scripts/install-yaru-icons.py` (see [sources](#sources)). The GTK settings and GSettings both select Yaru-yellow. |
 | Applications | Noctalia's btop template, and the Niri, Alacritty, GTK, Qt and Neovim colours in [theme and controls](NOCTALIA-INTEGRATION.md). Super+Alt+Return opens tmux, as in Omarchy; tmux and workmux are described in [workspace tools](WORKSPACE-TOOLS.md). |
 | Input | Repeat after 250 ms at 40 per second, the pointer warps to focus, clickfinger, natural scrolling off and a touchpad scroll factor of 0.4. Omarchy's terminal-specific touchpad factors are not copied, because Niri's per-window factor would also change the mouse wheel. |
-| Main menu | Super+Space opens a nested Noctalia dmenu: Applications, Capture, Style, Controls, Tools, System. Super+Alt+Space opens the application launcher directly. |
-| Clock and gestures | Clock: left-click calendar, right-click cycles the format, middle-click world clocks. The launcher button's right-click opens a terminal; right-click on volume mutes, on Bluetooth toggles it, on the battery toggles its label. |
+| Launcher and main menu | Super+Space opens Noctalia's native compact launcher, ready to type and search applications, open windows and configured controls; no additional plugin is needed. Super+Alt+Space opens the nested main menu: Applications, Capture, Style, Controls, Tools, System. |
+| Clock and gestures | Clock: left-click calendar, right-click cycles the format, middle-click world clocks. The launcher button opens application search; its right-click opens a terminal. Right-click on volume mutes, on Bluetooth toggles it, on the battery toggles its label. |
 | Capture | Print selects a region in Noctalia and opens its annotation, saving to a file and the clipboard. The capture menu adds recording, a colour picker, text recognition in every installed language, and QR and barcode reading; decoded content is copied, and no link is opened. |
 | Timer | Noctalia's official timer plugin: one countdown, with a bar widget, a panel and a desktop widget. |
 | Recording | Noctalia's official recorder plugin with `gpu-screen-recorder`: the portal chooses the source; H.264 and AAC in MP4 under `<videos>/Recordings`; system audio by default, with the microphone, both or none in the plugin's settings; replay off. Alt+Print or the capture menu starts and stops it; the bar indicator, shown only while recording, stops it. |
@@ -40,7 +41,7 @@ overlay. These are the Omarchy additions to the everyday shortcuts in
 
 | Shortcut | Result |
 | --- | --- |
-| Super+Space / Super+Alt+Space | Main menu / applications |
+| Super+Space / Super+Alt+Space | Direct launcher search / nested main menu |
 | Super+C / X / V | Copy / cut / paste; in terminals, copy and paste use the Insert chords |
 | Super+Ctrl+V / Super+Ctrl+E | Clipboard history / emoji |
 | Super+Ctrl+Space / Super+Ctrl+Shift+Space | Wallpapers / theme and shell settings |

@@ -1,5 +1,6 @@
 {{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
 {{- $home := .chezmoi.homeDir -}}
+{{- $folders := includeTemplate "folders.json" . | fromJson -}}
 # Plugins come from Noctalia's official and community sources and Noctalia keeps
 # them updated; this repository ships no plugin code. noctalia/bitwarden
 # stays off until upstream signs in without putting the API secret on a command line.
@@ -23,7 +24,7 @@ enabled = true
 {{- with dig "tailnet" "login_server" "" $s }}
 admin_url = {{ . | toJson }}
 {{- end }}
-taildrop_dir = {{ printf "%s/%s" $home $s.folders.downloads | toJson }}
+taildrop_dir = {{ $folders.downloads | toJson }}
 
 [plugin_settings."rylos/syncthing"]
 config_path = {{ printf "%s/.local/state/syncthing/config.xml" $home | toJson }}
@@ -36,7 +37,7 @@ type = "rylos/tailnet:bar"
 type = "rylos/syncthing:bar"
 
 [plugin_settings."ahmedhossamdev/sticky-notes"]
-save_path = {{ printf "%s/%s/sticky-notes" $home $s.folders.documents | toJson }}
+save_path = {{ printf "%s/sticky-notes" $folders.documents | toJson }}
 file_format = "md"
 no_colors = true
 
@@ -89,7 +90,7 @@ global = true
 
 [plugin_settings."noctalia/screen_recorder"]
 video_source = "portal"
-directory = {{ printf "%s/%s/Recordings" $home $s.folders.videos | toJson }}
+directory = {{ printf "%s/Recordings" $folders.videos | toJson }}
 audio_source = "default_output"
 audio_codec = "aac"
 video_codec = "h264"

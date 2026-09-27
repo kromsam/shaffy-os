@@ -52,6 +52,7 @@ class ValidInputTests(LoaderCase):
         self.assertEqual(data['selection']['mode'], 'none')
         self.assertIn('zotero', data['settings']['ai']['mcp_servers'])
         self.assertEqual(data['present'], [])
+        self.assertNotIn('folders', data['settings'])
 
     def test_minimal_example_is_valid_and_changes_nothing(self):
         data = self.load(supplement=ROOT / 'supplement.example')['shaffy']
@@ -74,8 +75,20 @@ class ValidInputTests(LoaderCase):
         servers = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']
         self.assertEqual(servers['zotero']['args'], [])
 
+    def test_servers_can_be_explicitly_disabled_without_a_command(self):
+        path = self.supplement('schema_version: 1\nsupplement_id: t\n'
+                               'ai:\n  mcp_servers:\n    zotero:\n      enabled: false\n'
+                               '    other:\n      enabled: false\n')
+        servers = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']
+        self.assertFalse(servers['zotero']['enabled'])
+        self.assertEqual(servers['other'], {'enabled': False})
+
 
 class InvalidInputTests(LoaderCase):
+    def test_projects_alias_needs_an_explicit_nonstandard_target(self):
+        self.assertIn('a projects target needs folders.projects', self.problems(
+            'schema_version: 1\nsupplement_id: t\nfolder_links:\n  Work: projects\n'))
+
     def test_duplicate_key_names_line(self):
         message = self.problems('schema_version: 1\nsupplement_id: a\nsupplement_id: b\n')
         self.assertIn("duplicate key 'supplement_id'", message)
@@ -148,6 +161,11 @@ class InvalidInputTests(LoaderCase):
         message = self.problems('schema_version: 1\nsupplement_id: t\n'
                                 'ai:\n  mcp_servers:\n    other:\n      args: []\n')
         self.assertIn('ai.mcp_servers.other: needs a command', message)
+
+    def test_server_enabled_must_be_a_boolean(self):
+        message = self.problems('schema_version: 1\nsupplement_id: t\n'
+                                'ai:\n  mcp_servers:\n    zotero:\n      enabled: "false"\n')
+        self.assertIn('ai.mcp_servers.zotero.enabled: must be of type boolean', message)
 
 
 class ReferenceTests(LoaderCase):
@@ -228,6 +246,7 @@ class PackageTests(LoaderCase):
         self.assertIn('docker', packages['groups']['workflows'])
         self.assertEqual(packages['extra'], [])
         self.assertEqual(packages['remove'], [])  # nothing public is retired yet
+        self.assertEqual(packages['aur']['writing'], [{'name': 'zotero-bin', 'replaces': 'zotero'}])
 
     def test_choices_add_omit_and_remove(self):
         packages = self.packages('packages:\n  extra: [htop, zellij]\n  omit: [reaper]\n  remove: [reaper]\n')
@@ -235,11 +254,27 @@ class PackageTests(LoaderCase):
         self.assertEqual(packages['extra'], ['htop', 'zellij'])
         self.assertEqual(packages['remove'], ['reaper'])  # only listed packages are removed
 
+    def test_aur_omissions_and_removals_follow_the_same_rules(self):
+        packages = self.packages('packages:\n  omit: [beeper-v4-bin, zotero-bin]\n'
+                                 '  remove: [beeper-v4-bin]\n')
+        self.assertEqual(packages['aur']['desktop_apps'], [{'name': 'logseq-og-bin'}, {'name': 'ttf-ms-fonts'}])
+        self.assertEqual(packages['aur']['writing'], [])
+        self.assertEqual(packages['remove'], ['beeper-v4-bin'])
+
+    def test_omitting_an_aur_replacement_allows_the_distribution_package(self):
+        packages = self.packages('packages:\n  omit: [zotero-bin]\n  extra: [zotero]\n')
+        self.assertEqual(packages['aur']['writing'], [])
+        self.assertEqual(packages['extra'], ['zotero'])
+        self.assertEqual(packages['remove'], [])
+
     def test_contradictory_choices_fail(self):
         for text, message in (
                 ('packages:\n  omit: [docker]\n', 'packages.omit: docker is required by the workflows group'),
                 ('packages:\n  omit: [htop]\n', 'packages.omit: htop is in no package group'),
                 ('packages:\n  extra: [docker]\n', 'packages.extra: docker is already in the workflows group'),
+                ('packages:\n  extra: [beeper-v4-bin]\n', 'packages.extra: beeper-v4-bin is already in the desktop_apps group'),
+                ('packages:\n  remove: [beeper-v4-bin]\n', 'packages.remove: beeper-v4-bin is also installed by the desktop_apps group; omit it too'),
+                ('packages:\n  extra: [zotero]\n', 'zotero-bin replaces zotero, but both are selected'),
                 ('packages:\n  remove: [reaper]\n', 'packages.remove: reaper is also installed by the workflows'),
                 ('packages:\n  extra: [htop]\n  remove: [htop]\n', 'packages.remove: htop is also installed by packages.extra'),
                 ('packages:\n  omit: [mise]\n  remove: [mise]\n', 'packages.remove: mise is needed by Shaffy OS itself'),
@@ -263,6 +298,33 @@ class PackageTests(LoaderCase):
         self.assertIn('htop already belongs to the one group', problems)
         self.assertIn('required vim is not in its packages', problems)
         self.assertIn('nano is retired but belongs to the two group', problems)
+
+    def test_aur_names_have_the_same_ownership_required_and_retirement_checks(self):
+        from shaffy.loader import parse
+        from shaffy.packages import load_groups, resolve
+        directory = self.tmp / 'checkout/defaults/packages'
+        directory.mkdir(parents=True)
+        (directory / 'one.yml').write_text('packages: []\naur: [{name: probe-bin}]\nrequired: [probe-bin]\n')
+        (directory / 'two.yml').write_text('packages: [probe-bin]\nrequired: []\n')
+        (directory / 'retired.yml').write_text('retired: [probe-bin]\n')
+        groups, retired, problems = load_groups(self.tmp / 'checkout', parse)
+        self.assertIn('probe-bin already belongs to the one group', '\n'.join(problems))
+        self.assertIn('probe-bin is retired but belongs to the two group', '\n'.join(problems))
+        self.assertIn('packages.omit: probe-bin is required by the one group',
+                      resolve(groups, retired, {'packages': {'omit': ['probe-bin']}})[1])
+
+    def test_malformed_aur_catalogue_is_reported_without_a_traceback(self):
+        from shaffy.loader import parse
+        from shaffy.packages import load_groups
+        directory = self.tmp / 'checkout/defaults/packages'
+        directory.mkdir(parents=True)
+        for aur in ('null', '{}', '[probe-bin]', '[{}]', '[{name: null}]',
+                    '[{name: probe-bin, extra: true}]', '[{name: probe-bin, replaces: []}]',
+                    '[{name: probe-bin, replaces: sudo}]', '[{name: probe-bin, replaces: probe-bin}]',
+                    '[{name: probe-bin}, {name: probe-bin}]'):
+            with self.subTest(aur=aur):
+                (directory / 'one.yml').write_text(f'packages: []\nrequired: []\naur: {aur}\n')
+                self.assertTrue(load_groups(self.tmp / 'checkout', parse)[2])
 
 
 class AssetTests(LoaderCase):

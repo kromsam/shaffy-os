@@ -97,7 +97,7 @@ class LicenceTests(unittest.TestCase):
         noticed = {path for path in self.files if path.startswith('home/')
                    and 'Derived from CachyOS cachyos-niri-noctalia' in (ROOT / path).read_text(errors='replace')}
         self.assertEqual(noticed, gpl)
-        self.assertEqual(len(gpl), 8)
+        self.assertEqual(len(gpl), 7)
 
     def test_modified_apache_files_say_so(self):
         holder = (ROOT / 'LICENSE').read_text().splitlines()[2].removeprefix('Copyright (c) ')

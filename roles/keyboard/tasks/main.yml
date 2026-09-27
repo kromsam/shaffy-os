@@ -8,6 +8,7 @@
     owner: root
     group: root
     mode: '0755'
+  when: "'keyboard_hwdb' in shaffy.system_overrides"
 
 - name: Install the supplement's keyboard hardware database
   ansible.builtin.copy:

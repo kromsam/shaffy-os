@@ -10,11 +10,18 @@ packages:
   - lazygit
   - tree-sitter-cli
   - nodejs
+  # Mason installs the editor's JavaScript language tools with npm.
+  - npm
   - tmux
   - zoxide
   - uv
   # The AUR helper for updating the AUR packages the aur_package role installs.
   - yay
+  - mpv
+aur:
+  - name: beeper-v4-bin
+  - name: logseq-og-bin
+  - name: ttf-ms-fonts
 required:
   # tailscale: the Noctalia Tailnet plugin is always enabled, and the tailnet role runs the
   # client when the supplement names a Tailnet.

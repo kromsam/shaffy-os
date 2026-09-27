@@ -1,0 +1,4 @@
+{{- /* XDG directories belong to the installation. Resolve them when rendering,
+       with explicit supplement overrides taking precedence on the first apply. */ -}}
+{{- $overrides := dig "folders" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
+{{- output "/usr/bin/python3" "-I" "-S" (joinPath .chezmoi.sourceDir "../lib/shaffy/folders.py") "resolve" .chezmoi.homeDir ($overrides | toJson) -}}

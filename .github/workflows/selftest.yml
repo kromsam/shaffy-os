@@ -1,5 +1,6 @@
 # Runs the fresh-clone-safe tests, a secret scan of the history and the REUSE licence
-# check. CI never sees a supplement.
+# check, plus the system operation tests in a disposable container. CI never
+# sees a private supplement.
 name: selftest
 on:
   push:
@@ -15,20 +16,39 @@ jobs:
       - name: Install the test toolset
         run: >-
           pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
-          chezmoi lua niri noctalia fish tmux gcc pkgconf wayland libxkbcommon gitleaks reuse
+          chezmoi lua niri noctalia fish tmux base-devel wayland libxkbcommon
+          mise uv gitleaks reuse xdg-user-dirs
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # gitleaks scans every commit
+      - name: Install the declared Ansible controller and collections
+        run: |
+          useradd --create-home tester
+          chown -R tester: "$GITHUB_WORKSPACE"
+          runuser -u tester -- env HOME=/home/tester sh -eu -c '
+            cd "$GITHUB_WORKSPACE"
+            mise trust mise.toml
+            mise install ansible-core
+            mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
+          '
       - name: Run the tests as an unprivileged user
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
         run: |
-          useradd --create-home tester
-          chown -R tester: "$GITHUB_WORKSPACE"
           runuser -u tester -- env HOME=/home/tester sh -c \
-            'cd "$GITHUB_WORKSPACE" && ./bin/shaffy selftest --skip-host -v'
+            'cd "$GITHUB_WORKSPACE" && mise exec ansible-core -- ./bin/shaffy selftest --skip-host -v'
       - name: Scan the history for secrets
         run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && gitleaks git --redact --no-banner .'
       - name: Check copyright and licence information
         run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && reuse lint'
+
+  system:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Exercise system applies and recovery in a disposable CachyOS container
+        env:
+          SHAFFY_CONTAINER_TESTS: '1'
+        run: python3 -m unittest discover -s tests -p test_system_container.py -v

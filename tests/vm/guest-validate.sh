@@ -629,7 +629,7 @@ stage_after_reboot() {
 
   confirm "SDDM showed its login screen and accepted the password"
   confirm "the Noctalia bar and the wallpaper are shown"
-  confirm "Super+Space opens the Shaffy OS main menu"
+  confirm "Super+Space opens the Noctalia launcher and typing immediately searches applications"
   if [[ $binding == 'Binding: public defaults only' ]]; then
     NEXT="bash $SHARE/guest-validate.sh supplement"
   else

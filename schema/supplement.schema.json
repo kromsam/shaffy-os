@@ -25,7 +25,7 @@
       "minProperties": 1,
       "properties": {
         "mcp_servers": {
-          "description": "MCP servers merged into the Claude and Codex configurations; a name overrides or extends the default of the same name.",
+          "description": "MCP servers merged into the Claude and Codex configurations; a name overrides or extends the default of the same name. Set enabled to false to remove that server from both configurations.",
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
@@ -119,7 +119,7 @@
       }
     },
     "folders": {
-      "description": "Names of the home folders (XDG user directories), relative to the home.",
+      "description": "Optional directory overrides relative to the home. Omitted standard roles follow the installation's XDG settings in any language. projects is a nonstandard target for compatibility links only.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
@@ -626,6 +626,10 @@
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
+        "enabled": {
+          "description": "Defaults to true. False removes this named MCP entry on home apply; omitting a server from settings leaves any existing entry alone.",
+          "type": "boolean"
+        },
         "command": {
           "description": "Program to start; a leading ~/ means the target home directory.",
           "type": "string",

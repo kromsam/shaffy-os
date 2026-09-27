@@ -1,5 +1,5 @@
-# Writing and research. Zotero is the reviewed local package in packages/zotero-bin. English
-# spelling and hyphenation; a supplement adds its languages' packages with packages.extra.
+# Writing and research. English spelling and hyphenation; a supplement adds its
+# languages' packages with packages.extra.
 packages:
   - zettlr
   - pandoc-cli
@@ -13,6 +13,9 @@ packages:
   - harper
   - otf-fira-sans
   - ttf-firacode-nerd
+aur:
+  - name: zotero-bin
+    replaces: zotero
 required:
   # The role selects LibreOffice's Tabbed interface in the target user's profile.
   - libreoffice-fresh
