@@ -148,6 +148,18 @@ class RenderTests(unittest.TestCase):
             apps = (home / '.config/noctalia/95-desktop-apps.toml').read_text()
             self.assertIn(f'directory = "{prefix}/Filme/Recordings"', apps)
 
+    def test_password_managers_and_credential_prompts_are_blocked_from_capture(self):
+        import re
+        rules = (ROOT / 'home/dot_config/niri/cfg/rules.kdl').read_text()
+        rule = re.search(r'match app-id=r#"([^"]+)"#\s*block-out-from "screen-capture"', rules)
+        self.assertIsNotNone(rule)
+        pattern = re.compile(rule[1])
+        for app_id in ('Bitwarden', '1Password', 'org.keepassxc.KeePassXC', 'gcr-prompter',
+                       'pinentry-qt', 'org.gnupg.pinentry-qt', 'org.gnome.World.Secrets'):
+            self.assertRegex(app_id, pattern)
+        for app_id in ('Alacritty', 'zen', 'bitwarden-login', 'org.gnome.Nautilus'):
+            self.assertNotRegex(app_id, pattern)
+
     def test_noctalia_public_defaults_skip_the_wizard_and_lock_when_idle(self):
         import tomllib
         with tempfile.TemporaryDirectory() as keep:
