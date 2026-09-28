@@ -16,9 +16,28 @@
 {{ end -}}
 [init]
     defaultBranch = main
+# Omarchy's Git defaults: rebase local commits on pull, track the remote branch on
+# the first push, clearer diffs and remembered conflict resolutions.
+[pull]
+    rebase = true
+[push]
+    autoSetupRemote = true
+[diff]
+    algorithm = histogram
+    colorMoved = plain
+    mnemonicPrefix = true
+[rerere]
+    enabled = true
+[branch]
+    sort = -committerdate
+[tag]
+    sort = -version:refname
+[column]
+    ui = auto
+[commit]
+    verbose = true
 {{- if $signing }}
+    gpgsign = true
 [gpg]
     format = ssh
-[commit]
-    gpgsign = true
 {{- end }}

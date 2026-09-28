@@ -14,6 +14,16 @@ sys.path.insert(0, str(ROOT / 'lib'))
 from shaffy import sandbox  # noqa: E402
 from shaffy.sandbox import RenderError, render  # noqa: E402
 
+# The public Git defaults every rendered ~/.config/git/config ends with.
+GIT_DEFAULTS = ('[init]\n    defaultBranch = main\n'
+                "# Omarchy's Git defaults: rebase local commits on pull, track the remote branch on\n"
+                '# the first push, clearer diffs and remembered conflict resolutions.\n'
+                '[pull]\n    rebase = true\n[push]\n    autoSetupRemote = true\n'
+                '[diff]\n    algorithm = histogram\n    colorMoved = plain\n    mnemonicPrefix = true\n'
+                '[rerere]\n    enabled = true\n[branch]\n    sort = -committerdate\n'
+                '[tag]\n    sort = -version:refname\n[column]\n    ui = auto\n'
+                '[commit]\n    verbose = true\n')
+
 DIRECT = os.environ.get('SHAFFY_RENDER_DIRECT') == '1'
 TOOLS = ('chezmoi', 'niri', 'noctalia', 'fish', 'xdg-user-dir')
 
@@ -219,8 +229,8 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             self.assertEqual((home / '.config/git/config').read_text(),
                              '[user]\n    name = Test Person\n    email = test@example.invalid\n'
-                             '    signingkey = /etc/os-release\n[init]\n    defaultBranch = main\n'
-                             '[gpg]\n    format = ssh\n[commit]\n    gpgsign = true\n')
+                             '    signingkey = /etc/os-release\n' + GIT_DEFAULTS
+                             + '    gpgsign = true\n[gpg]\n    format = ssh\n')
             dirs = (home / '.config/user-dirs.dirs').read_text()
             self.assertIn('XDG_PICTURES_DIR="$HOME/Bilder"', dirs)
             self.assertNotIn('XDG_DOCUMENTS_DIR=', dirs)
@@ -354,7 +364,7 @@ class RenderTests(unittest.TestCase):
                 self.assertNotRegex((home / '.config/noctalia' / fragment).read_text(), r'(?<![\w.-])/home/(?!tester(?:/|"))')
             self.assertIn(f'directory = "{home if DIRECT else "/home/tester"}/Screenshots"',
                           (home / '.config/noctalia/90-omarchy.toml').read_text())
-            self.assertEqual((home / '.config/git/config').read_text(), '[init]\n    defaultBranch = main\n')
+            self.assertEqual((home / '.config/git/config').read_text(), GIT_DEFAULTS)
             self.assertFalse((home / '.config/user-dirs.dirs').exists())
             for name in ('Documents', 'Work', '.hidden'):
                 self.assertFalse(os.path.lexists(home / name), name)

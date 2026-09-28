@@ -133,6 +133,18 @@ database still works, and an unknown name prints an error instead of guessing.
 The wrapper is active only when `zoxide` is installed, so a shell without it
 keeps the plain `cd`.
 
+## Git defaults
+
+`~/.config/git/config` (source `home/dot_config/git/config.tmpl`) carries
+Omarchy's Git defaults: `git pull` rebases local commits, the first `git push`
+of a branch sets its upstream, diffs use the histogram algorithm and colour
+moved lines, `rerere` remembers conflict resolutions, `git branch` lists the
+most recently committed branches first and `git tag` the newest versions
+first, and `git commit` shows the diff in the message editor. The name, e-mail
+and SSH signing come from the supplement's `identity` settings. Git reads
+`~/.gitconfig` and each repository's own configuration after this file, so
+their entries win.
+
 ## Worktrees and tmux with workmux
 
 [workmux](https://github.com/raine/workmux) gives each task its own Git worktree
