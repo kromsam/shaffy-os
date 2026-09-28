@@ -91,6 +91,13 @@ class PlatformDirectoryTests(unittest.TestCase):
         self.dirs.write_text('XDG_PICTURES_DIR="$HOME/Pictures"\n')
         self.assertIn('would point to itself', link_conflicts(settings, self.home)[0])
 
+    def test_a_link_to_an_unset_directory_would_point_at_the_home_and_is_refused(self):
+        settings = {'folder_links': {'Pictures': 'pictures'}}
+        for text in ('XDG_PICTURES_DIR="$HOME/"\n', 'XDG_MUSIC_DIR="$HOME/Music"\n'):
+            with self.subTest(text=text):
+                self.dirs.write_text(text)
+                self.assertIn('is the home itself', link_conflicts(settings, self.home)[0])
+
     def test_projects_has_no_guessed_language_or_xdg_entry(self):
         with self.assertRaisesRegex(ValueError, 'not a standard XDG'):
             folder_path({}, self.home, 'projects')

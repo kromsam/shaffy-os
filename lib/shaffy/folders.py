@@ -79,6 +79,11 @@ def link_conflicts(settings, home):
         if path == target:
             problems.append(f'folder_links.{name}: would point to itself; drop the unnecessary link')
             continue
+        if target == Path(home):
+            # xdg-user-dir answers with the home for an unset or disabled directory.
+            problems.append(f'folder_links.{name}: the {folder} directory is the home itself; set it in '
+                            'the installation\'s XDG settings or in folders, or drop the link')
+            continue
         if not path.is_symlink() and path.exists():
             problems.append(f'folder_links.{name}: {path} is a real {"folder" if path.is_dir() else "file"}; '
                             f'move its contents into {target} and remove it, or drop '

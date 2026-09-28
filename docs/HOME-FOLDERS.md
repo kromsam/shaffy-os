@@ -89,7 +89,8 @@ lists their names so GIO file managers hide the aliases in normal listings.
 Without links, an existing `~/.hidden` is also left alone.
 
 `check` and the home apply refuse links that would replace real files or
-folders, point at missing targets, or point to themselves. A matching English
+folders, point at missing targets, point to themselves, or point at the home
+itself, which is what `xdg-user-dir` answers for an unset directory. A matching English
 XDG directory does not need a link to itself. Removing a link declaration
 stops managing it; remove the actual symlink only after its old path is no
 longer needed.
