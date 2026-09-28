@@ -133,6 +133,14 @@ database still works, and an unknown name prints an error instead of guessing.
 The wrapper is active only when `zoxide` is installed, so a shell without it
 keeps the plain `cd`.
 
+## fzf keys in Fish
+
+`home/dot_config/fish/conf.d/65-fzf.fish` loads fzf's own Fish key bindings,
+as Omarchy does in Bash: **Ctrl+R** searches the command history, **Ctrl+T**
+inserts file paths below the current directory and **Alt+C** changes into one
+of its directories. fzf comes with CachyOS's Fish configuration; a shell
+without it keeps Fish's own keys.
+
 ## Git defaults
 
 `~/.config/git/config` (source `home/dot_config/git/config.tmpl`) carries
