@@ -26,6 +26,7 @@ system apply. Application profiles remain untouched.
 | Tailscale | `tailscale` | The `tailnet` role, only with `tailnet` settings; see [Tailnet](#tailnet). |
 | Remmina, FreeRDP | `remmina`, `freerdp` | Noctalia's Remmina plugin lists saved connections; profiles stay private. |
 | Neovim with LazyVim | `neovim`, `lazygit`, `tree-sitter-cli` | chezmoi's `~/.config/nvim`; see [LazyVim](#lazyvim). |
+| mpv | `mpv` | Plays video and audio; Niri keeps its window opaque, as Omarchy does. |
 | Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
 | tmux, zoxide, uv | `tmux`, `zoxide`, `uv` | See [workspace tools](WORKSPACE-TOOLS.md). |
 
