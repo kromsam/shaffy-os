@@ -41,6 +41,13 @@ configuration and launchers, but does not download new tool versions. The
 launchers use the versions installed through mise; Claude's launcher also sets
 `DISABLE_AUTOUPDATER=1`.
 
+`latest` means the newest release that is at least three days old
+(`minimum_release_age` in the same file), for every mise tool, including the
+Ansible controller. A compromised release is usually withdrawn within that
+time. The public file wins over the supplement's mise fragment; to take a fix
+that is younger once, run the script as
+`MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
+
 The GBrain revision and Zotero MCP version remain pinned in the script itself;
 change those pins before rerunning it to update either tool. Use this install
 path instead of the tools' own update commands, so mise keeps ownership of its

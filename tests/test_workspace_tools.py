@@ -110,8 +110,11 @@ class WorkspaceToolsTests(unittest.TestCase):
             self.assertEqual(len([p for p in layout['panes'] if p.get('focus')]), 1)
 
     def test_workspace_tools_use_latest_through_mise_everywhere(self):
-        tools = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())['tools']
+        config = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())
+        tools = config['tools']
         self.assertTrue(all(version == 'latest' for version in tools.values()))
+        # `latest` waits for releases to age, so a withdrawn release is not installed.
+        self.assertRegex(config['settings']['minimum_release_age'], r'^[1-9][0-9]*d$')
         self.assertIn('github:raine/workmux', tools)
         # The install script takes every version from that file: it keeps no copy of its own.
         script = (REPO / 'scripts/install-workspace-tools.sh').read_text()

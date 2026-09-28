@@ -11,5 +11,10 @@ bitwarden = "latest"
 "aqua:quarto-dev/quarto-cli" = "latest"
 "github:raine/workmux" = "latest"
 
+[settings]
+# `latest` is the newest release that is at least three days old, so a
+# compromised release is usually withdrawn before an install or upgrade takes it.
+minimum_release_age = "3d"
+
 [settings.upgrade]
 auto_prune = false
