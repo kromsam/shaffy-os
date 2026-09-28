@@ -121,6 +121,19 @@ class WorkspaceToolsTests(unittest.TestCase):
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
 
+    def test_launchers_run_installed_tools_without_version_lookups(self):
+        # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,
+        # with mise's default exec_auto_install, installs whatever is newer first.
+        sources = [*sorted((HOME / 'private_dot_local/bin').glob('executable_*')),
+                   REPO / 'scripts/install-workspace-tools.sh']
+        for path in sources:
+            for line in path.read_text().splitlines():
+                if 'mise exec ' in line:
+                    tools = (' ' + line.partition('mise exec ')[2]).partition(' -- ')[0]
+                    self.assertNotIn('@', tools, f'{path.name}: {line}')
+        gbrain = (HOME / 'private_dot_local/bin/executable_gbrain').read_text()
+        self.assertIn('exec /usr/bin/mise exec bun -- bun ', gbrain)
+
     def test_tmux_configuration_matches_omarchy_prefix_and_bar(self):
         conf = (HOME / 'dot_config/tmux/tmux.conf').read_text()
         self.assertIn('set -g prefix C-Space', conf)

@@ -33,5 +33,7 @@ fi
 cd "$gbrain_source"
 # Upstream postinstall migrates an existing database. Run migrations deliberately,
 # never as an install side effect.
-mise exec "bun@$(version bun)" -- bun install --frozen-lockfile --ignore-scripts
-mise exec "bun@$(version bun)" -- bun src/cli.ts version
+# `bun` without a version runs the release just installed; `bun@latest` would look up
+# and install the newest release of every other configured tool as well.
+mise exec bun -- bun install --frozen-lockfile --ignore-scripts
+mise exec bun -- bun src/cli.ts version
