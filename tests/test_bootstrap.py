@@ -18,9 +18,11 @@ from shaffy import bootstrap  # noqa: E402
 
 
 class VersionRecordTests(unittest.TestCase):
-    def test_mise_tracks_latest_ansible_core(self):
-        version = tomllib.loads((ROOT / 'mise.toml').read_text())['tools']['ansible-core']
-        self.assertEqual(version, 'latest')
+    def test_mise_declares_only_the_latest_ansible_core(self):
+        # The checkout's mise.toml is the controller; personal and desktop tools belong in the
+        # home's mise configuration, or `mise install` in any checkout would fetch them too.
+        tools = tomllib.loads((ROOT / 'mise.toml').read_text())['tools']
+        self.assertEqual(tools, {'ansible-core': 'latest'})
 
     def test_collections_are_pinned_to_exact_versions(self):
         pinned = bootstrap.pinned_collections(ROOT)

@@ -3,4 +3,3 @@
 # Install it with `mise install ansible-core` (see README, Bootstrap).
 [tools]
 ansible-core = "latest"
-codex = "latest"
