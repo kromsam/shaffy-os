@@ -85,6 +85,7 @@ def menu(name='menu'):
                   'Toggle window transparency': ['niri', 'msg', 'action', 'toggle-window-rule-opacity'],
                   'Toggle gaps and borders': [SELF, 'gaps'],
                   'Night light': ['noctalia', 'msg', 'nightlight-force-toggle'],
+                  'Stay awake': ['noctalia', 'msg', 'caffeine-toggle'],
                   'Toggle top bar': ['noctalia', 'msg', 'bar-toggle']},
         'capture': {'Screenshot region and annotate': ['noctalia', 'msg', 'screenshot-region'],
                     'Screenshot monitor': ['noctalia', 'msg', 'screenshot-fullscreen'],

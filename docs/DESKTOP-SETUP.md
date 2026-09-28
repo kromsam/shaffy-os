@@ -258,11 +258,26 @@ it. Noctalia saves the choice per monitor in its state, which loads last, so lat
 applies keep it. The managed fragment sets only the folder and the default image,
 which is also the initial selection.
 
-The lock screen shows `desktop.lock_screen.image`. Locking is manual: Noctalia's
-idle lock, screen-off and suspend stay at their default, off, and the screen
-locks on **Super+Alt+L** or **Super+Ctrl+L**, and before suspend (Noctalia's
-default). Omarchy's screensaver and lock timers are not reproduced. The
-lock-screen widgets and their layout are Noctalia's own.
+The lock screen shows `desktop.lock_screen.image`. As in Omarchy, the session
+locks after five minutes without input: the screen dims for three seconds
+first, and any input cancels the lock. The screens turn off 30 seconds after
+any lock. Applications that inhibit idle, such as a playing video, keep the
+session awake, and **Super+Ctrl+I** switches caffeine on or off, which pauses
+the idle lock (also in the main menu under Style, and in the control centre).
+**Super+Alt+L** or **Super+Ctrl+L** locks at once, and Noctalia locks before
+suspend. Idle never suspends the machine.
+
+The timings are `[idle.behavior.lock]` and `[idle.behavior.screen-off]` in
+`90-omarchy.toml`. A supplement changes them in its Noctalia fragment
+(`overrides.noctalia`):
+
+```toml
+[idle.behavior.lock]
+timeout = 600        # or enabled = false to lock only by hand
+```
+
+Omarchy's screensaver is not reproduced. The lock-screen widgets and their
+layout are Noctalia's own.
 
 ## Everyday shortcuts
 
@@ -300,6 +315,7 @@ additions (clipboard, capture, panels, notifications, timer, toggles).
 | Super+Shift+V | Switch focus between floating and tiled windows |
 | Super+[ / Super+] | Move the window into or out of the neighbouring column |
 | Super+Alt+L / Super+Ctrl+L | Lock |
+| Super+Ctrl+I | Stay awake: pause or resume the idle lock |
 | Super+Shift+Q / Super+Escape / Ctrl+Alt+Delete | Session menu |
 | Super+Shift+S | Noctalia settings |
 | Super+Ctrl+V | Clipboard history |

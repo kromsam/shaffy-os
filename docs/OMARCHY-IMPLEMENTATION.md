@@ -5,8 +5,8 @@ Niri and Noctalia 5.1. It keeps Noctalia's built-in Rosé Pine palette in light
 mode rather than Omarchy's default Tokyo Night or its Matte Black theme, so the
 colours differ while the layout, controls and shortcuts follow the pinned
 reference (see [sources](#sources)). Direct launcher search on Super+Space,
-manual locking, the supplement's wallpapers, keyboard layouts and displays are
-deliberate departures from a fresh Omarchy installation. Everyday use is in
+the supplement's wallpapers, keyboard layouts and displays are deliberate
+departures from a fresh Omarchy installation. Everyday use is in
 [desktop setup](DESKTOP-SETUP.md), the palette in
 [theme and controls](NOCTALIA-INTEGRATION.md).
 
@@ -64,6 +64,7 @@ overlay. These are the Omarchy additions to the everyday shortcuts in
 | Super+Ctrl+Comma / Super+Alt+Comma | Do Not Disturb / open the latest notification |
 | Super+Comma / Super+Shift+Alt+Comma | Notification history |
 | Super+Ctrl+N | Night light at 4000 K on demand; the next press restores normal output |
+| Super+Ctrl+I | Stay awake: caffeine pauses the idle lock until pressed again |
 | Super+Ctrl+C | Capture menu |
 | Print / Ctrl+Print | Region with annotation / monitor screenshot |
 | Alt+Print | Start or stop recording |
@@ -182,8 +183,10 @@ package that a group still installs.
   recording or list of reminders, and no Tensaku annotation workflow. Omarchy's
   QML shell cannot be loaded as Noctalia configuration or plugins; porting a
   component means implementing it against Noctalia's API.
-- **Idle.** Omarchy starts a screensaver after 150 s and locks after 300 s [O13];
-  Shaffy OS locks only on request and before suspend.
+- **Idle.** Omarchy starts a screensaver after 150 s and locks after 300 s [O13].
+  Shaffy OS locks after the same 300 s, after a three-second dim, and turns the
+  screens off 30 s later; it has no screensaver. Caffeine on Super+Ctrl+I stands
+  in for Omarchy's stay-awake toggle.
 - **Timer.** The official timer has no reset command, so Super+Ctrl+Shift+R does
   nothing until it gains one; a change that adds it, with a reminder message and a
   deadline that survives a restart, is being proposed upstream.

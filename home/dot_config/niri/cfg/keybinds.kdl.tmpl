@@ -228,6 +228,7 @@ binds {
     Mod+Shift+Alt+Comma repeat=false hotkey-overlay-title="Notification history" { spawn "noctalia" "msg" "panel-toggle" "control-center" "notifications"; }
     Mod+Comma repeat=false hotkey-overlay-title="Notification history (Noctalia lacks dismiss-one IPC)" { spawn "noctalia" "msg" "panel-toggle" "control-center" "notifications"; }
     Mod+Ctrl+N repeat=false hotkey-overlay-title="Night light on demand" { spawn "noctalia" "msg" "nightlight-force-toggle"; }
+    Mod+Ctrl+I repeat=false hotkey-overlay-title="Stay awake: pause the idle lock" { spawn "noctalia" "msg" "caffeine-toggle"; }
     Print repeat=false hotkey-overlay-title="Screenshot and annotate" { spawn "noctalia" "msg" "screenshot-region"; }
     Ctrl+Print repeat=false hotkey-overlay-title="Screenshot monitor" { spawn "noctalia" "msg" "screenshot-fullscreen"; }
     Alt+Print repeat=false hotkey-overlay-title="Start / stop screen recording" { spawn "noctalia" "msg" "plugin" "noctalia/screen_recorder:service" "all" "toggle"; }

@@ -148,13 +148,23 @@ class RenderTests(unittest.TestCase):
             apps = (home / '.config/noctalia/95-desktop-apps.toml').read_text()
             self.assertIn(f'directory = "{prefix}/Filme/Recordings"', apps)
 
-    def test_noctalia_skips_its_first_run_wizard_with_the_public_defaults(self):
+    def test_noctalia_public_defaults_skip_the_wizard_and_lock_when_idle(self):
         import tomllib
         with tempfile.TemporaryDirectory() as keep:
             self.assertClean(render(ROOT, without=True, keep=keep))
-            omarchy = tomllib.loads((Path(keep) / 'home/.config/noctalia/90-omarchy.toml').read_text())
+            home = Path(keep) / 'home'
+            omarchy = tomllib.loads((home / '.config/noctalia/90-omarchy.toml').read_text())
+            keybinds = (home / '.config/niri/cfg/keybinds.kdl').read_text()
         self.assertIs(omarchy['shell']['setup_wizard_enabled'], False)
         self.assertIs(omarchy['shell']['polkit_agent'], True)
+        behaviors = omarchy['idle']['behavior']
+        self.assertEqual((behaviors['lock']['action'], behaviors['lock']['timeout']), ('lock', 300))
+        self.assertEqual(behaviors['screen-off']['action'], 'screen_off')
+        self.assertGreater(behaviors['screen-off']['timeout'], behaviors['lock']['timeout'])
+        self.assertTrue(all(behavior['enabled'] for behavior in behaviors.values()))
+        self.assertNotIn('suspend', behaviors)  # a laptop that suspends by itself loses work
+        self.assertIn('Mod+Ctrl+I', keybinds)
+        self.assertIn('"caffeine-toggle"', keybinds)
 
     def test_overrides_are_rendered_last_and_win(self):
         with tempfile.TemporaryDirectory() as keep:

@@ -140,6 +140,25 @@ enabled = false
 [lockscreen]
 wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_screen.image) | toJson }}
 
+# Omarchy locks after five minutes without input. The screen dims for three seconds
+# first, and any input cancels the lock. Applications that inhibit idle, such as a
+# playing video, and caffeine (Super+Ctrl+I) keep the session awake. The screens
+# turn off 30 seconds after the lock, whether it came from idle or from a key.
+[idle]
+behavior_order = ["lock", "screen-off"]
+pre_action_fade_seconds = 3.0
+
+[idle.behavior.lock]
+action = "lock"
+timeout = 300
+enabled = true
+
+[idle.behavior.screen-off]
+action = "screen_off"
+timeout = 330
+locked_timeout = 30
+enabled = true
+
 [notification]
 background_opacity = 1.0
 max_visible = 3

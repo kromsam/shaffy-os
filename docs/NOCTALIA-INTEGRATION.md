@@ -80,8 +80,8 @@ and no bar buttons are added. The Tailnet and Syncthing panel entries in
 The lock screen shows the supplement's `desktop.lock_screen.image`, which
 `90-omarchy.toml` renders as `[lockscreen] wallpaper`; without it, Noctalia's own
 wallpaper, `/usr/share/noctalia/assets/noctalia-wallpaper.png`. The lock-screen
-widgets and their layout are Noctalia's own, and locking stays manual (see
-[wallpaper and lock screen](DESKTOP-SETUP.md#wallpaper-and-lock-screen)). Disk
+widgets and their layout are Noctalia's own; the idle lock and its timings are in
+[wallpaper and lock screen](DESKTOP-SETUP.md#wallpaper-and-lock-screen). Disk
 unlock, login and the keyring are separate; see [login keyring](LOGIN-KEYRING.md).
 
 ## Ownership and validation
