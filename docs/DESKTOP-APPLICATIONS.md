@@ -231,8 +231,20 @@ also holds the earlier `/etc`.
 
 ## Docker
 
-The `workflows` role installs Docker, Compose and Buildx, adds the target user
-to the `docker` group and enables `docker.service`; it starts no containers.
+The `workflows` role installs Docker, Compose and Buildx and enables
+`docker.service`; it starts no containers. It does not add the target user to
+the `docker` group: members of that group control the engine, which runs as
+root, so membership would give any program running as the user root access
+without a password. Run Docker through sudo instead:
+
+```sh
+sudo docker ps
+sudo docker compose up -d
+```
+
+An earlier Shaffy OS added the target user to the group, and a system apply
+does not undo that. To leave it, run `sudo gpasswd -d "$USER" docker` and log
+out and back in; `id -nG` then no longer lists `docker`.
 
 Docker filters published ports in its own firewall chains, before UFW sees them,
 so UFW's default incoming policy does not protect a published port. The role

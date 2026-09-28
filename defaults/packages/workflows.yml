@@ -28,5 +28,5 @@ packages:
   - meson
   - tomlplusplus
 required:
-  # docker.service is enabled and the target user joins the docker group.
+  # docker.service is enabled; the target user uses it through sudo, outside the docker group.
   - docker

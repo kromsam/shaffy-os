@@ -74,6 +74,23 @@ class DockerEngineTests(unittest.TestCase):
         handlers = yaml.safe_load((ROOT / 'roles/workflows/handlers/main.yml').read_text())
         self.assertIn('Restart the Docker engine', [handler['name'] for handler in handlers])
 
+    def test_no_role_adds_a_user_to_the_root_equivalent_docker_group(self):
+        def user_tasks(node):  # tasks nested in blocks included
+            if isinstance(node, dict):
+                for key in ('ansible.builtin.user', 'user'):
+                    if isinstance(node.get(key), dict):
+                        yield node[key]
+                for value in node.values():
+                    yield from user_tasks(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from user_tasks(item)
+        for path in sorted((ROOT / 'roles').glob('*/tasks/*.yml')):
+            for user in user_tasks(yaml.safe_load(path.read_text())):
+                groups = user.get('groups', [])
+                groups = groups.split(',') if isinstance(groups, str) else groups
+                self.assertNotIn('docker', [group.strip() for group in groups], path)
+
 
 if __name__ == '__main__':
     unittest.main()

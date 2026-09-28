@@ -3,11 +3,8 @@
   community.general.pacman:
     name: "{{ shaffy.packages.groups.workflows }}"
     state: present
-- name: Allow the existing administrator to use the local Docker socket
-  ansible.builtin.user:
-    name: '{{ shaffy_target_user }}'
-    groups: docker
-    append: true
+# The target user is not added to the docker group: its members control the engine, which
+# runs as root, so membership is root access without a password. Docker runs through sudo.
 # Docker filters published ports in its own chains, before UFW sees them. A port published
 # without a host address therefore binds to loopback: `ip` covers the default bridge and
 # `default-network-opts` every network created afterwards, such as Compose's.
