@@ -34,6 +34,15 @@ def action(*args):
     run(['niri', 'msg', 'action', *map(str, args)], stdout=subprocess.DEVNULL)
 
 
+def music():
+    """Focus Spotify if it is open, otherwise launch the repository's client."""
+    for window in query('windows'):
+        if (window.get('app_id') or '').casefold() == 'spotify':
+            action('focus-window', '--id', window['id'])
+            return
+    subprocess.Popen(['spotify-launcher'], start_new_session=True)
+
+
 def notify(message):
     ipc('notification-show', json.dumps({'summary': 'Desktop', 'body': message, 'timeout_ms': 8000}))
 
@@ -259,6 +268,8 @@ def main(args):
         clipboard(command)
     elif command in {'ocr', 'qr'}:
         capture_text(command)
+    elif command == 'music':
+        music()
     else:
         {'gaps': gaps, 'square': square, 'scratchpad': scratchpad, 'color': color, 'transcode': transcode}[command]()
 

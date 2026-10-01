@@ -297,6 +297,7 @@ additions (clipboard, capture, panels, notifications, timer, toggles).
 | Super+Shift+Alt+B | Private Zen Browser window |
 | Super+E | File manager (Nautilus) |
 | Super+Shift+E / Super+Shift+N | Neovim (LazyVim) in Alacritty |
+| Super+Shift+M | Launch or focus Spotify |
 | Super+Q / Super+W | Close window |
 | Super+arrows, Super+H/J/L | Focus column or window |
 | Super+Shift+arrows, Super+Ctrl+arrows, Super+Ctrl+H/J/K | Move column or window |
