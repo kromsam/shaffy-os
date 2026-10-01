@@ -3,11 +3,16 @@
 # rendered as conf.d/90-supplement.toml.
 [tools]
 claude = "latest"
-codex = "0.155.0"
+codex = "latest"
 bun = "1.4.2"
 bitwarden = "2026.9.0"
 "aqua:quarto-dev/quarto-cli" = "1.9.38"
 "cargo:raine/workmux" = "tag:v0.1.264"
+
+"npm:agent-browser" = "latest"
+
+[settings]
+minimum_release_age = "3d"
 
 [settings.upgrade]
 auto_prune = false

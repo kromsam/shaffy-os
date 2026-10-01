@@ -2,6 +2,8 @@
 # Shaffy OS public defaults. A supplement overrides these; see supplement.example/.
 schema_version: 1
 ai:
+  compound_engineering:
+    enabled: true
   mcp_servers:
     zotero:
       command: "~/.local/bin/zotero-mcp"
