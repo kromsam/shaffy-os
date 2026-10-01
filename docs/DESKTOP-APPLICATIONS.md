@@ -19,6 +19,7 @@ leave them out.
 | --- | --- | --- |
 | Zen Browser | `zen-browser-bin` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. |
 | Chromium | `chromium` | A second browser for sites that need it. |
+| Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
 | Beeper | AUR `beeper-v4-bin` | A launcher entry that keeps Chromium's sandbox; its account and profile are its own. |
 | Logseq OG | AUR `logseq-og-bin` | The file-based Logseq; its launcher keeps the usual `~/.config/Logseq` profile. |
 | Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |
@@ -45,6 +46,27 @@ in [Writing tools](#writing-tools).
 The system apply asks for the sudo password in the terminal. The `desktop_apps`
 role installs the group, then includes the `aur_package` role for each AUR
 package that is missing; see [AUR packages](#aur-packages).
+
+## Spotify
+
+Spotify uses the repository package `spotify-launcher`, available in CachyOS
+and Arch's Extra repository. On first launch it downloads the official Spotify
+client into the user's home; later launches check for client updates. Those
+binaries, the profile and the account remain application data outside both
+repositories. `packages.omit: [spotify-launcher]` leaves it out of the default
+application set.
+
+**Super+Shift+M** launches the client or focuses an existing Spotify window.
+The application launcher also lists Spotify through the package's desktop entry.
+No Spotify theme or extra launch flags are configured.
+
+Omarchy's [Spotify installer](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-install-service-spotify)
+installs its own prebuilt `spotify` package and opens it. Its
+[launcher](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-launch-spotify)
+focuses an existing window or offers installation when the package is missing.
+Shaffy OS declares its package for the system apply instead; the shortcut only
+launches or focuses. See the [spotify-launcher documentation](https://github.com/kpcyrd/spotify-launcher)
+for how the official client is downloaded and updated.
 
 ## Default browser and document types
 

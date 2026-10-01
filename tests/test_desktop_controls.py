@@ -32,6 +32,27 @@ class DesktopControlsTests(unittest.TestCase):
             desktop.menu()
         run.assert_not_called()
 
+    def test_music_focuses_an_existing_spotify_window_without_launching(self):
+        windows = [{'id': 2, 'app_id': None}, {'id': 7, 'app_id': 'Spotify'},
+                   {'id': 8, 'app_id': 'spotify'}]
+        with patch.object(desktop, 'query', return_value=windows) as query, \
+                patch.object(desktop, 'action') as action, \
+                patch.object(desktop.subprocess, 'Popen') as launch:
+            desktop.main(['music'])
+        query.assert_called_once_with('windows')
+        action.assert_called_once_with('focus-window', '--id', 7)
+        launch.assert_not_called()
+
+    def test_music_launches_spotify_without_matching_a_browser_tab_title(self):
+        for windows in ([], [{'id': 2, 'app_id': 'zen', 'title': 'Spotify - Web Player'}]):
+            with self.subTest(windows=windows), \
+                    patch.object(desktop, 'query', return_value=windows), \
+                    patch.object(desktop, 'action') as action, \
+                    patch.object(desktop.subprocess, 'Popen') as launch:
+                desktop.main(['music'])
+            action.assert_not_called()
+            launch.assert_called_once_with(['spotify-launcher'], start_new_session=True)
+
     def test_cancelled_selection_does_not_capture_or_replace_clipboard(self):
         with patch.object(desktop.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, '', '')) as run:
             desktop.capture_text('ocr')

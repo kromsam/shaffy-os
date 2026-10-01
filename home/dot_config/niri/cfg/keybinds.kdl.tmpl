@@ -14,6 +14,7 @@ binds {
     Mod+Return                          hotkey-overlay-title="Open Terminal: Alacritty" { spawn "alacritty"; }
     Mod+Alt+Return hotkey-overlay-title="Terminal workspace: tmux" { spawn "alacritty" "-e" "tmux" "new-session" "-A" "-s" "Work"; }
     Mod+B                               hotkey-overlay-title="Open Browser: Zen" { spawn "zen-browser"; }
+    Mod+Shift+M repeat=false hotkey-overlay-title="Music: Spotify" { spawn "{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" "music"; }
 
     // --- Noctalia ---
     Mod+Shift+Return hotkey-overlay-title="Browser" { spawn "zen-browser"; }
