@@ -53,6 +53,10 @@ Run `claude` or `codex` in a project. The home apply merges the MCP servers of
 `ai.mcp_servers` into `~/.claude.json` and `~/.codex/config.toml` and keeps
 every other setting in both files; restart running sessions to see a change.
 
+Set `ai.mcp_servers.NAME.enabled: false` in the supplement to remove that named
+server from both clients on a home apply. Omitting its name leaves an existing
+entry alone.
+
 The public default is one server, Zotero MCP, reading the local library through
 Zotero's local API with writes switched off (`ZOTERO_LOCAL=true`,
 `ZOTERO_LOCAL_WRITE=false`). The `zotero` integration switches the local API on
@@ -272,9 +276,8 @@ Setting the integration to `disabled` stops managing its files; since it
 enabled nothing, nothing is switched off, and the brain stays as it is. To
 withdraw the AI tools' access, stop the service and delete
 `~/.config/gbrain-mcp/client.json`: the unit no longer starts and the proxy has
-no credentials. The home apply adds and updates MCP entries but never removes
-one, so a `gbrain` entry taken out of `ai.mcp_servers` stays in the AI tools'
-configuration until it is removed there.
+no credentials. Set `ai.mcp_servers.gbrain.enabled: false` in the supplement
+to remove its MCP entry from both AI clients on a home apply.
 
 The copy made before the first registration is the brain as it was then. Restore
 it only with the service stopped, after keeping any later changes.

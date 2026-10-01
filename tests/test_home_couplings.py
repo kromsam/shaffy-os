@@ -7,6 +7,7 @@ import runpy
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 
 REPO = Path(__file__).resolve().parents[1]
@@ -62,7 +63,7 @@ class CheckoutPathTests(unittest.TestCase):
 class ApplyingCheckoutTests(unittest.TestCase):
     """Render the AI configs from a copy of the source with a marker server."""
 
-    def render(self, source_name, target, existing):
+    def render(self, source_name, target, existing, supplement=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, dest = root / 'checkout', root / 'home'
@@ -74,6 +75,10 @@ class ApplyingCheckoutTests(unittest.TestCase):
             (source / 'defaults/config.yaml').write_text(
                 'schema_version: 1\nai:\n  mcp_servers:\n    marker:\n'
                 '      command: "/only/in/this/checkout"\n      args: []\n')
+            if supplement:
+                (source / 'supplement').mkdir()
+                (source / 'supplement/config.yaml').write_text(
+                    'schema_version: 1\nsupplement_id: test\n' + supplement)
             shim = source / 'home' / source_name
             shim.parent.mkdir(parents=True)
             shutil.copy(HOME / source_name, shim)
@@ -100,6 +105,27 @@ class ApplyingCheckoutTests(unittest.TestCase):
         data = json.loads(output)
         self.assertEqual(data['mcpServers']['marker']['command'], '/only/in/this/checkout')
         self.assertEqual(data['theme'], 'dark')
+
+    def test_supplement_can_disable_a_default_and_add_a_server_in_both_clients(self):
+        supplement = ('ai:\n  mcp_servers:\n    marker:\n      enabled: false\n'
+                      '    new:\n      enabled: true\n      command: "~/bin/new-mcp"\n')
+        for source, target, existing, parse, key in (
+                ('private_dot_codex/modify_private_config.toml', '.codex/config.toml',
+                 'model="kept"\n[mcp_servers.marker]\ncommand="old"\n', tomllib.loads, 'mcp_servers'),
+                ('modify_private_dot_claude.json', '.claude.json',
+                 '{"theme":"dark","mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers')):
+            with self.subTest(target=target):
+                output = self.render(source, target, existing, supplement)
+                servers = parse(output)[key]
+                self.assertNotIn('marker', servers)
+                self.assertEqual(Path(servers['new']['command']).parts[-3:], ('home', 'bin', 'new-mcp'))
+                self.assertNotIn('enabled', servers['new'])
+                self.assertEqual(servers['new']['args'], [])
+
+    def test_a_new_claude_file_with_the_default_server_disabled_is_valid_json(self):
+        output = self.render('modify_private_dot_claude.json', '.claude.json', '',
+                             'ai:\n  mcp_servers:\n    marker:\n      enabled: false\n')
+        self.assertEqual(json.loads(output), {})
 
 
 if __name__ == '__main__':

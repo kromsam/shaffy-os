@@ -74,6 +74,14 @@ class ValidInputTests(LoaderCase):
         servers = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']
         self.assertEqual(servers['zotero']['args'], [])
 
+    def test_servers_can_be_explicitly_disabled_without_a_command(self):
+        path = self.supplement('schema_version: 1\nsupplement_id: t\n'
+                               'ai:\n  mcp_servers:\n    zotero:\n      enabled: false\n'
+                               '    other:\n      enabled: false\n')
+        servers = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']
+        self.assertFalse(servers['zotero']['enabled'])
+        self.assertEqual(servers['other'], {'enabled': False})
+
 
 class InvalidInputTests(LoaderCase):
     def test_duplicate_key_names_line(self):
@@ -148,6 +156,11 @@ class InvalidInputTests(LoaderCase):
         message = self.problems('schema_version: 1\nsupplement_id: t\n'
                                 'ai:\n  mcp_servers:\n    other:\n      args: []\n')
         self.assertIn('ai.mcp_servers.other: needs a command', message)
+
+    def test_server_enabled_must_be_a_boolean(self):
+        message = self.problems('schema_version: 1\nsupplement_id: t\n'
+                                'ai:\n  mcp_servers:\n    zotero:\n      enabled: "false"\n')
+        self.assertIn('ai.mcp_servers.zotero.enabled: must be of type boolean', message)
 
 
 class ReferenceTests(LoaderCase):

@@ -164,7 +164,7 @@ layout. Both are applied by the home apply and described in
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
-| `ai.mcp_servers.NAME` | An MCP server, `{command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new name needs a `command`. Other entries in those files stay, and a server removed from the settings is not removed from them. | The default `zotero` server. | home |
+| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from both clients. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new enabled name needs a `command`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `zotero` server. | home |
 | `ai.gbrain.source` | The GBrain source that the read-only MCP server may search; `scripts/configure-gbrain-mcp.sh` reads it (see [workspace tools](WORKSPACE-TOOLS.md)). | The helper refuses. | by hand |
 
 ### tailnet

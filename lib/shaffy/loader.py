@@ -166,7 +166,7 @@ BACKUP_MARKER = ('.local', 'state', 'shaffy', 'home-backup')
 def _effective_problems(settings):
     servers = settings.get('ai', {}).get('mcp_servers', {})
     problems = [f'effective settings: ai.mcp_servers.{name}: needs a command'
-                for name, spec in servers.items() if 'command' not in spec]
+                for name, spec in servers.items() if spec.get('enabled', True) and 'command' not in spec]
     for exclude in settings.get('backup', {}).get('excludes', []):
         parts = tuple(part for part in exclude[2:].split('/') if part)
         if parts == BACKUP_MARKER[:len(parts)]:
