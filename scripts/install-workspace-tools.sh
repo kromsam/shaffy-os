@@ -11,29 +11,12 @@ version() {  # the selector home/dot_config/mise/config.toml declares for a tool
     "$repo/home/dot_config/mise/config.toml" "$1"
 }
 tools=()
-for tool in claude codex bun ruby bitwarden github:raine/workmux; do
+for tool in claude codex bun ruby bitwarden github:raine/workmux npm:agent-browser; do
   tools+=("$tool@$(version "$tool")")
 done
 mise install -y "${tools[@]}"
 
 uv tool install --python /usr/bin/python3 --torch-backend cpu 'zotero-mcp-server[semantic,pdf]==0.12.4'
 
-gbrain_source="$HOME/.local/share/gbrain/source"
-gbrain_revision=d13aa742fd68b71bfd6c98be3dda5813791f1d6c
-if [[ ! -d "$gbrain_source/.git" ]]; then
-  [[ ! -e "$gbrain_source" ]]
-  mkdir -p "$(dirname -- "$gbrain_source")"
-  git clone https://github.com/garrytan/gbrain.git "$gbrain_source"
-fi
-[[ -z $(git -C "$gbrain_source" status --porcelain) ]]
-if [[ $(git -C "$gbrain_source" rev-parse HEAD) != "$gbrain_revision" ]]; then
-  git -C "$gbrain_source" fetch origin "$gbrain_revision"
-  git -C "$gbrain_source" checkout --detach "$gbrain_revision"
-fi
-cd "$gbrain_source"
-# Upstream postinstall migrates an existing database. Run migrations deliberately,
-# never as an install side effect.
-# `bun` without a version runs the release just installed; `bun@latest` would look up
-# and install the newest release of every other configured tool as well.
-mise exec bun -- bun install --frozen-lockfile --ignore-scripts
-mise exec bun -- bun src/cli.ts version
+mise exec -- agent-browser install
+/usr/bin/python3 "$repo/scripts/install-compound-engineering.py"

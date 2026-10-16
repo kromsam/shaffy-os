@@ -14,9 +14,10 @@ before mise activates in a shell.
 | Codex CLI | mise `codex = "latest"` |
 | Bitwarden CLI (`bw`) | mise `bitwarden = "latest"` |
 | workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
-| Bun | mise `bun = "latest"`, the runtime of GBrain |
+| Bun | mise `bun = "latest"`, for JavaScript tooling |
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
-| GBrain | `garrytan/gbrain` at revision `d13aa742fd68b71bfd6c98be3dda5813791f1d6c`, in `~/.local/share/gbrain/source` |
+| Compound Engineering | Native Claude Code and Codex plugin from `EveryInc/compound-engineering-plugin`, tracking `main` |
+| agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
 | Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.12.4 through uv, with CPU-only PyTorch |
 | tmux, zoxide | the `desktop_apps` package group |
 | Sticky Notes | Noctalia's community plugin `ahmedhossamdev/sticky-notes`, updated by Noctalia |
@@ -30,7 +31,7 @@ supplement's mise fragment (`overrides.mise`), which renders as
 ```sh
 ./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
-bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, GBrain's source
+bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, Compound Engineering and its browser fallback
 ./bin/shaffy status
 ```
 
@@ -48,8 +49,9 @@ time. The public file wins over the supplement's mise fragment; to take a fix
 that is younger once, run the script as
 `MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
 
-The GBrain revision and Zotero MCP version remain pinned in the script itself;
-change those pins before rerunning it to update either tool. Use this install
+The Zotero MCP version remains pinned in the script itself; change its pin
+before rerunning it to update. Compound Engineering refreshes from upstream
+`main` through both hosts' native plugin managers; home apply never downloads it. Use this install
 path instead of the tools' own update commands, so mise keeps ownership of its
 binaries and the other tools retain their declared versions. Quarto also uses
 `latest` in the mise configuration and is installed or updated by
@@ -241,82 +243,77 @@ sources the rendered `tmux.conf` on a private tmux server
 workmux's configuration. The home apply keeps a copy of every file it changes
 under `~/.local/state/shaffy/runs/`.
 
-## GBrain
+## Compound Engineering
 
-The `gbrain` integration serves a local [GBrain](https://github.com/garrytan/gbrain)
-knowledge base to the AI tools as a read-only MCP server. It installs the
-launchers `~/.local/bin/gbrain` and `~/.local/bin/gbrain-mcp`, the proxy
-`~/.local/lib/shaffy/gbrain-mcp-proxy.py` and the user unit `gbrain-mcp.service`.
-The brain itself, in `~/.gbrain`, is GBrain's own data: Shaffy OS never creates,
-migrates or overwrites it. The supplement requests the integration, names the
-one source the AI tools may read and registers the server:
+[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin)
+is the default workflow plugin for Claude Code and Codex. Public settings declare
+`ai.compound_engineering.enabled: true`; a supplement may set it to false.
+This is global activation, not repository creation: no CE files are added to new
+repositories. With false, new repositories start with CE off unless native
+project settings explicitly enable it. Linked worktrees follow the host-specific
+settings rules described below.
+The home apply merges the plugin and marketplace entries into Claude's
+`~/.claude/settings.json` and Codex's `~/.codex/config.toml`, preserving other
+plugins, hooks, permissions and MCP servers. Their native registries and caches
+remain application data.
 
-```yaml
-integrations:
-  gbrain: managed
-ai:
-  gbrain:
-    source: my-notes
-  mcp_servers:
-    gbrain:
-      command: "~/.local/bin/gbrain-mcp"
+After home apply, the workspace installer materializes or refreshes the declared
+plugin in both hosts. `scripts/install-compound-engineering.py` can refresh only
+CE; it refuses until the declared settings have been applied. The install record
+at `~/.local/state/shaffy/compound-engineering/installed.json` captures the hosts'
+reported versions for diagnosis. Upstream `main` advances on explicit refresh;
+there is no private fork or exported duplicate skill tree. Restart sessions to
+load the updated plugin.
+
+For opt-in, set `ai.compound_engineering.enabled: false` in the private supplement.
+CE remains installed. Native installers enable it globally, so the refresh helper
+reapplies the declared policy through `./bin/shaffy apply --home`, including when
+an installation command fails. Close agent sessions before refreshing.
+
+Enable CE for one local checkout with these native settings. Declare personal
+files as private supplement assets, and ignore them through a supplement-owned
+`~/.config/git/ignore` or the repository's local Git excludes. Keep any existing
+settings and permission rules when bringing a file under management.
+
+```json
+{
+  "enabledPlugins": {
+    "compound-engineering@compound-engineering-plugin": true
+  }
+}
 ```
 
-Then install, apply and scope it, as the desktop user:
+The JSON goes in `.claude/settings.local.json`. Codex reads this TOML from
+`.codex/config.toml`:
 
-```sh
-bash scripts/install-workspace-tools.sh   # latest Bun and GBrain's pinned source revision
-./bin/shaffy apply --home                 # launchers, proxy, unit and the MCP entry
-bash scripts/configure-gbrain-mcp.sh      # a read-only client for ai.gbrain.source
+```toml
+[plugins."compound-engineering@compound-engineering-plugin"]
+enabled = true
 ```
 
-The install script checks out the pinned revision and installs its dependencies
-from the frozen lockfile without running package scripts, since upstream's
-postinstall can migrate a database or start setup work. Schema upgrades are a
-deliberate GBrain command, never a side effect of installing.
+Codex only reads project configuration in trusted projects. Do not grant trust
+automatically to activate CE. Claude Code uses the main checkout's local settings
+for linked worktrees on supported versions; Codex needs its project configuration
+in each opted-in worktree. A tracked `.claude/settings.json` can also explicitly
+enable CE. Native project enablement is separate from CE's artifact configuration.
+The plugin is off in work repositories without any project enablement or CE files.
+See [Claude settings](https://code.claude.com/docs/en/settings) and
+[Codex project plugins](https://developers.openai.com/plugins/build/plugins).
 
-`scripts/configure-gbrain-mcp.sh` stops the service, sets GBrain's MCP search to
-keyword-only and turns ambient writeback off. `scripts/prepare-gbrain-mcp.py`
-then registers the client `shaffy-ai-readonly` with read scope for
-`ai.gbrain.source` only. Before that first registration it copies `~/.gbrain` to
-`~/.local/state/shaffy/runs/TIME-gbrain-before-mcp`. The client's credentials go
-to `~/.config/gbrain-mcp/client.json` (mode 0600) and are never printed; an
-existing client is kept. The script finishes with a home apply and starts the
-service.
+Use CE's brainstorm, plan, work, simplify, code-review and compound skills.
+Project contracts still govern tests, permissions, shipping and deployment.
+Lessons belong in the project's artifact root, normally `docs/solutions/`.
+A tracked `.compound-engineering/config.yaml` may set `docs_root` when `docs/`
+already holds authored material. Never migrate personal profiles or unverified
+memory directly into project instructions.
 
-At run time the unit serves GBrain on 127.0.0.1:3131, without any model API keys
-in its environment, and starts only while `~/.config/gbrain-mcp/client.json`
-exists. It is not enabled at login: the proxy starts it on demand, so one
-process owns the PGLite database for every AI client. The proxy runs with the
-Zotero MCP tool environment's Python, authenticates with the client credentials
-and exposes only eleven read tools. No embeddings, paid model calls or background
-automation are configured, so GBrain's own doctor reports those capabilities as
-missing. Do not initialise a new brain or overwrite the existing one to silence
-those reports.
+CE selects the host's approved browser first and uses `agent-browser` as a
+fallback. The workspace installer downloads its browser runtime. Keep one driver
+per run and record authentication failures or skipped flows. Credentials and
+browser profiles remain private application data.
 
-Close the AI clients and stop the service before maintaining the database with
-the GBrain command line:
-
-```sh
-systemctl --user stop gbrain-mcp.service
-```
-
-`scripts/verify-gbrain-mcp.py` runs two MCP clients at once through the proxy and
-checks listing and keyword search, and that writes and other sources are denied.
-It prints only counts and results, never brain contents:
-
-```sh
-~/.local/share/uv/tools/zotero-mcp-server/bin/python scripts/verify-gbrain-mcp.py
-```
-
-### Recovery
-
-Setting the integration to `disabled` stops managing its files; since it
-enabled nothing, nothing is switched off, and the brain stays as it is. To
-withdraw the AI tools' access, stop the service and delete
-`~/.config/gbrain-mcp/client.json`: the unit no longer starts and the proxy has
-no credentials. Set `ai.mcp_servers.gbrain.enabled: false` in the supplement
-to remove its MCP entry from both AI clients on a home apply.
-
-The copy made before the first registration is the brain as it was then. Restore
-it only with the service stopped, after keeping any later changes.
+The GBrain integration is retired. Its MCP entry is explicitly disabled by the
+public default, and home apply removes its old launchers, proxy and service.
+Private databases and memory are preserved. Follow
+[the retirement runbook](MIGRATING-AGENT-TOOLS.md) before applying this change to
+an installation that previously managed GBrain.

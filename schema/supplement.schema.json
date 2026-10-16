@@ -35,21 +35,6 @@
             "$ref": "#/$defs/mcp_server"
           }
         },
-        "gbrain": {
-          "description": "The GBrain knowledge base behind the gbrain integration.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "source"
-          ],
-          "properties": {
-            "source": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-              "description": "The brain source the read-only MCP client may search."
-            }
-          }
-        },
         "compound_engineering": {
           "description": "Compound Engineering's native plugin in Claude Code and Codex, following upstream main.",
           "type": "object",

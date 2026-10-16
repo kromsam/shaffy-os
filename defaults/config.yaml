@@ -5,6 +5,9 @@ ai:
   compound_engineering:
     enabled: true
   mcp_servers:
+    # Retirement marker: absence alone would retain an existing client entry.
+    gbrain:
+      enabled: false
     zotero:
       command: "~/.local/bin/zotero-mcp"
       args: ["serve"]

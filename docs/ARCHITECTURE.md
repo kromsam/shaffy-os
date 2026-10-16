@@ -552,7 +552,7 @@ What stays unguarded:
 ## Ownership ledger
 
 Optional integrations are listed in `defaults/integrations.yml` (`backup`,
-`gbrain`, `nextcloud`, `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`).
+`nextcloud`, `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`).
 Each has a scope, the chezmoi targets that render only while it is managed, and
 the activation records that switching it on creates. A supplement requests one
 with `integrations: {NAME: managed | disabled | released}`; one it does not name

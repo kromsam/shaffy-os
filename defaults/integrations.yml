@@ -89,14 +89,3 @@ backup:
     file: "~/.local/state/shaffy/home-backup/last-success.json"
     json: {status: verified, repository_id: "{settings.backup.repository.id}"}
     hint: "run restic-home backup once, check it with restic-home status, then apply again"
-
-gbrain:
-  scope: home
-  description: The GBrain knowledge base as a local read-only MCP server (launchers, proxy and user service)
-  targets:
-    - .local/bin/gbrain
-    - .local/bin/gbrain-mcp
-    - .local/lib/shaffy/gbrain-mcp-proxy.py
-    - .config/systemd/user/gbrain-mcp.service
-  # The service starts on demand through the proxy; nothing is enabled.
-  activation: []

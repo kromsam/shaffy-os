@@ -397,7 +397,7 @@ class IntegrationTests(LoaderCase):
         from shaffy.loader import parse
         catalogue, problems = load_catalogue(ROOT, parse)
         self.assertEqual(problems, [])
-        self.assertEqual(set(catalogue), {'backup', 'gbrain', 'nextcloud', 'reaper', 'ssh', 'syncthing', 'zettlr', 'zotero'})
+        self.assertEqual(set(catalogue), {'backup', 'nextcloud', 'reaper', 'ssh', 'syncthing', 'zettlr', 'zotero'})
         for name, entry in catalogue.items():
             for record in entry['activation']:  # every link and entry it records is also a target
                 path = record.get('link') or record.get('path')

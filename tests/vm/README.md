@@ -246,7 +246,7 @@ synthetic identity and writing settings and five managed integrations:
 `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`. The other catalogued
 integrations need outside services and stay unrequested: `nextcloud` a
 Nextcloud server, `backup` an SFTP repository and one verified backup before its
-timers start, and `gbrain` a GBrain installation and source.
+timers start.
 `tests/test_vm_kit.py` fails when `defaults/integrations.yml` gains an
 integration that neither list accounts for.
 

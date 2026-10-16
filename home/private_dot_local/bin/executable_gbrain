@@ -1,5 +1,0 @@
-#!/bin/sh
-# The installed Bun of the mise configuration. A version selector here (bun@latest)
-# would make mise look up every configured tool's newest release and install the
-# missing ones before GBrain starts.
-exec /usr/bin/mise exec bun -- bun "$HOME/.local/share/gbrain/source/src/cli.ts" "$@"

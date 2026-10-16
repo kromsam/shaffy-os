@@ -21,7 +21,7 @@ REQUIRED = os.environ.get('SHAFFY_REQUIRE_DENYLIST') == '1'
 # Settings whose values identify the owner; paths and generic values match public conventions.
 FIELDS = ('supplement_id', 'identity.name', 'identity.email', 'backup.host', 'backup.repository.id',
           'backup.repository.sftp.host', 'backup.repository.sftp.user', 'backup.repository.sftp.host_key',
-          'tailnet.login_server', 'tailnet.address', 'bitwarden.server_url', 'ai.gbrain.source')
+          'tailnet.login_server', 'tailnet.address', 'bitwarden.server_url')
 
 
 def field(settings, dotted):

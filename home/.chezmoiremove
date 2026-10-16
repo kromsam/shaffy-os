@@ -5,3 +5,8 @@
 # Retired while the noctalia/bitwarden plugin, whose launcher prefix it
 # opens, is disabled; it comes back with the plugin.
 .local/share/applications/bitwarden-noctalia.desktop
+# Retired memory integration. Private data and recovery copies remain untouched.
+.local/bin/gbrain
+.local/bin/gbrain-mcp
+.local/lib/shaffy/gbrain-mcp-proxy.py
+.config/systemd/user/gbrain-mcp.service

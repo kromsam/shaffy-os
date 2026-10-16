@@ -76,7 +76,7 @@ with blank lines and lines starting with `#` ignored.
 public file with these patterns and with the identifying values of the bound
 settings: `supplement_id`, `identity.name` and `.email`, the backup host,
 repository ID, server, user and host key, the Tailnet and Bitwarden servers,
-the Tailnet address and the GBrain source. It reports where a value matched,
+and the Tailnet address. It reports where a value matched,
 never the value. It is skipped when no supplement is bound, when the bound one
 has no `denylist.txt`, and under `selftest --skip-host`.
 
@@ -166,8 +166,8 @@ in [home folders](HOME-FOLDERS.md).
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
+| `ai.compound_engineering.enabled` | Global CE activation for Claude Code and Codex (default true). False keeps the plugin installed and requires native project opt-in; new repos start off. | Public default applies. | home |
 | `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from both clients. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new enabled name needs a `command`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `zotero` server. | home |
-| `ai.gbrain.source` | The GBrain source that the read-only MCP server may search; `scripts/configure-gbrain-mcp.sh` reads it (see [workspace tools](WORKSPACE-TOOLS.md)). | The helper refuses. | by hand |
 
 ### tailnet
 
@@ -318,7 +318,6 @@ its files and creates its activation only while the supplement asks for it:
 | Integration | What it manages |
 | --- | --- |
 | `backup` | The daily verified home backup, weekly maintenance and monthly full check, as user timers. Needs the `backup` settings. |
-| `gbrain` | GBrain's launchers, its read-only MCP proxy and user service; nothing is enabled, the service starts on demand. |
 | `nextcloud` | The Nextcloud client's login autostart entry. |
 | `reaper` | REAPER's PipeWire audio settings and the yabridge configuration. |
 | `ssh` | The SSH client configuration and the SSH agent socket. |

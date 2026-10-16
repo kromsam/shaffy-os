@@ -22,7 +22,7 @@ REAPER's.
 ## Integrations
 
 Optional integrations are listed in `defaults/integrations.yml`: `backup`,
-`gbrain`, `nextcloud`, `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`. A
+`nextcloud`, `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`. A
 supplement requests each with `integrations: {name: managed|disabled|released}`;
 one it does not name stays unmanaged. Their files render only while managed, and
 the ownership ledger (`~/.local/state/shaffy/ledger.json`) records the activation

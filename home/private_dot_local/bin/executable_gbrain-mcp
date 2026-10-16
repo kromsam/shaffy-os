@@ -1,4 +1,0 @@
-#!/bin/sh
-# The proxy is installed by chezmoi, so this launcher works without a checkout.
-exec "$HOME/.local/share/uv/tools/zotero-mcp-server/bin/python" \
-  "$HOME/.local/lib/shaffy/gbrain-mcp-proxy.py"

@@ -42,22 +42,6 @@ class CheckoutPathTests(unittest.TestCase):
                      and checkout.search(path.read_bytes())]
         self.assertEqual(offenders, [])
 
-    def test_gbrain_launcher_runs_the_installed_proxy(self):
-        launcher = (HOME / 'private_dot_local/bin/executable_gbrain-mcp').read_text()
-        self.assertIn('"$HOME/.local/lib/shaffy/gbrain-mcp-proxy.py"', launcher)
-        proxy = HOME / 'private_dot_local/lib/shaffy/gbrain-mcp-proxy.py'
-        compile(proxy.read_text(), str(proxy), 'exec')
-
-    def test_gbrain_reapply_script_installs_everything_the_launcher_runs(self):
-        launcher = (HOME / 'private_dot_local/bin/executable_gbrain-mcp').read_text()
-        script = (REPO / 'scripts/configure-gbrain-mcp.sh').read_text()
-        # A direct chezmoi apply is refused; the home apply installs every managed target.
-        self.assertIn('"$repo/bin/shaffy" apply --home', script)
-        self.assertNotIn('chezmoi', script)
-        for target in re.findall(r'"\$HOME/(\.local/lib/[^"]+)"', launcher):
-            source = HOME / target.replace('.local/', 'private_dot_local/', 1)
-            self.assertTrue(source.exists(), target)
-
 
 @unittest.skipUnless(shutil.which('chezmoi'), 'chezmoi is not installed')
 class ApplyingCheckoutTests(unittest.TestCase):
