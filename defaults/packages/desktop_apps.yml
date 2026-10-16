@@ -19,6 +19,9 @@ packages:
   # The AUR helper for updating the AUR packages the aur_package role installs.
   - yay
   - mpv
+  # Driverless scanning: SANE's eSCL and WSD backend finds network scanners by itself.
+  - sane-airscan
+  - simple-scan
 aur:
   - name: beeper-v4-bin
   - name: logseq-og-bin

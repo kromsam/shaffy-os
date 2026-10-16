@@ -28,6 +28,7 @@ system apply. Application profiles remain untouched.
 | Remmina, FreeRDP | `remmina`, `freerdp` | Noctalia's Remmina plugin lists saved connections; profiles stay private. |
 | Neovim with LazyVim | `neovim`, `lazygit`, `tree-sitter-cli` | chezmoi's `~/.config/nvim`; see [LazyVim](#lazyvim). |
 | mpv | `mpv` | Plays video and audio; Niri keeps its window opaque, as Omarchy does. |
+| Document Scanner | `simple-scan`, `sane-airscan` | Scans from network scanners without a vendor driver; see [Scanning](#scanning). |
 | Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
 | tmux, zoxide, uv | `tmux`, `zoxide`, `uv` | See [workspace tools](WORKSPACE-TOOLS.md). |
 
@@ -69,6 +70,17 @@ focuses an existing window or offers installation when the package is missing.
 Shaffy OS declares its package for the system apply instead; the shortcut only
 launches or focuses. See the [spotify-launcher documentation](https://github.com/kpcyrd/spotify-launcher)
 for how the official client is downloaded and updated.
+
+## Scanning
+
+GNOME's Document Scanner (`simple-scan`) scans through SANE. The `sane-airscan`
+backend talks to network scanners that support eSCL (AirScan, sold as AirPrint
+or Mopria scanning) or WSD, which covers most current multifunction printers,
+and finds them on the local network by itself. Neither a vendor driver nor a
+device setting is needed: a scanner on the same network appears in the
+Document Scanner's device list by its model name. `avahi-browse -rt _uscan._tcp`
+shows which eSCL scanners the network announces, and `scanimage -L` lists the
+devices SANE can use.
 
 ## Default browser and document types
 
