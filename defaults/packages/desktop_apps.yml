@@ -3,6 +3,7 @@ packages:
   - zen-browser-bin
   - chromium
   - spotify-launcher
+  - bitwarden
   - tailscale
   - proton-vpn-gtk-app
   - freerdp

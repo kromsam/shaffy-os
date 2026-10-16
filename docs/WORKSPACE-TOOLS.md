@@ -91,10 +91,19 @@ review rather than rewriting the whole Codex configuration.
 
 ## Bitwarden
 
+The Bitwarden desktop app, the repository package `bitwarden` in the
+`desktop_apps` group, is the vault's graphical client; search **Bitwarden** in
+the launcher. Niri blocks its window out of screen shares, recordings and
+screenshots. It signs in separately from `bw`: choose the server on its login
+screen, because `bitwarden.server_url` configures only the command line. Its
+account, settings and vault cache stay in `~/.config/Bitwarden`, outside both
+repositories, and the package's Secret Service dependency is met by the
+installation's GNOME Keyring. `packages.omit: [bitwarden]` leaves it out.
+
 Noctalia's Bitwarden plugin is disabled until upstream can sign in without
 putting the API secret on a command line; the plugin's intended settings stay as
-comments in `95-desktop-apps.toml`. The `bw` command line and the sign-in
-helper work without it.
+comments in `95-desktop-apps.toml`. The desktop app, the `bw` command line and
+the sign-in helper work without it.
 
 `bitwarden-login` signs in from a private terminal: credentials are typed only
 there and never appear in command arguments. With `bitwarden.server_url` set it

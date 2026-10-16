@@ -21,6 +21,7 @@ system apply. Application profiles remain untouched.
 | Zen Browser | `zen-browser-bin` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. |
 | Chromium | `chromium` | A second browser for sites that need it. |
 | Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
+| Bitwarden | `bitwarden` | The desktop password manager; Niri blocks its window out of screen capture. See [Bitwarden](WORKSPACE-TOOLS.md#bitwarden). |
 | Beeper | AUR `beeper-v4-bin` | A launcher entry that keeps Chromium's sandbox; its account and profile are its own. |
 | Logseq OG | AUR `logseq-og-bin` | The file-based Logseq; its launcher keeps the usual `~/.config/Logseq` profile. |
 | Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |

@@ -237,8 +237,8 @@ Reach the others from the launcher, **Super+Space**:
 | Saved Remmina connections | `/rmn` |
 
 Noctalia's Bitwarden plugin is disabled until upstream can sign in without putting
-the API secret on a command line; the `bw` CLI and `bitwarden-login` work without
-it (see [workspace tools](WORKSPACE-TOOLS.md)).
+the API secret on a command line; the Bitwarden desktop app, the `bw` CLI and
+`bitwarden-login` work without it (see [workspace tools](WORKSPACE-TOOLS.md#bitwarden)).
 
 The two panel entries and the [desktop controls](NOCTALIA-INTEGRATION.md#searchable-controls)
 use Noctalia's configurable dmenu providers with fixed commands; typed text is

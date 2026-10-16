@@ -170,6 +170,12 @@ class RenderTests(unittest.TestCase):
         for app_id in ('Alacritty', 'zen', 'bitwarden-login', 'org.gnome.Nautilus'):
             self.assertNotRegex(app_id, pattern)
 
+    def test_bitwarden_desktop_app_is_a_default_application(self):
+        import yaml
+        group = yaml.safe_load((ROOT / 'defaults/packages/desktop_apps.yml').read_text())
+        self.assertIn('bitwarden', group['packages'])
+        self.assertNotIn('bitwarden', group.get('required', []), 'a supplement may omit it')
+
     def test_noctalia_public_defaults_skip_the_wizard_and_lock_when_idle(self):
         import tomllib
         with tempfile.TemporaryDirectory() as keep:
