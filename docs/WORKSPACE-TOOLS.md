@@ -12,7 +12,7 @@ before mise activates in a shell.
 | --- | --- |
 | Claude Code | mise `claude = "latest"`; the launcher turns off its own updater |
 | Codex CLI | mise `codex = "latest"` |
-| Bitwarden CLI (`bw`) | mise `bitwarden = "latest"` |
+| Proton Pass CLI (`pass-cli`) | mise `"aqua:protonpass/pass-cli" = "latest"`; needs a paid Pass plan |
 | workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
 | Bun | mise `bun = "latest"`, for JavaScript tooling |
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
@@ -57,9 +57,8 @@ binaries and the other tools retain their declared versions. Quarto also uses
 `latest` in the mise configuration and is installed or updated by
 `scripts/install-publishing-tools.sh`; that script retains qpdf's separate pin.
 
-The Bitwarden CLI comes from mise because the distribution's `bitwarden-cli`
-package depends on Node.js 22 (`nodejs-lts-jod`), which would replace the
-`nodejs` package the `desktop_apps` group installs.
+The Proton Pass CLI comes from mise's aqua backend, which checks each release
+against the checksum Proton publishes beside it.
 
 ## AI tools and MCP servers
 
@@ -89,35 +88,15 @@ servers. Merely deleting a custom server from the supplement leaves an
 existing client entry alone. An unfamiliar inline TOML entry is refused for
 review rather than rewriting the whole Codex configuration.
 
-## Bitwarden
+## Proton Pass CLI
 
-The Bitwarden desktop app, the repository package `bitwarden` in the
-`desktop_apps` group, is the vault's graphical client; search **Bitwarden** in
-the launcher. Niri blocks its window out of screen shares, recordings and
-screenshots. It signs in separately from `bw`: choose the server on its login
-screen, because `bitwarden.server_url` configures only the command line. Its
-account, settings and vault cache stay in `~/.config/Bitwarden`, outside both
-repositories, and the package's Secret Service dependency is met by the
-installation's GNOME Keyring. `packages.omit: [bitwarden]` leaves it out.
-
-Noctalia's Bitwarden plugin is disabled until upstream can sign in without
-putting the API secret on a command line; the plugin's intended settings stay as
-comments in `95-desktop-apps.toml`. The desktop app, the `bw` command line and
-the sign-in helper work without it.
-
-`bitwarden-login` signs in from a private terminal: credentials are typed only
-there and never appear in command arguments. With `bitwarden.server_url` set it
-first points `bw` at that server; without it `bw` keeps its own default server.
-After signing in it locks the vault again.
-
-```yaml
-bitwarden:
-  server_url: "https://vault.example.com"
-```
-
-Use the vault with `bw unlock` and `bw get` in a terminal; see
-[Bitwarden's CLI documentation](https://bitwarden.com/help/cli/). The CLI's
-sign-in state and vault cache are private and stay outside both repositories.
+`pass-cli` reaches the vault of the [Proton Pass app](DESKTOP-APPLICATIONS.md#proton-pass)
+from a terminal. `pass-cli login` prints an address to open in the browser,
+where the password, second factor and security key are entered, so no
+credential passes through a command line or its arguments. Its session keys
+stay in the kernel keyring, outside both repositories. Proton offers the CLI on
+Pass Plus, Family and Professional and on the Proton bundles, not on the free
+plan; see [Proton Pass CLI documentation](https://protonpass.github.io/pass-cli/).
 
 ## Sticky Notes
 

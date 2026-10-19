@@ -22,13 +22,18 @@ revisions are the ones the files were compared with.
 These are fetched at install or first start, under their own licences; the
 repository holds only version declarations and scripts.
 
-- The AUR packages `zotero-bin`, `logseq-og-bin`, `ttf-ms-fonts` and
-  `beeper-v4-bin`: the `aur_package` role builds each from the AUR's current
-  recipe on the machine when it is missing, and yay updates them; the
-  repository holds no recipe. Installing `ttf-ms-fonts` accepts Microsoft's End
-  User Licence Agreement for its core fonts, which the package installs. Beeper is
-  proprietary; `home/.../applications/beeper.desktop` starts it without the AUR
-  entry's `--no-sandbox`.
+- The AUR packages `zotero-bin`, `ttf-ms-fonts` and `beeper-v4-bin`: the
+  `aur_package` role builds each from the AUR's current recipe on the machine
+  when it is missing, and yay updates them; the repository holds no recipe.
+  Installing `ttf-ms-fonts` accepts Microsoft's End User Licence Agreement for
+  its core fonts, which the package installs. Beeper is proprietary;
+  `home/.../applications/beeper.desktop` starts it without the AUR entry's
+  `--no-sandbox`.
+- SilverBullet Desktop, downloaded from upstream's stable channel by
+  `scripts/install-silverbullet-desktop.py`; the app then updates itself. It is
+  built on the MIT-licensed SilverBullet and is free for personal use and
+  education; use at work needs a Pro licence.
+- The Proton Pass CLI, selected as `latest` in the mise configuration (GPL-3.0).
 - yabridge, built from a pinned revision by `scripts/build-audio-bridge.sh` (GPL-3.0).
 - Quarto, selected as `latest` in the mise configuration, and qpdf, pinned in
   `scripts/install-publishing-tools.sh`; the script installs or updates both.

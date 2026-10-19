@@ -2,9 +2,10 @@
 # restore probe gave way to a fresh marker and random samples per backup.
 .config/restic-home/repository-id
 .config/restic-home/restore-probe
-# Retired while the noctalia/bitwarden plugin, whose launcher prefix it
-# opens, is disabled; it comes back with the plugin.
+# Retired with Bitwarden, which Proton Pass replaced. The vault's sign-in state in
+# ~/.config/Bitwarden and the bw CLI's own data stay untouched.
 .local/share/applications/bitwarden-noctalia.desktop
+.local/bin/bitwarden-login
 # Retired memory integration. Private data and recovery copies remain untouched.
 .local/bin/gbrain
 .local/bin/gbrain-mcp

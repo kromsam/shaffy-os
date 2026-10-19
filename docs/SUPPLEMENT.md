@@ -75,8 +75,8 @@ with blank lines and lines starting with `#` ignored.
 `tests/test_export_denylist.py`, part of `./bin/shaffy selftest`, scans every
 public file with these patterns and with the identifying values of the bound
 settings: `supplement_id`, `identity.name` and `.email`, the backup host,
-repository ID, server, user and host key, the Tailnet and Bitwarden servers,
-and the Tailnet address. It reports where a value matched,
+repository ID, server, user and host key, the Tailnet server and the Tailnet
+address. It reports where a value matched,
 never the value. It is skipped when no supplement is bound, when the bound one
 has no `denylist.txt`, and under `selftest --skip-host`.
 
@@ -197,11 +197,10 @@ the Tailnet's DNS and routes. Without the section it changes nothing.
 
 See [KDE Connect](KDE-CONNECT.md).
 
-### bitwarden, writing and login
+### writing and login
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
-| `bitwarden.server_url` | The Bitwarden server, an `https://` URL, which `bitwarden-login` sets with `bw config server` before signing in. | `bw`'s own default server. | home |
 | `writing.language` | A BCP 47 language such as `en-GB`, for hyphenation and quotation marks in Zettlr's DOCX and PDF export profiles. | No language in the profiles. | home |
 | `writing.docx_reference` | A reference `.docx` whose styles DOCX exports take. Write it as a path under the home, starting with `~/`. | Pandoc's default styles. | home |
 | `login.autologin` | `true` makes SDDM start Niri without a second password after the disk is unlocked, and unlocks the keyring with the disk password. Refused unless `/` is on an encrypted device. | SDDM's normal password login. | `login` |

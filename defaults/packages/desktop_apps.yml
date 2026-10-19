@@ -3,7 +3,7 @@ packages:
   - zen-browser-bin
   - chromium
   - spotify-launcher
-  - bitwarden
+  - proton-pass
   - tailscale
   - proton-vpn-gtk-app
   - freerdp
@@ -25,7 +25,6 @@ packages:
   - simple-scan
 aur:
   - name: beeper-v4-bin
-  - name: logseq-og-bin
   - name: ttf-ms-fonts
 required:
   # tailscale: the Noctalia Tailnet plugin is always enabled, and the tailnet role runs the

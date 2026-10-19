@@ -164,17 +164,19 @@ class RenderTests(unittest.TestCase):
         rule = re.search(r'match app-id=r#"([^"]+)"#\s*block-out-from "screen-capture"', rules)
         self.assertIsNotNone(rule)
         pattern = re.compile(rule[1])
-        for app_id in ('Bitwarden', '1Password', 'org.keepassxc.KeePassXC', 'gcr-prompter',
+        for app_id in ('Proton Pass', 'Bitwarden', '1Password', 'org.keepassxc.KeePassXC', 'gcr-prompter',
                        'pinentry-qt', 'org.gnupg.pinentry-qt', 'org.gnome.World.Secrets'):
             self.assertRegex(app_id, pattern)
-        for app_id in ('Alacritty', 'zen', 'bitwarden-login', 'org.gnome.Nautilus'):
+        for app_id in ('Alacritty', 'zen', 'SilverBullet', 'org.gnome.Nautilus'):
             self.assertNotRegex(app_id, pattern)
 
-    def test_bitwarden_desktop_app_is_a_default_application(self):
+    def test_proton_pass_desktop_app_is_a_default_application(self):
         import yaml
         group = yaml.safe_load((ROOT / 'defaults/packages/desktop_apps.yml').read_text())
-        self.assertIn('bitwarden', group['packages'])
-        self.assertNotIn('bitwarden', group.get('required', []), 'a supplement may omit it')
+        self.assertIn('proton-pass', group['packages'])
+        self.assertNotIn('proton-pass', group.get('required', []), 'a supplement may omit it')
+        self.assertNotIn('bitwarden', group['packages'])
+        self.assertNotIn('logseq-og-bin', [entry['name'] for entry in group['aur']])
 
     def test_noctalia_public_defaults_skip_the_wizard_and_lock_when_idle(self):
         import tomllib
@@ -282,9 +284,6 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             self.assertIn('admin_url = "https://headscale.example.invalid"',
                           (home / '.config/noctalia/95-desktop-apps.toml').read_text())
-            login = (home / '.local/bin/bitwarden-login').read_text()
-            self.assertIn("bw\" config server 'https://vault.example.invalid'", login)
-            self.assertNotIn('noctalia', login)  # its launcher plugin is disabled
             self.assertIn(f'screenshot-path "{home if DIRECT else "/home/tester"}/Bilder/Screenshots/',
                           (home / '.config/niri/cfg/misc.kdl').read_text())
             docx = (home / preset).read_text()
@@ -298,7 +297,13 @@ class RenderTests(unittest.TestCase):
             self.assertClean(render(ROOT, without=True, keep=keep))
             home = Path(keep) / 'home'
             self.assertNotIn('admin_url', (home / '.config/noctalia/95-desktop-apps.toml').read_text())
-            self.assertNotIn('config server', (home / '.local/bin/bitwarden-login').read_text())
+            self.assertFalse((home / '.local/bin/bitwarden-login').exists())
+            launcher = (home / '.local/share/applications/silverbullet.desktop').read_text()
+            appimage = f'{home if DIRECT else "/home/tester"}/.local/lib/silverbullet-desktop/SilverBullet.AppImage'
+            self.assertIn(f'Exec="{appimage}" %U', launcher)
+            self.assertIn(f'TryExec={appimage}', launcher)
+            self.assertNotIn('--no-sandbox', launcher)
+            self.assertNotIn('text/markdown', launcher)  # Markdown files keep their own application
             self.assertIn(f'screenshot-path "{home if DIRECT else "/home/tester"}/Screenshots/',
                           (home / '.config/niri/cfg/misc.kdl').read_text())
             self.assertTrue((home / '.local/share/pandoc/csl').is_dir())
@@ -386,7 +391,6 @@ class RenderTests(unittest.TestCase):
             self.assertEqual({s['name']: s['enabled'] for s in plugins['source']},
                              {'official': True, 'community': True})
             self.assertEqual(len(plugins['enabled']), 8)
-            self.assertNotIn('noctalia/bitwarden', plugins['enabled'])  # until upstream keeps the secret off argv
             self.assertFalse((home / '.local/share/noctalia/plugins').exists())
 
     def test_broken_configuration_is_reported(self):

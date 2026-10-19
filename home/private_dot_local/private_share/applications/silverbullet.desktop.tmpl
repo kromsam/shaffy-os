@@ -1,0 +1,15 @@
+{{- $appimage := printf "%s/.local/lib/silverbullet-desktop/SilverBullet.AppImage" .chezmoi.homeDir -}}
+# Starts the self-updating AppImage that scripts/install-silverbullet-desktop.py
+# installs (TryExec hides the entry in launchers that read it until then). Unlike
+# the AppImage's own entry, it does not claim Markdown files. Managed by Shaffy OS.
+[Desktop Entry]
+Type=Application
+Name=SilverBullet
+Comment=Markdown notes, synced with a SilverBullet Server
+TryExec={{ $appimage }}
+Exec="{{ $appimage }}" %U
+Icon=silverbullet
+Terminal=false
+StartupWMClass=SilverBullet
+MimeType=x-scheme-handler/silverbullet-desktop;x-scheme-handler/silverbullet-plus;
+Categories=Office;

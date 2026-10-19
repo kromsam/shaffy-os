@@ -11,7 +11,7 @@ version() {  # the selector home/dot_config/mise/config.toml declares for a tool
     "$repo/home/dot_config/mise/config.toml" "$1"
 }
 tools=()
-for tool in claude codex bun ruby bitwarden github:raine/workmux npm:agent-browser; do
+for tool in claude codex bun ruby aqua:protonpass/pass-cli github:raine/workmux npm:agent-browser; do
   tools+=("$tool@$(version "$tool")")
 done
 mise install -y "${tools[@]}"

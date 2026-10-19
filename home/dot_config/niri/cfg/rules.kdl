@@ -36,7 +36,7 @@
     // Password managers and credential prompts stay out of screen shares, recordings
     // and screenshots, as Omarchy keeps them out of screen sharing.
     window-rule {
-        match app-id=r#"(?i)^(bitwarden|1password|org\.keepassxc\.keepassxc|proton-pass|org\.gnome\.world\.secrets|org\.gnome\.seahorse\.application|gcr-prompter|(org\.gnupg\.)?pinentry(-[a-z0-9]+)?)$"#
+        match app-id=r#"(?i)^(bitwarden|1password|org\.keepassxc\.keepassxc|proton[- ]pass|org\.gnome\.world\.secrets|org\.gnome\.seahorse\.application|gcr-prompter|(org\.gnupg\.)?pinentry(-[a-z0-9]+)?)$"#
         block-out-from "screen-capture"
     }
 

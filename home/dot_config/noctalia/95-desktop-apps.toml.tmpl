@@ -2,8 +2,7 @@
 {{- $home := .chezmoi.homeDir -}}
 {{- $folders := includeTemplate "folders.json" . | fromJson -}}
 # Plugins come from Noctalia's official and community sources and Noctalia keeps
-# them updated; this repository ships no plugin code. noctalia/bitwarden
-# stays off until upstream signs in without putting the API secret on a command line.
+# them updated; this repository ships no plugin code.
 [plugins]
 enabled = ["rylos/tailnet", "rylos/syncthing", "ahmedhossamdev/sticky-notes", "icefish/phone-connect", "rylos/remmina", "noctalia/screen_recorder", "noctalia/timer", "noctalia/world_clock"]
 auto_update = "all"
@@ -43,13 +42,6 @@ no_colors = true
 
 [widget.sticky-notes]
 type = "ahmedhossamdev/sticky-notes:bar"
-
-# For noctalia/bitwarden once it is enabled again (server_url from bitwarden.server_url):
-# [plugin_settings."noctalia/bitwarden"]
-# auto_serve = true
-# vault_timeout = "custom"
-# vault_timeout_custom_minutes = 15
-# clear_clipboard_seconds = 30
 
 [plugin_settings."icefish/phone-connect"]
 state_update_interval = 30

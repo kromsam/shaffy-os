@@ -280,19 +280,6 @@
         }
       }
     },
-    "bitwarden": {
-      "description": "The Bitwarden account's server.",
-      "type": "object",
-      "additionalProperties": false,
-      "minProperties": 1,
-      "properties": {
-        "server_url": {
-          "type": "string",
-          "pattern": "^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$",
-          "description": "Set by bitwarden-login before signing in; bw's own default otherwise."
-        }
-      }
-    },
     "writing": {
       "description": "Defaults of the writing export profiles.",
       "type": "object",

@@ -40,8 +40,6 @@ assets:
   "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
 tailnet:
   login_server: "https://headscale.example.invalid"
-bitwarden:
-  server_url: "https://vault.example.invalid"
 writing:
   language: en-GB
   docx_reference: "~/Templates/reference.docx"

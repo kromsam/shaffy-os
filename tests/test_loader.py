@@ -315,7 +315,7 @@ class PackageTests(LoaderCase):
     def test_aur_omissions_and_removals_follow_the_same_rules(self):
         packages = self.packages('packages:\n  omit: [beeper-v4-bin, zotero-bin]\n'
                                  '  remove: [beeper-v4-bin]\n')
-        self.assertEqual(packages['aur']['desktop_apps'], [{'name': 'logseq-og-bin'}, {'name': 'ttf-ms-fonts'}])
+        self.assertEqual(packages['aur']['desktop_apps'], [{'name': 'ttf-ms-fonts'}])
         self.assertEqual(packages['aur']['writing'], [])
         self.assertEqual(packages['remove'], ['beeper-v4-bin'])
 

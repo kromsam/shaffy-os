@@ -32,7 +32,7 @@ class RoleTests(unittest.TestCase):
             self.assertNotIn('aur_package', installs[0].get('vars', {}))
 
     def test_the_roles_take_these_packages_from_the_aur_and_the_repository_keeps_no_recipes(self):
-        self.assertEqual(aur_packages(), ['beeper-v4-bin', 'logseq-og-bin', 'ttf-ms-fonts', 'zotero-bin'])
+        self.assertEqual(aur_packages(), ['beeper-v4-bin', 'ttf-ms-fonts', 'zotero-bin'])
         self.assertFalse((ROOT / 'packages').exists())
         files = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z', '-co', '--exclude-standard'],
                                capture_output=True, text=True, check=True).stdout.split('\0')

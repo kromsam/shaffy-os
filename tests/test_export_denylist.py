@@ -21,7 +21,7 @@ REQUIRED = os.environ.get('SHAFFY_REQUIRE_DENYLIST') == '1'
 # Settings whose values identify the owner; paths and generic values match public conventions.
 FIELDS = ('supplement_id', 'identity.name', 'identity.email', 'backup.host', 'backup.repository.id',
           'backup.repository.sftp.host', 'backup.repository.sftp.user', 'backup.repository.sftp.host_key',
-          'tailnet.login_server', 'tailnet.address', 'bitwarden.server_url')
+          'tailnet.login_server', 'tailnet.address')
 
 
 def field(settings, dotted):
@@ -29,7 +29,7 @@ def field(settings, dotted):
         settings = settings.get(key) if isinstance(settings, dict) else None
     if not isinstance(settings, str):
         return None
-    if dotted.endswith(('login_server', 'server_url')):
+    if dotted.endswith('login_server'):
         return urlsplit(settings).hostname
     if dotted.endswith('host_key'):
         return max(settings.split(), key=len)  # the key body, not its type

@@ -123,12 +123,13 @@ tools with the repository's installers, without sudo:
 ```sh
 bash scripts/install-workspace-tools.sh
 bash scripts/install-publishing-tools.sh
+python3 scripts/install-silverbullet-desktop.py
 mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
 bash scripts/build-audio-bridge.sh
 ```
 
 These install the mise tools, Zotero MCP, Compound Engineering and its browser fallback, Quarto, qpdf,
-LazyVim's language tools and the Windows VST2 bridge. They are separate from
+SilverBullet Desktop, LazyVim's language tools and the Windows VST2 bridge. They are separate from
 an ordinary apply and download or build software in the user's home. For the
 Yaru icon theme selected by the desktop:
 

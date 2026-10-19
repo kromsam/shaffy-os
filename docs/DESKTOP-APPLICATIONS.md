@@ -2,8 +2,10 @@
 
 The system apply installs the applications below from package groups in
 `defaults/packages/`, one group per role, in the configured CachyOS and Arch
-repository priority and without refreshing the package databases. Four
-applications come from the AUR ([AUR packages](#aur-packages)).
+repository priority and without refreshing the package databases. Three
+applications come from the AUR ([AUR packages](#aur-packages)). SilverBullet
+Desktop is installed per user from its own release channel
+([SilverBullet](#silverbullet)).
 Application profiles, accounts and credentials are the applications' own and
 stay outside both the repository and the supplement.
 
@@ -21,9 +23,9 @@ system apply. Application profiles remain untouched.
 | Zen Browser | `zen-browser-bin` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. |
 | Chromium | `chromium` | A second browser for sites that need it. |
 | Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
-| Bitwarden | `bitwarden` | The desktop password manager; Niri blocks its window out of screen capture. See [Bitwarden](WORKSPACE-TOOLS.md#bitwarden). |
+| Proton Pass | `proton-pass` | The desktop password manager; Niri blocks its window out of screen capture. See [Proton Pass](#proton-pass). |
 | Beeper | AUR `beeper-v4-bin` | A launcher entry that keeps Chromium's sandbox; its account and profile are its own. |
-| Logseq OG | AUR `logseq-og-bin` | The file-based Logseq; its launcher keeps the usual `~/.config/Logseq` profile. |
+| SilverBullet Desktop | upstream AppImage | Markdown notes in local spaces that can sync with a SilverBullet Server; see [SilverBullet](#silverbullet). |
 | Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |
 | Tailscale | `tailscale` | The `tailnet` role, only with `tailnet` settings; see [Tailnet](#tailnet). |
 | Remmina, FreeRDP | `remmina`, `freerdp` | Noctalia's Remmina plugin lists saved connections; profiles stay private. |
@@ -71,6 +73,49 @@ focuses an existing window or offers installation when the package is missing.
 Shaffy OS declares its package for the system apply instead; the shortcut only
 launches or focuses. See the [spotify-launcher documentation](https://github.com/kpcyrd/spotify-launcher)
 for how the official client is downloaded and updated.
+
+## Proton Pass
+
+The Proton Pass desktop app, the CachyOS repository package `proton-pass`, is
+the password manager; search **Proton Pass** in the launcher. Niri blocks its
+window (app id `Proton Pass`) out of screen shares, recordings and screenshots.
+Its account, settings and vault cache are the app's own and stay outside both
+repositories. `packages.omit: [proton-pass]` leaves it out. The browser
+extension comes from the browser's own add-on store and signs in separately.
+The vault's command line is in [workspace tools](WORKSPACE-TOOLS.md#proton-pass-cli).
+[Migrating to Proton Pass and
+SilverBullet](MIGRATING-PASSWORDS-AND-NOTES.md) moves a Bitwarden vault.
+
+## SilverBullet
+
+SilverBullet Desktop keeps notes as Markdown pages: each space is a folder on
+the computer, and a space can sync both ways with a SilverBullet Server, which
+a phone or another computer then reaches in a browser. Upstream publishes it as
+an AppImage outside the repositories and the AUR, so it is installed per user,
+without sudo:
+
+```sh
+python3 scripts/install-silverbullet-desktop.py
+```
+
+The script downloads the AppImage from upstream's stable channel, checks its
+size and SHA-512 against the channel's manifest, the file the app's own updater
+reads, and installs it with its icons as
+`~/.local/lib/silverbullet-desktop/SilverBullet.AppImage`. An installed copy is
+left alone: the app downloads new versions in the background and installs one
+when **Restart to Update** is chosen in its dashboard. The home apply installs
+the launcher `~/.local/share/applications/silverbullet.desktop`; search
+**SilverBullet**. Unlike the AppImage's own entry, it does not register
+SilverBullet for Markdown files, which keep opening where they did. Without
+the installer the launcher does nothing; deleting the AppImage's folder
+uninstalls the app.
+
+Spaces, their sync settings and the server account are the app's own and stay
+outside both repositories. Create a space from a folder with **New space**,
+connect one to a server space with **Join Space**, or add sync later under the
+space's gear icon. SilverBullet Desktop is free for personal use and education;
+use at work needs a Pro licence. [Migrating to Proton Pass and
+SilverBullet](MIGRATING-PASSWORDS-AND-NOTES.md) converts a Logseq graph.
 
 ## Scanning
 
@@ -201,7 +246,7 @@ The home apply reloads a running Noctalia.
   Taildrop files in the downloads folder.
 - Syncthing reads the user's local Syncthing configuration for its API key, which
   never enters the source, and posts no event notifications.
-- Sticky Notes and the Bitwarden command line are in
+- Sticky Notes and the Proton Pass command line are in
   [workspace tools](WORKSPACE-TOOLS.md), and Phone Connect in
   [KDE Connect](KDE-CONNECT.md).
 - Remmina lists the profiles in `~/.local/share/remmina`.
@@ -300,10 +345,9 @@ containers; those with a restart policy come back.
 
 ## AUR packages
 
-Four applications come from the Arch User Repository: Beeper
-(`beeper-v4-bin`), Logseq OG (`logseq-og-bin`, the file-based Logseq that opens
-existing Markdown and Org graphs), the Microsoft core fonts (`ttf-ms-fonts`) and
-Zotero (`zotero-bin`, installed by the `writing` role). The repository keeps no
+Three applications come from the Arch User Repository: Beeper
+(`beeper-v4-bin`), the Microsoft core fonts (`ttf-ms-fonts`) and Zotero
+(`zotero-bin`, installed by the `writing` role). The repository keeps no
 recipes.
 
 When one is missing, the `aur_package` role installs it from the AUR's current
