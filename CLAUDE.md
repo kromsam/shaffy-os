@@ -115,7 +115,10 @@ diff of a public change for them before committing it.
 `main` is the released version, and the checkout the machine is bound to stays
 on it, so an apply always renders a release. Changes are made on `dev`, in a
 separate worktree, and reach `main` when `dev` is merged into it after its
-self-test and CI pass. Never commit to `main` directly. `workshop`, in its own
+self-test and CI pass. Never commit to `main` directly. Each merge into `main`
+is a release: tag the new `main` with a signed tag named after the day,
+`vYYYY.MM.DD` (`vYYYY.MM.DD.1` and so on for another release that day), push
+the tag with `main`, and publish a GitHub release from it. `workshop`, in its own
 worktree, is for quickly trying something on the installation: it starts from
 `main`, and whatever should stay is carried to `dev`. To try `dev` or
 `workshop` on the machine before a release, run `./bin/shaffy apply` in its
