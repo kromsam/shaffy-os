@@ -17,11 +17,12 @@ import yaml
 from .integrations import load_catalogue, resolve as resolve_integrations
 from .packages import load_groups, resolve as resolve_packages
 from .selection import resolve
+from .source import release, release_key
 
 SUPPORTED_VERSIONS = (1,)
 SYSTEM_OVERRIDES = ('keyboard_hwdb',)
 SYSTEM_OVERRIDE_LIMIT = 64 * 1024
-IDENTITY_KEYS = ('schema_version', 'supplement_id')
+IDENTITY_KEYS = ('schema_version', 'supplement_id', 'minimum_release')
 
 
 class SettingsError(Exception):
@@ -116,11 +117,26 @@ def validate(data, schema, label):
     return [f'{label}: ' + ': '.join(_describe(error)) for error in errors]
 
 
+def release_problem(checkout, wanted):
+    """Why this checkout is older than the supplement's minimum_release, or None."""
+    if not isinstance(wanted, str) or not release_key(wanted):
+        return None  # absent, or malformed, which the schema reports
+    have = release(checkout)
+    if have is None:
+        return (f'minimum_release: this supplement needs Shaffy OS {wanted} or later, and no release '
+                "tag is reachable from this checkout's HEAD; fetch the tags (git fetch --tags)")
+    if release_key(have) < release_key(wanted):
+        return (f'minimum_release: this supplement needs Shaffy OS {wanted} or later; this checkout '
+                f'is at {have}; update it to a newer release')
+    return None
+
+
 def defaults_schema(schema):
-    """Defaults carry schema_version but no supplement_id."""
+    """Defaults carry schema_version but no supplement_id or minimum_release."""
     result = copy.deepcopy(schema)
     result['required'] = ['schema_version']
     result['properties'].pop('supplement_id')
+    result['properties'].pop('minimum_release')
     return result
 
 
@@ -191,7 +207,9 @@ def load(checkout, supplement=None, without=False, home=None):
     if selection['mode'] == 'supplement':
         config = Path(selection['path']) / 'config.yaml'
         overrides = parse(config)
-        problems += validate(overrides, schema, str(config))
+        # Too old a checkout would also report the newer fields as unknown keys; say only that.
+        too_old = release_problem(checkout, overrides.get('minimum_release'))
+        problems += [f'{config}: {too_old}'] if too_old else validate(overrides, schema, str(config))
         present = present_keys({k: v for k, v in overrides.items() if k not in IDENTITY_KEYS})
         supplement_id = overrides.get('supplement_id')
     if problems:

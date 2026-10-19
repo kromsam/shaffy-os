@@ -17,7 +17,7 @@ from shaffy.selection import SelectionError, resolve  # noqa: E402
 
 CACHE_VERSION = '2'
 CACHE_KEEP = 32
-CODE = ('loader.py', 'selection.py', 'fastload.py', 'packages.py', 'integrations.py')
+CODE = ('loader.py', 'selection.py', 'fastload.py', 'packages.py', 'integrations.py', 'source.py')
 
 
 def cache_dir():

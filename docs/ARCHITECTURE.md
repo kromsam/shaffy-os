@@ -53,7 +53,11 @@ for an installation from an earlier version).
    strings. A duplicate key is an error.
 3. Validate each file with python-jsonschema against
    `schema/supplement.schema.json`, the same schema editors use; the defaults
-   carry no `supplement_id`. An unknown `schema_version` is refused.
+   carry no `supplement_id`. An unknown `schema_version` is refused. A
+   supplement whose `minimum_release` is newer than the newest release tag the
+   checkout's HEAD contains is refused before the schema check, with that
+   reason alone; the sandboxed render, which cannot see a worktree's Git
+   directory, is handed the release found outside it.
 4. Merge the supplement over the defaults. Mappings merge key by key; scalars
    and lists replace, so an explicit `false` or `[]` survives. An absent key
    keeps the default, while `key: null` and `key: {}` are errors.

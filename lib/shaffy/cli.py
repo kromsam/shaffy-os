@@ -408,6 +408,7 @@ def integration(args):
 def status(args):
     """Report the binding, checkout, unfinished work, recent events and drift."""
     from shaffy.records import RecordError, Records, disagreements, read_root_record, root_events
+    from shaffy.source import release
     records = Records()
     try:
         record = records.read()
@@ -421,7 +422,9 @@ def status(args):
         print('Binding: ' + (f"supplement {binding['supplement_id']} at {binding['path']}"
                              if binding['mode'] == 'supplement' else 'public defaults only'))
         where = 'this checkout' if Path(record['checkout']['path']) == ROOT else 'another checkout'
-        print(f"Checkout: {record['checkout']['path']} ({where})")
+        found = release(record['checkout']['path'])
+        print(f"Checkout: {record['checkout']['path']} ({where}), "
+              + (f'release {found}' if found else 'no release tag'))
         target = record['target']
         print(f"Target: {target['user']} (uid {target['uid']}), {target['home']}")
         pending = record['pending']

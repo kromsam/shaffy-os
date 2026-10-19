@@ -20,6 +20,7 @@ import subprocess
 import tempfile
 
 from .selection import resolve
+from .source import release
 
 USER, UID, HOST = 'tester', 4242, 'synthetic-host'
 INSIDE_HOME = '/home/tester'
@@ -50,7 +51,7 @@ def _prepare(root, supplement_path, user_dirs=None):
     return home, work
 
 
-def _bwrap(root, checkout, supplement, argv):
+def _bwrap(root, checkout, supplement, argv, found=None):
     command = ['bwrap', '--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc',
                '--unshare-all', '--new-session', '--die-with-parent',
                '--tmpfs', '/home', '--bind', str(root / 'home'), INSIDE_HOME,
@@ -68,6 +69,8 @@ def _bwrap(root, checkout, supplement, argv):
                '--chdir', INSIDE_HOME]
     if supplement:
         command += ['--ro-bind', supplement, '/tmp/supplement']
+    if found:
+        command += ['--setenv', 'SHAFFY_RELEASE', found]
     return command + ['--'] + argv
 
 
@@ -110,17 +113,20 @@ def render(checkout, supplement=None, without=False, home=None, keep=None, timeo
         supplement_path = selection['path']
         inside = supplement_path if direct or not supplement_path else '/tmp/supplement'
         rendered, work = _prepare(root, inside, user_dirs)
+        found = release(checkout)  # the Git directory may be out of the sandbox's sight
         if direct:
             base = [str(checkout), str(rendered), str(work)]
             env = {'HOME': str(rendered), 'USER': USER, 'LANG': 'C.UTF-8', 'PATH': PATH,
                    'XDG_CACHE_HOME': str(work / 'cache'), 'SHAFFY_OP_MODE': 'sandbox',
                    'SHAFFY_SANDBOX_TOKEN': str(work / 'sandbox-token')}
+            if found:
+                env['SHAFFY_RELEASE'] = found
             command = ['/usr/bin/python3', str(checkout / 'lib/shaffy/render_inside.py'), *base]
         else:
             env = None
             command = _bwrap(root, checkout, supplement_path,
                              ['/usr/bin/python3', '/tmp/checkout/lib/shaffy/render_inside.py',
-                              '/tmp/checkout', INSIDE_HOME, '/tmp/work'])
+                              '/tmp/checkout', INSIDE_HOME, '/tmp/work'], found)
         try:
             result = subprocess.run(command, capture_output=True, text=True, env=env,
                                     timeout=timeout, check=False)

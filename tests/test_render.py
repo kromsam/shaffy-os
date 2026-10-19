@@ -498,7 +498,9 @@ class DirectModeTests(unittest.TestCase):
 class RenderFailureTests(unittest.TestCase):
     def test_a_render_that_times_out_is_a_render_error(self):
         timeout = subprocess.TimeoutExpired(['bwrap'], 1)
-        with mock.patch.object(sandbox.subprocess, 'run', side_effect=timeout):
+        # The release lookup runs Git through the same subprocess.run; only the render times out.
+        with mock.patch.object(sandbox, 'release', return_value=None), \
+                mock.patch.object(sandbox.subprocess, 'run', side_effect=timeout):
             with self.assertRaisesRegex(RenderError, 'did not finish within 1 seconds'):
                 render(ROOT, without=True, timeout=1)
 

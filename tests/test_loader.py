@@ -168,6 +168,64 @@ class InvalidInputTests(LoaderCase):
         self.assertIn('ai.mcp_servers.zotero.enabled: must be of type boolean', message)
 
 
+class MinimumReleaseTests(LoaderCase):
+    REQUIRES = 'schema_version: 1\nsupplement_id: t\nminimum_release: {}\n'
+
+    def at(self, found):
+        return mock.patch('shaffy.loader.release', return_value=found)
+
+    def test_older_checkout_is_refused_without_unknown_key_noise(self):
+        with self.at('v2026.10.19'):
+            message = self.problems(self.REQUIRES.format('v2026.10.20') + 'later_field: 1\n')
+        self.assertIn('needs Shaffy OS v2026.10.20 or later; this checkout is at v2026.10.19', message)
+        self.assertNotIn('unknown key', message)
+
+    def test_same_day_releases_count_up(self):
+        with self.at('v2026.10.19'):
+            self.assertIn('is at v2026.10.19', self.problems(self.REQUIRES.format('v2026.10.19.1')))
+        with self.at('v2026.10.19.1'):
+            self.load(supplement=self.supplement(self.REQUIRES.format('v2026.10.19.1')))
+
+    def test_met_minimum_is_not_a_setting(self):
+        with self.at('v2026.11.02'):
+            data = self.load(supplement=self.supplement(self.REQUIRES.format('v2026.10.20')))['shaffy']
+        self.assertNotIn('minimum_release', data['settings'])
+        self.assertEqual(data['present'], [])
+
+    def test_checkout_without_release_tags_is_refused(self):
+        with self.at(None):
+            self.assertIn('no release tag is reachable', self.problems(self.REQUIRES.format('v2026.10.20')))
+
+    def test_malformed_minimum_is_a_schema_error(self):
+        with self.at('v2026.10.19') as release:
+            self.assertIn('minimum_release', self.problems(self.REQUIRES.format('2026.10.20')))
+        release.assert_not_called()
+
+    def test_release_is_the_newest_tag_head_contains(self):
+        from shaffy.source import release
+        repository = self.tmp / 'checkout'
+        git = ['git', '-C', str(repository), '-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+               '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false']
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repository)], check=True)
+        for step in (['commit', '-q', '--allow-empty', '-m', 'one'], ['tag', 'v2025.12.31'],
+                     ['commit', '-q', '--allow-empty', '-m', 'two'], ['tag', 'v2026.01.02'],
+                     ['tag', 'v2026.01.02.1'], ['tag', 'v2026.01.03-try'], ['tag', 'later'],
+                     ['switch', '-q', '-c', 'side'], ['commit', '-q', '--allow-empty', '-m', 'three'],
+                     ['tag', 'v2026.02.01'], ['switch', '-q', 'main']):
+            subprocess.run([*git, *step], check=True)
+        with mock.patch.dict(os.environ):
+            os.environ.pop('SHAFFY_OP_MODE', None)
+            self.assertEqual(release(repository), 'v2026.01.02.1')
+            self.assertIsNone(release(self.home))
+
+    def test_sandbox_takes_the_release_it_is_given(self):
+        from shaffy.source import release
+        with mock.patch.dict(os.environ, {'SHAFFY_OP_MODE': 'sandbox', 'SHAFFY_RELEASE': 'v2026.01.02'}):
+            self.assertEqual(release(ROOT), 'v2026.01.02')
+            del os.environ['SHAFFY_RELEASE']
+            self.assertIsNone(release(ROOT))
+
+
 class ReferenceTests(LoaderCase):
     def test_reference_inside_symlinked_supplement_is_accepted(self):
         real = self.supplement('schema_version: 1\nsupplement_id: t\n', 'real')

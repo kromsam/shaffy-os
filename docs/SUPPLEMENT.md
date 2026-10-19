@@ -102,6 +102,14 @@ supplement_id: my-desktop
   The binding records it. An apply refuses a bound supplement whose
   `supplement_id` has changed, and `supplement rebind --path` refuses a
   different one unless `--new-id` is given. It is not a credential.
+- `minimum_release`, optional, is the oldest Shaffy OS release the supplement
+  works with, as its tag: `vYYYY.MM.DD`, or `vYYYY.MM.DD.1` and so on for a
+  later release that day. `check` and `apply` refuse a checkout whose newest
+  release tag is older, before they report anything else, so a supplement that
+  uses a newer field gets that message rather than an unknown key. Raise it
+  when the supplement starts to depend on a release; `dev` and `workshop` count
+  as the last release they contain. `./bin/shaffy status` shows the checkout's
+  release.
 
 The file is read as YAML 1.2 core: only `true` and `false` are booleans, so
 `no` and `yes` stay strings, an unquoted `0600` is the number 600, and there
