@@ -197,6 +197,16 @@ the Tailnet's DNS and routes. Without the section it changes nothing.
 
 See [KDE Connect](KDE-CONNECT.md).
 
+### localsend
+
+| Key | Value and effect | Without it | Applied by |
+| --- | --- | --- | --- |
+| `localsend.interface`, `localsend.subnet` | Both required: a network interface such as `wlan0` and a network such as `192.0.2.0/24`. The `localsend` role opens LocalSend's port, 53317 over TCP and UDP, in an active ufw firewall for that network on that interface only. | No firewall opening: LocalSend can send, but other devices cannot find it or send to it. The `desktop` role still installs it. | `localsend` |
+
+The rules carry the comment `shaffy LocalSend`. Removing the section stops later
+applies from adding them but does not delete them; delete them with
+`sudo ufw status numbered` and `sudo ufw delete NUMBER`, highest number first.
+
 ### writing and login
 
 | Key | Value and effect | Without it | Applied by |

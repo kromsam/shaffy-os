@@ -40,6 +40,11 @@ class SettingsGatedRoleTests(unittest.TestCase):
         gate = next(i for i, task in enumerate(steps) if ends_role_when(task, "'kde_connect' not in shaffy.settings"))
         self.assertFalse(any('ufw' in str(task) for task in steps[:gate]))
 
+    def test_localsend_opens_no_port_without_its_settings(self):
+        steps = tasks('localsend')
+        self.assertTrue(ends_role_when(steps[0], "'localsend' not in shaffy.settings"))
+        self.assertTrue(any('53317' in str(task) for task in steps[1:]))
+
     def test_the_keyboard_role_installs_only_a_supplement_fragment(self):
         text = (ROOT / 'roles/keyboard/tasks/main.yml').read_text()
         self.assertIn('shaffy.system_overrides.keyboard_hwdb', text)

@@ -97,6 +97,12 @@ a partial `pacman -Sy`. From the checkout:
 ./bin/shaffy apply --system --tags desktop
 ```
 
+LocalSend finds other devices and receives from them on port 53317, over UDP and
+TCP, which ufw's default incoming policy drops. The `localsend` role opens it
+only for the interface and network named in the supplement's `localsend`
+settings (see [Supplement](SUPPLEMENT.md#localsend)); without them LocalSend can
+only send.
+
 Each home apply builds `shaffy-desktop-key`, so its build tools must be present:
 `gcc`, `wayland-scanner` (package `wayland`), `pkg-config` (package `pkgconf`) and
 the wayland-client and xkbcommon development files. `./bin/shaffy check` names any

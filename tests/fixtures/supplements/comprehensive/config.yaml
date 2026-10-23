@@ -40,6 +40,9 @@ assets:
   "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
 tailnet:
   login_server: "https://headscale.example.invalid"
+localsend:
+  interface: wlan0
+  subnet: 192.0.2.0/24
 writing:
   language: en-GB
   docx_reference: "~/Templates/reference.docx"

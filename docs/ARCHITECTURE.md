@@ -404,7 +404,7 @@ terminal, and every task that needs root becomes root through sudo:
    failed play journals `system-failed` and leaves the operation unfinished.
 
 Each routine role carries one fixed tag, its own name: `packages`, `desktop`,
-`desktop_apps`, `workflows`, `writing`, `sync`, `home_backup`, `kde_connect`,
+`desktop_apps`, `workflows`, `writing`, `sync`, `home_backup`, `kde_connect`, `localsend`,
 `tailnet`, `login`, `browser` and `keyboard`. `--tags` takes a comma-separated
 list of them; the operation steps and the settings role run with every
 selection. `login_keyring_migration` is also tagged `never` and runs only when

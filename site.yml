@@ -46,6 +46,8 @@
       tags: [home_backup]
     - role: kde_connect
       tags: [kde_connect]
+    - role: localsend
+      tags: [localsend]
     - role: tailnet
       tags: [tailnet]
     - role: login
