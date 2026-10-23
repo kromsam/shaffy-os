@@ -292,6 +292,16 @@ accepts the Tailnet's DNS settings and subnet routes. No exit node is selected;
 Internet traffic stays direct. See
 [Tailscale's Linux DNS documentation](https://tailscale.com/docs/reference/linux-dns).
 
+Tailscale looks up accepted subnet routes before the main routing table, so a
+subnet route that covers the network the machine is on would send traffic for
+that network through the Tailnet: devices on the same Wi-Fi would see it arrive
+from the subnet router, and replies such as LocalSend's would go there. Before
+accepting routes the role therefore installs and enables
+`shaffy-tailnet-local-networks.service`, which adds the routing rule
+`priority 5260 lookup main suppress_prefixlength 0` just before Tailscale's own
+(5270). A directly connected network is then reached directly; away from it, the
+subnet route still applies.
+
 ### Recovery
 
 Removing the `tailnet` settings stops later applies from changing the client; it
@@ -306,7 +316,9 @@ sudo nmcli general reload dns-full
 ```
 
 Remove the link before copying, since copying onto it would write through to
-systemd-resolved's stub file. The system operation's snapper pre snapshot of `/`
+systemd-resolved's stub file. To send directly connected networks through
+accepted subnet routes again, run
+`sudo systemctl disable --now shaffy-tailnet-local-networks.service`. The system operation's snapper pre snapshot of `/`
 also holds the earlier `/etc`.
 
 ## Docker

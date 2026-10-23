@@ -35,6 +35,20 @@ class SettingsGatedRoleTests(unittest.TestCase):
     def test_the_tailnet_role_does_nothing_without_tailnet_settings(self):
         self.assertTrue(ends_role_when(tasks('tailnet')[0], "'tailnet' not in shaffy.settings"))
 
+    def test_directly_connected_networks_stay_direct_before_accepted_subnet_routes(self):
+        unit = (ROOT / 'roles/tailnet/files/shaffy-tailnet-local-networks.service').read_text()
+        add = next(line for line in unit.splitlines() if line.startswith('ExecStart='))
+        self.assertIn('lookup main suppress_prefixlength 0', add)
+        priority = int(add.split('priority ')[1].split()[0])
+        # Before Tailscale's table 52 at 5270, and none of the priorities Tailscale deletes as its own.
+        self.assertLess(priority, 5270)
+        self.assertNotIn(priority, (5210, 5230, 5250))
+        steps = tasks('tailnet')
+        enable = next(i for i, task in enumerate(steps)
+                      if task.get('ansible.builtin.systemd_service', {}).get('name') == 'shaffy-tailnet-local-networks.service')
+        accept = next(i for i, task in enumerate(steps) if '--accept-routes=true' in str(task))
+        self.assertLess(enable, accept)
+
     def test_kde_connect_opens_no_port_without_its_settings(self):
         steps = tasks('kde_connect')
         gate = next(i for i, task in enumerate(steps) if ends_role_when(task, "'kde_connect' not in shaffy.settings"))

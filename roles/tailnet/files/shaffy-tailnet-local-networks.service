@@ -1,0 +1,17 @@
+# Tailscale consults its own table 52, which holds the accepted subnet routes, at rule
+# priority 5270, before the main table. A subnet route that covers the network this
+# machine is on would then carry that network's traffic through the Tailnet. This rule,
+# just before it, looks up the main table first and ignores its default route, so only a
+# directly connected network is reached directly; everywhere else the subnet routes apply.
+[Unit]
+Description=Reach directly connected networks directly, before accepted Tailnet subnet routes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/ip -4 rule del priority 5260 lookup main suppress_prefixlength 0
+ExecStart=/usr/bin/ip -4 rule add priority 5260 lookup main suppress_prefixlength 0
+ExecStop=/usr/bin/ip -4 rule del priority 5260 lookup main suppress_prefixlength 0
+
+[Install]
+WantedBy=multi-user.target

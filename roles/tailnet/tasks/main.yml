@@ -93,6 +93,24 @@
   changed_when: false
   check_mode: false
 
+# Before routes are accepted, so a subnet route for the network this machine is on never
+# takes that network's traffic through the Tailnet.
+- name: Install the rule that keeps directly connected networks direct
+  ansible.builtin.copy:
+    src: shaffy-tailnet-local-networks.service
+    dest: /etc/systemd/system/shaffy-tailnet-local-networks.service
+    owner: root
+    group: root
+    mode: '0644'
+  register: tailnet_local_networks
+
+- name: Keep directly connected networks direct, now and at every boot
+  ansible.builtin.systemd_service:
+    name: shaffy-tailnet-local-networks.service
+    enabled: true
+    state: "{{ 'restarted' if tailnet_local_networks.changed else 'started' }}"
+    daemon_reload: "{{ tailnet_local_networks.changed }}"
+
 - name: Restore accepted subnet routes and private-network name resolution
   ansible.builtin.command:
     argv: ['tailscale', 'set', '--accept-dns=true', '--accept-routes=true']
