@@ -234,8 +234,8 @@ Without `writing.language` the exports set no language, and without
 ## Noctalia plugins
 
 `~/.config/noctalia/95-desktop-apps.toml` enables the Tailnet, Syncthing,
-Sticky Notes, Phone Connect and Remmina plugins, with the screen recorder,
-timer and world clock. They come from Noctalia's
+Phone Connect and Remmina plugins, with the screen recorder, timer and world
+clock. They come from Noctalia's
 [official](https://github.com/noctalia-dev/official-plugins) and
 [community](https://github.com/noctalia-dev/community-plugins) sources with
 `auto_update = "all"`, so Noctalia installs and updates them. The fragment only
@@ -246,9 +246,8 @@ The home apply reloads a running Noctalia.
   Taildrop files in the downloads folder.
 - Syncthing reads the user's local Syncthing configuration for its API key, which
   never enters the source, and posts no event notifications.
-- Sticky Notes and the Proton Pass command line are in
-  [workspace tools](WORKSPACE-TOOLS.md), and Phone Connect in
-  [KDE Connect](KDE-CONNECT.md).
+- The Proton Pass command line is in [workspace tools](WORKSPACE-TOOLS.md),
+  and Phone Connect in [KDE Connect](KDE-CONNECT.md).
 - Remmina lists the profiles in `~/.local/share/remmina`.
 
 Only the screen recorder and the timer sit on the bar, and the world clocks open

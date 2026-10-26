@@ -4,7 +4,7 @@
 # Plugins come from Noctalia's official and community sources and Noctalia keeps
 # them updated; this repository ships no plugin code.
 [plugins]
-enabled = ["rylos/tailnet", "rylos/syncthing", "ahmedhossamdev/sticky-notes", "icefish/phone-connect", "rylos/remmina", "noctalia/screen_recorder", "noctalia/timer", "noctalia/world_clock"]
+enabled = ["rylos/tailnet", "rylos/syncthing", "icefish/phone-connect", "rylos/remmina", "noctalia/screen_recorder", "noctalia/timer", "noctalia/world_clock"]
 auto_update = "all"
 
 [[plugins.source]]
@@ -34,14 +34,6 @@ type = "rylos/tailnet:bar"
 
 [widget.syncthing]
 type = "rylos/syncthing:bar"
-
-[plugin_settings."ahmedhossamdev/sticky-notes"]
-save_path = {{ printf "%s/sticky-notes" $folders.documents | toJson }}
-file_format = "md"
-no_colors = true
-
-[widget.sticky-notes]
-type = "ahmedhossamdev/sticky-notes:bar"
 
 [plugin_settings."icefish/phone-connect"]
 state_update_interval = 30

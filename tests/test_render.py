@@ -82,8 +82,6 @@ class RenderTests(unittest.TestCase):
                 apps = tomllib.loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())
                 self.assertEqual(omarchy['shell']['screenshot']['directory'], f'{prefix}/{pictures}/Screenshots')
                 self.assertEqual(apps['plugin_settings']['rylos/tailnet']['taildrop_dir'], f'{prefix}/{downloads}')
-                self.assertEqual(apps['plugin_settings']['ahmedhossamdev/sticky-notes']['save_path'],
-                                 f'{prefix}/{documents}/sticky-notes')
                 self.assertEqual(apps['plugin_settings']['noctalia/screen_recorder']['directory'],
                                  f'{prefix}/{videos}/Recordings')
                 niri = (home / '.config/niri/cfg/misc.kdl').read_text()
@@ -102,10 +100,6 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             expected = native.replace('$HOME/Images', '$HOME/Bilder') + 'XDG_VIDEOS_DIR="$HOME/Filme"\n'
             self.assertEqual((home / '.config/user-dirs.dirs').read_text(), expected)
-            apps = __import__('tomllib').loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())
-            prefix = str(home) if DIRECT else '/home/tester'
-            self.assertEqual(apps['plugin_settings']['ahmedhossamdev/sticky-notes']['save_path'],
-                             f'{prefix}/Documents personnels/sticky-notes')
 
     def test_niri_screenshot_path_escapes_native_quotes_and_strftime_percent(self):
         native = 'XDG_PICTURES_DIR="$HOME/Photos \\"été\\" & 100%"\n'
@@ -390,7 +384,7 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(plugins['auto_update'], 'all')
             self.assertEqual({s['name']: s['enabled'] for s in plugins['source']},
                              {'official': True, 'community': True})
-            self.assertEqual(len(plugins['enabled']), 8)
+            self.assertEqual(len(plugins['enabled']), 7)
             self.assertFalse((home / '.local/share/noctalia/plugins').exists())
 
     def test_broken_configuration_is_reported(self):

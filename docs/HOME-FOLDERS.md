@@ -6,7 +6,7 @@ and no English aliases. The public defaults leave `~/.config/user-dirs.dirs`
 untouched and create no standard folders or compatibility links.
 
 The templates resolve paths with `xdg-user-dir` when the home is rendered.
-Screenshots, recordings, received files and notes therefore follow the actual
+Screenshots, recordings and received files therefore follow the actual
 XDG paths, including custom locations. The settings loader does not cache
 those paths or copy them into the supplement. If the platform changes a
 folder setting, the next home apply updates the applications that use it.
@@ -14,7 +14,7 @@ folder setting, the next home apply updates the applications that use it.
 | Role | XDG variable | Shaffy OS also uses it for |
 | --- | --- | --- |
 | `desktop` | `XDG_DESKTOP_DIR` | |
-| `documents` | `XDG_DOCUMENTS_DIR` | Sticky Notes, in `<documents>/sticky-notes` |
+| `documents` | `XDG_DOCUMENTS_DIR` | |
 | `downloads` | `XDG_DOWNLOAD_DIR` | Files received over the Tailnet |
 | `music` | `XDG_MUSIC_DIR` | |
 | `pictures` | `XDG_PICTURES_DIR` | Screenshots, in `<pictures>/Screenshots` |

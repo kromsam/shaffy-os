@@ -20,7 +20,6 @@ before mise activates in a shell.
 | agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
 | Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.12.4 through uv, with CPU-only PyTorch |
 | tmux, zoxide | the `desktop_apps` package group |
-| Sticky Notes | Noctalia's community plugin `ahmedhossamdev/sticky-notes`, updated by Noctalia |
 
 Project-specific runtime choices belong in a project's `mise.toml` or the
 supplement's mise fragment (`overrides.mise`), which renders as
@@ -97,14 +96,6 @@ credential passes through a command line or its arguments. Its session keys
 stay in the kernel keyring, outside both repositories. Proton offers the CLI on
 Pass Plus, Family and Professional and on the Proton bundles, not on the free
 plan; see [Proton Pass CLI documentation](https://protonpass.github.io/pass-cli/).
-
-## Sticky Notes
-
-The Sticky Notes plugin keeps plain Markdown notes, without colours, in
-`sticky-notes` inside the installation's XDG documents directory, so they travel
-with whatever synchronises that folder. An explicit `folders.documents`
-override takes precedence. It is not on the bar; search **Sticky Notes** in the
-launcher.
 
 ## Directory jumping in Fish
 

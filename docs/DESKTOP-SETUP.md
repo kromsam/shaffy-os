@@ -50,7 +50,7 @@ defaults in `defaults/config.yaml`, overridden by the bound supplement (see
 | `desktop.lock_screen.image` | The lock-screen background | The same image |
 | `desktop.browser` | Default handler for web links and HTML, set by the `browser` role | `zen.desktop` |
 | `folders.pictures`, `folders.videos` | Screenshots in `<pictures>/Screenshots`, recordings in `<videos>/Recordings` | Installation's XDG pictures and videos directories |
-| `folders.downloads`, `folders.documents` | Tailnet file transfers, and Sticky Notes in `<documents>/sticky-notes` | Installation's XDG downloads and documents directories |
+| `folders.downloads` | Tailnet file transfers | Installation's XDG downloads directory |
 | `tailnet.login_server` | The Tailnet panel's admin link | No admin link |
 
 The folder names themselves are described in [home folders](HOME-FOLDERS.md). An
@@ -220,7 +220,7 @@ The bar is a flat, opaque, square 26 px bar at the top:
 
 ### Plugins in the launcher
 
-The plugins (Tailnet, Syncthing, Sticky Notes, Phone Connect, Remmina, and the
+The plugins (Tailnet, Syncthing, Phone Connect, Remmina, and the
 screen recorder, timer and world clock) come from Noctalia's official and
 community plugin sources, which Noctalia fetches and keeps updated. Only the
 recorder and the timer sit on the bar, and the world clocks open from the clock.
@@ -232,7 +232,6 @@ Reach the others from the launcher, **Super+Space**:
 | Tailnet hosts | `/tn` |
 | Syncthing panel | Search `Syncthing`, or `/syncthing` |
 | Syncthing folders | `/st` |
-| Sticky Notes | Search `Sticky Notes` |
 | Phone Connect | Search `Phone Connect` (see [KDE Connect](KDE-CONNECT.md)) |
 | Saved Remmina connections | `/rmn` |
 
