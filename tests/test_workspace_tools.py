@@ -1,7 +1,10 @@
 """Verify private-setting preservation and the workmux/tmux workspace sources."""
 import json
+import os
 from pathlib import Path
 import runpy
+import subprocess
+import tempfile
 import tomllib
 import unittest
 
@@ -129,6 +132,24 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertIn('uv tool uninstall zotero-mcp-server', script)
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
+
+    def test_tools_install_only_once_the_home_has_this_checkouts_configuration(self):
+        # mise takes options from the home's configuration; a tool missing there installs without them.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'bin').mkdir()
+            for name in ('mise', 'uv'):
+                (root / 'bin' / name).write_text(f'#!/bin/sh\necho "{name} $*" >> "{root}/calls"\n')
+                (root / 'bin' / name).chmod(0o755)
+            (root / 'config/mise').mkdir(parents=True)
+            (root / 'config/mise/config.toml').write_text('[tools]\nclaude = "latest"\n')
+            result = subprocess.run(['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
+                                    env={**os.environ, 'XDG_CONFIG_HOME': str(root / 'config'),
+                                         'PATH': f"{root / 'bin'}:{os.environ['PATH']}"},
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn('run ./bin/shaffy apply --home first', result.stderr)
+            self.assertFalse((root / 'calls').exists())
 
     def test_launchers_run_installed_tools_without_version_lookups(self):
         # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,
