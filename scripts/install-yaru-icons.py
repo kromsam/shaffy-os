@@ -27,19 +27,27 @@ def main():
         generator = source / 'src/generate-index-theme.py'
         for name in ('Yaru', 'Yaru-yellow'):
             destination = target / name
-            # Version marker makes re-running safe; don't replace unrelated user themes.
+            # The version marker shows an install of ours, which a newer pin replaces; a theme
+            # without one is someone else's and stays.
             marker = destination / '.shaffy-version'
             if destination.exists():
-                if marker.exists() and marker.read_text().strip() == VERSION:
+                if not marker.exists():
+                    raise SystemExit(f'{destination} already exists; inspect it before replacing')
+                if marker.read_text().strip() == VERSION:
                     continue
-                raise SystemExit(f'{destination} already exists; inspect it before replacing')
-            shutil.copytree(source / name, destination, symlinks=True)
-            cmd = ['/usr/bin/python3', str(generator), name, '--source-dir', str(destination), '--output-dir', str(destination), '--inherits', 'Adwaita']
+            # Built beside the old copy, which stays in use until the new one is complete.
+            staged = target / f'.{name}.shaffy-new'
+            shutil.rmtree(staged, ignore_errors=True)
+            shutil.copytree(source / name, staged, symlinks=True)
+            cmd = ['/usr/bin/python3', str(generator), name, '--source-dir', str(staged), '--output-dir', str(staged), '--inherits', 'Adwaita']
             if name != 'Yaru':
                 cmd += ['--inherits', 'Yaru']
             subprocess.run(cmd, check=True)
-            subprocess.run(['gtk-update-icon-cache', '-f', str(destination)], check=True)
-            marker.write_text(VERSION + '\n')
+            subprocess.run(['gtk-update-icon-cache', '-f', str(staged)], check=True)
+            (staged / '.shaffy-version').write_text(VERSION + '\n')
+            if destination.exists():
+                shutil.rmtree(destination)
+            staged.rename(destination)
     print('Installed Yaru and Yaru-yellow in ' + str(target))
 
 
