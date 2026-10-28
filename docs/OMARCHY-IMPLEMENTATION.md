@@ -250,8 +250,8 @@ Noctalia and keeps its copyright and licence; the key sender itself is an
 independent implementation that uses a full evdev keymap, as Noctalia's own paste
 service does.
 
-Yaru: the official release `26.04.5.1ubuntu`, SHA-256
-`4e35b71d37aedb44302c811f63d325f4abd7699961f76f130323b361d4c6a7d7`.
+Yaru: the official release `26.10.3ubuntu`, SHA-256
+`2418ac22adafc4e7027375f87f4c93d7e86215d125c62c37f97219e877604619`.
 `scripts/install-yaru-icons.py ARCHIVE` checks the tarball against that digest,
 copies the Yaru and Yaru-yellow assets into `~/.local/share/icons/` and runs the
 upstream index generator. Neither apply runs it: run it once per user with the

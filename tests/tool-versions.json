@@ -9,5 +9,5 @@
     "noctalia": "5.1.0",
     "fish": "4.9.3"
   },
-  "ci_container": "cachyos/cachyos@sha256:11aa6fe527e88403914010abb9d972c1799c921543ace2a54368de8f3c40a575"
+  "ci_container": "cachyos/cachyos@sha256:f645eba0ce0240b6a26c273b4542d463e734cc68bbd50d988964e3edbb037e5f"
 }

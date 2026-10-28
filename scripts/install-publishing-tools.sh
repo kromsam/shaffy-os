@@ -10,17 +10,17 @@ version() {  # the selector home/dot_config/mise/config.toml declares for a tool
 mise install -y "aqua:quarto-dev/quarto-cli@$(version aqua:quarto-dev/quarto-cli)"
 downloads="${XDG_CACHE_HOME:-$HOME/.cache}/shaffy/downloads"
 mkdir -p "$downloads"
-archive="$downloads/qpdf-12.4.1-bin-linux-x86_64.zip"
+archive="$downloads/qpdf-12.4.2-bin-linux-x86_64.zip"
 if [[ ! -f "$archive" ]]; then
   curl --fail --location --output "$archive" \
-    https://github.com/qpdf/qpdf/releases/download/v12.4.1/qpdf-12.4.1-bin-linux-x86_64.zip
+    https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-bin-linux-x86_64.zip
 fi
 python3 - "$archive" <<'PY'
 import hashlib, os, zipfile, sys, stat
 from pathlib import Path, PurePosixPath
 archive = Path(sys.argv[1])
-assert hashlib.sha256(archive.read_bytes()).hexdigest() == 'db9122e88ec00c76ac6a14e09ffb92406db1773d47b968911ff6e69f28c09bf9'
-target = Path.home()/'.local/share/qpdf/12.4.1'
+assert hashlib.sha256(archive.read_bytes()).hexdigest() == 'db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1'
+target = Path.home()/'.local/share/qpdf/12.4.2'
 assert target.resolve() == target
 target.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(archive) as z:

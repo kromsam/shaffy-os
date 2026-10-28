@@ -136,7 +136,7 @@ Yaru icon theme selected by the desktop:
 
 ```sh
 curl --fail --location --output /tmp/shaffy-yaru.tar.gz \
-  https://github.com/ubuntu/yaru/archive/refs/tags/26.04.5.1ubuntu.tar.gz
+  https://github.com/ubuntu/yaru/archive/refs/tags/26.10.3ubuntu.tar.gz
 python3 scripts/install-yaru-icons.py /tmp/shaffy-yaru.tar.gz
 ```
 

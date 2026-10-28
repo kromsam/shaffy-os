@@ -16,7 +16,7 @@ for tool in claude codex bun ruby aqua:protonpass/pass-cli github:raine/workmux 
 done
 mise install -y "${tools[@]}"
 
-uv tool install --python /usr/bin/python3 --torch-backend cpu 'zotero-mcp-server[semantic,pdf]==0.12.4'
+uv tool install --python /usr/bin/python3 --torch-backend cpu 'zotero-mcp-server[semantic,pdf]==0.15.1'
 
 mise exec -- agent-browser install
 /usr/bin/python3 "$repo/scripts/install-compound-engineering.py"

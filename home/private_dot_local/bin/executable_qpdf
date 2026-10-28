@@ -1,2 +1,2 @@
 #!/bin/sh
-exec "$HOME/.local/share/qpdf/12.4.1/bin/qpdf" "$@"
+exec "$HOME/.local/share/qpdf/12.4.2/bin/qpdf" "$@"

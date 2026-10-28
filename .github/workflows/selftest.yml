@@ -11,7 +11,7 @@ jobs:
   selftest:
     runs-on: ubuntu-latest
     container:
-      image: cachyos/cachyos@sha256:11aa6fe527e88403914010abb9d972c1799c921543ace2a54368de8f3c40a575
+      image: cachyos/cachyos@sha256:f645eba0ce0240b6a26c273b4542d463e734cc68bbd50d988964e3edbb037e5f
     steps:
       - name: Install the test toolset
         run: >-

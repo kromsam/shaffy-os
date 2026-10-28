@@ -8,8 +8,8 @@ import subprocess
 import tarfile
 import tempfile
 
-VERSION = '26.04.5.1ubuntu'
-SHA256 = '4e35b71d37aedb44302c811f63d325f4abd7699961f76f130323b361d4c6a7d7'
+VERSION = '26.10.3ubuntu'
+SHA256 = '2418ac22adafc4e7027375f87f4c93d7e86215d125c62c37f97219e877604619'
 
 
 def main():

@@ -19,7 +19,7 @@ before mise activates in a shell.
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
 | Compound Engineering | Native Claude Code and Codex plugin from `EveryInc/compound-engineering-plugin`, tracking `main` |
 | agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
-| Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.12.4 through uv, with CPU-only PyTorch |
+| Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.15.1 through uv, with CPU-only PyTorch |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
 Project-specific runtime choices belong in a project's `mise.toml` or the
