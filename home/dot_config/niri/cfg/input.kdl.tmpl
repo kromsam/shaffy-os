@@ -36,7 +36,9 @@ input {
         //accel-speed 0.0
     }
 
-    focus-follows-mouse // Automatically focus windows under the mouse pointer
+    // Focus windows under the pointer only when they are already fully on screen,
+    // so touching a partly visible column at the edge does not scroll the view.
+    focus-follows-mouse max-scroll-amount="0%"
     warp-mouse-to-focus
     workspace-auto-back-and-forth // Enable workspace back & forth switching
 }
