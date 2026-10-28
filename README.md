@@ -172,12 +172,11 @@ mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml 
 ```
 
 If the mise declaration changed, review it and trust it again when prompted.
-The package roles use `state: present`; updating installed distribution and
-AUR packages remains a separate full-system update (`sudo pacman -Syu`, then
-`yay -Sua`). A home apply does not upgrade tool binaries: use `mise upgrade`
-for the latest declared mise versions, or rerun the user installers when their
-other pinned dependencies change. Keep an existing private supplement updated
-in its own Git repository.
+An apply installs what is missing but upgrades nothing. `./bin/shaffy update`
+upgrades the packages, the AUR, the mise tools and the user installs, and
+`./bin/shaffy outdated` shows what is behind, this repository's own pins
+included; [Updating](docs/UPDATING.md) describes both and the pin refresh on
+dev. Keep an existing private supplement updated in its own Git repository.
 
 For an interrupted apply, start with `./bin/shaffy status` and
 `./bin/shaffy apply --resume`. `--abandon` clears an operation that cannot be
@@ -196,6 +195,8 @@ See [recovery](docs/DESKTOP-SETUP.md#validation-and-recovery) before restoring a
 | `./bin/shaffy apply --resume` | Finishes an interrupted home or system operation from its captured settings. |
 | `./bin/shaffy apply [--system] --abandon` | Gives up an operation that cannot be resumed and names the snapshots and copies to review; deletes nothing. |
 | `./bin/shaffy status [--no-drift]` | Reports the binding, the checkout, unfinished work, integrations and drift from the source. |
+| `./bin/shaffy outdated [--no-pins]` | Reports what can be updated: packages, the AUR, mise tools, user installs, LazyVim plugins, the Shaffy OS release and this repository's pins. Changes nothing. |
+| `./bin/shaffy update [--skip-packages]` | Updates the packages, the AUR, the mise tools and the user installs, in order; stops at the first failure. See [Updating](docs/UPDATING.md). |
 | `./bin/shaffy supplement attach --supplement PATH` or `--none` | Binds an unbound installation to a supplement, or to the public defaults alone; applies nothing. `--adopt-system-record` recognises the root record of an earlier system apply. |
 | `./bin/shaffy supplement rebind --path PATH` or `--checkout PATH` | Follows a supplement or a checkout that moved; `--new-id` accepts a changed `supplement_id`. |
 | `./bin/shaffy integration NAME adopt` or `release` | `adopt` records an integration that is already active here as managed; `release` stops tracking it and changes nothing. |
@@ -257,6 +258,7 @@ value belongs and which commands change the machine.
   [KDE Connect](docs/KDE-CONNECT.md) and
   [login keyring](docs/LOGIN-KEYRING.md).
 - [Home backup](docs/HOME-BACKUP.md).
+- [Updating](docs/UPDATING.md): the machine, this repository's pins and releases.
 - [Maintenance](docs/MAINTENANCE.md): recurring commands, integrations and
   synchronization.
 

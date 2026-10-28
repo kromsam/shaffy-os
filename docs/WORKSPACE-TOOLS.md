@@ -37,7 +37,8 @@ bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, Compo
 
 The script refuses to run as root. It reads each mise tool's version selector
 from `home/dot_config/mise/config.toml`; all public mise tools use `latest`.
-Run the script again to install updates. Applying the home changes the
+`./bin/shaffy update` runs it again to install updates, after the packages
+([Updating](UPDATING.md)); running it by hand does the same. Applying the home changes the
 configuration and launchers, but does not download new tool versions. The
 launchers use the versions installed through mise; Claude's launcher also sets
 `DISABLE_AUTOUPDATER=1`.
@@ -49,8 +50,8 @@ time. The public file wins over the supplement's mise fragment; to take a fix
 that is younger once, run the script as
 `MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
 
-The Zotero MCP version remains pinned in the script itself; change its pin
-before rerunning it to update. Compound Engineering refreshes from upstream
+The Zotero MCP version remains pinned in the script itself;
+`scripts/refresh-pins.py` raises it on dev. Compound Engineering refreshes from upstream
 `main` through both hosts' native plugin managers; home apply never downloads it. Use this install
 path instead of the tools' own update commands, so mise keeps ownership of its
 binaries and the other tools retain their declared versions. Quarto also uses

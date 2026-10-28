@@ -1,5 +1,5 @@
-"""Subcommands of `bin/shaffy`: selftest, check, data, diff, apply, status, supplement, integration
-and hook."""
+"""Subcommands of `bin/shaffy`: selftest, check, data, diff, apply, status, outdated, update,
+supplement, integration and hook."""
 import argparse
 import json
 import os
@@ -510,6 +510,44 @@ def status(args):
     return 0
 
 
+def outdated(args):
+    """Report what can be updated, from packages to this repository's pins; changes nothing."""
+    from shaffy.updates import report
+    for section in report(ROOT, Path.home(), pins=not args.no_pins):
+        print(f'{section.title}: {section.summary}')
+        for line in section.lines:
+            print(f'  {line}')
+    print('The machine: ./bin/shaffy update. The repository pins: python3 scripts/refresh-pins.py on dev. '
+          'See docs/UPDATING.md.')
+    return 0
+
+
+def update(args):
+    """Update the packages and the user installs in order, stopping at the first failure."""
+    from shaffy import updates
+    from shaffy.records import RecordError, Records
+    if os.geteuid() == 0:
+        return _fail('run as the desktop user; sudo asks for the password where it is needed')
+    try:
+        record = Records().read()
+    except RecordError as error:
+        return _fail(error)
+    if record and record['pending']:
+        return _fail(f"operation {record['pending']['op']} is unfinished; resume or abandon it first "
+                     '(./bin/shaffy status)')
+    steps = [step for step in updates.steps(ROOT, Path.home()) if not (args.skip_packages and step.packages)]
+    if not args.skip_packages and not sys.stdin.isatty():
+        return _fail('the package upgrades ask for confirmation and the sudo password in a terminal; '
+                     'run it in one, or pass --skip-packages')
+    if record and Path(record['checkout']['path']) != ROOT:
+        print(f"Updating with the pins of {ROOT}, not the bound checkout {record['checkout']['path']}.")
+    code = updates.run(steps)
+    if code == 0:
+        print('Done. ./bin/shaffy outdated shows what is left; a new Shaffy OS release reaches the '
+              'machine through an apply (docs/UPDATING.md).')
+    return code
+
+
 def _chezmoi_arguments():
     """chezmoi's own argument vector; CHEZMOI_ARGS joins it with spaces, which loses quoting.
 
@@ -643,6 +681,13 @@ def main(argv):
     report = commands.add_parser('status', help='report the binding, unfinished work and drift')
     report.add_argument('--no-drift', action='store_true', help='skip the chezmoi drift check')
     report.set_defaults(run=status)
+    behind = commands.add_parser('outdated', help='report what can be updated; changes nothing')
+    behind.add_argument('--no-pins', action='store_true', help="leave out this repository's own pins")
+    behind.set_defaults(run=outdated)
+    upgrade = commands.add_parser('update', help='update the packages and the user installs, in order')
+    upgrade.add_argument('--skip-packages', action='store_true',
+                         help='leave out pacman and the AUR, which need sudo')
+    upgrade.set_defaults(run=update)
     supplement = commands.add_parser('supplement', help='bind this installation to settings')
     actions = supplement.add_subparsers(dest='action', required=True, metavar='action')
     bind = actions.add_parser('attach', help='bind an unbound installation; applies nothing')

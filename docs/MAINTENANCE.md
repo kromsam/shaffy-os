@@ -13,6 +13,11 @@ at exact revision `ba7022df0aee1e91cde62d7f0e940d3bc43a82b0` and installs it wit
 hash receipt under `~/.local/share/yabridge` (64-bit VST2 only). Wine Staging and
 the build dependencies come from the `workflows` package group.
 
+`./bin/shaffy outdated` reports when the branch has moved past the revision. To
+take a newer one, read the upstream changes, set the revision here and in the
+script on dev and release it. Then remove `~/.cache/shaffy/build/audio-bridge`,
+where the build keeps its source at the old revision, and run the script again.
+
 `scripts/reload-reaper.sh` requests normal REAPER closure (allowing a save
 prompt), applies the home only after REAPER exits, then opens a new empty project.
 It never discards unsaved work. REAPER's PipeWire audio keys and the yabridge

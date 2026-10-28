@@ -102,7 +102,11 @@ passwords, private keys or tokens.
 ./bin/shaffy apply --home
 ./bin/shaffy apply --system --tags ROLE     # or every role without --tags
 ./bin/shaffy status                         # binding, unfinished work, integrations, drift
+./bin/shaffy outdated                       # what can be updated, this repository's pins included
 ```
+
+Updates follow [Updating](docs/UPDATING.md): the owner runs `./bin/shaffy update`
+for the machine, and the pins are raised on dev with `scripts/refresh-pins.py`.
 
 Run `./bin/shaffy selftest` after changing code, and confirm that a second
 apply changes nothing. The self-test also fails on personal-looking values in
@@ -129,8 +133,9 @@ are kept; delete a branch once it is merged.
 ## Leaving the repository
 
 Anything that writes outside this working tree changes the machine:
-`./bin/shaffy apply` (home or system), `./bin/shaffy supplement attach` and
-`rebind`, `./bin/shaffy integration NAME adopt` and `release`, the helpers in
+`./bin/shaffy apply` (home or system), `./bin/shaffy update`,
+`./bin/shaffy supplement attach` and `rebind`,
+`./bin/shaffy integration NAME adopt` and `release`, the helpers in
 `scripts/` that install, build or configure something or run with `--apply` or
 `--resume`, `restic-home init`, `backup` and `maintenance` (which prunes the
 repository), `sudo`, package installs and `mise install`.

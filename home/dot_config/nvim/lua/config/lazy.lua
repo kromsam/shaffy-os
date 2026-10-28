@@ -27,9 +27,12 @@ local spec = {
 -- LazyVim discovers some plugins only after its own first installation. lazy.nvim
 -- rewrites the lockfile between those rounds, dropping versions of plugins it has
 -- not discovered yet. Read the managed versions once, before setup starts, and
--- retain them as optional overrides for every discovery round.
-for name, version in pairs(locked) do
-  spec[#spec + 1] = { name, optional = true, commit = version.commit }
+-- retain them as optional overrides for every discovery round. scripts/refresh-pins.py
+-- sets SHAFFY_LAZY_REFRESH in its sandbox, so that every plugin can move on.
+if not vim.env.SHAFFY_LAZY_REFRESH then
+  for name, version in pairs(locked) do
+    spec[#spec + 1] = { name, optional = true, commit = version.commit }
+  end
 end
 
 require("lazy").setup({
