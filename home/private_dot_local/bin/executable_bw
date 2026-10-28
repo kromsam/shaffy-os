@@ -1,3 +1,0 @@
-#!/bin/sh
-# mise-managed binary, available to desktop services as well as Fish.
-exec /usr/bin/mise exec -- bw "$@"
