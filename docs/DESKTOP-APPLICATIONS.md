@@ -25,6 +25,7 @@ the next system apply. Application profiles remain untouched.
 | Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
 | Proton Pass | `proton-pass` | The desktop password manager; Niri blocks its window out of screen capture. See [Proton Pass](#proton-pass). |
 | Claude Desktop | `claude-desktop` | The home apply merges the MCP servers of `ai.mcp_servers` into its configuration, as for Claude Code; its preferences, extensions and account are its own. See [AI tools and MCP servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers). |
+| ChatGPT | `chatgpt-desktop-bin` | The official ChatGPT app, which includes the Codex desktop app; Office documents keep opening in LibreOffice (see [Default browser and document types](#default-browser-and-document-types)). It conflicts with `chatgpt-bin` from OpenAI's install script: remove that package first, which also drops OpenAI's pacman repository. |
 | Beeper | upstream AppImage | Chats from several networks in one app; see [Beeper](#beeper). |
 | SilverBullet Desktop | upstream AppImage | Markdown notes in local spaces that can sync with a SilverBullet Server; see [SilverBullet](#silverbullet). |
 | Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |

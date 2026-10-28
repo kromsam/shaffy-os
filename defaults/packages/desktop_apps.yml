@@ -5,6 +5,7 @@ packages:
   - spotify-launcher
   - proton-pass
   - claude-desktop
+  - chatgpt-desktop-bin
   - tailscale
   - proton-vpn-gtk-app
   - freerdp
