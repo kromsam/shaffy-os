@@ -112,15 +112,21 @@ class WorkspaceToolsTests(unittest.TestCase):
     def test_workspace_tools_use_latest_through_mise_everywhere(self):
         config = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())
         tools = config['tools']
-        self.assertTrue(all(version == 'latest' for version in tools.values()))
+        # A tool with options is a table; its version follows latest as well.
+        self.assertTrue(all((tool['version'] if isinstance(tool, dict) else tool) == 'latest'
+                            for tool in tools.values()))
         # `latest` waits for releases to age, so a withdrawn release is not installed.
         self.assertRegex(config['settings']['minimum_release_age'], r'^[1-9][0-9]*d$')
         self.assertIn('github:raine/workmux', tools)
-        # The install script takes every version from that file: it keeps no copy of its own.
+        # The install script takes every tool from that file: it keeps no list or version of its own.
         script = (REPO / 'scripts/install-workspace-tools.sh').read_text()
         self.assertIn('home/dot_config/mise/config.toml', script)
-        self.assertIn('github:raine/workmux', script)
-        self.assertNotIn('@tag:v', script)
+        self.assertNotIn('workmux', script)
+        self.assertNotIn('@', script.replace('"${tools[@]}"', ''))
+        # Zotero MCP is a mise tool too; the script only removes the copy uv installed before.
+        self.assertIn('pypi:zotero-mcp-server', tools)
+        self.assertNotIn('uv tool install', script)
+        self.assertIn('uv tool uninstall zotero-mcp-server', script)
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
 

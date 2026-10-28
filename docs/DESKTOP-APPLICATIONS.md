@@ -230,7 +230,7 @@ Tabbed again.
 
 ## Writing tools
 
-The `writing` group installs Zettlr, Pandoc, TeX Live, LibreOffice, Vale,
+The `writing` group installs Zettlr, Pandoc, qpdf, TeX Live, LibreOffice, Vale,
 Harper, English spelling and hyphenation dictionaries and the Fira fonts; a
 supplement adds other languages' packages with `packages.extra`, for example
 `libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero is the CachyOS

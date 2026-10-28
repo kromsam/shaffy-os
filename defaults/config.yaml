@@ -11,9 +11,10 @@ ai:
     # Beeper Desktop's own server, while Beeper runs with its Desktop API on.
     beeper:
       url: "http://127.0.0.1:23373/v0/mcp"
+    # mise installs the server (home/dot_config/mise/config.toml) and starts it.
     zotero:
-      command: "~/.local/bin/zotero-mcp"
-      args: ["serve"]
+      command: "/usr/bin/mise"
+      args: ["exec", "pypi:zotero-mcp-server", "--", "zotero-mcp", "serve"]
       env:
         ZOTERO_LOCAL: "true"
         ZOTERO_LOCAL_WRITE: "false"

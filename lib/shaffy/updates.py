@@ -68,16 +68,6 @@ def mise(root):
 def installs(root, home):
     """The user installs this checkout pins, against what the home holds."""
     lines = []
-    script = (root / 'scripts/install-workspace-tools.sh').read_text()
-    wanted = re.search(r"zotero-mcp-server\[[^\]]*\]==([0-9.]+)'", script).group(1)
-    listing = _run(['uv', 'tool', 'list']).stdout if shutil.which('uv') else ''
-    found = re.search(r'^zotero-mcp-server v(\S+)', listing, re.MULTILINE)
-    if found and found.group(1) != wanted:
-        lines.append(f'Zotero MCP {found.group(1)} → {wanted}')
-    qpdf = re.search(r'qpdf-([0-9.]+)-bin', (root / 'scripts/install-publishing-tools.sh').read_text()).group(1)
-    installed = sorted(p.name for p in (home / '.local/share/qpdf').glob('*'))
-    if installed and qpdf not in installed:
-        lines.append(f'qpdf {installed[-1]} → {qpdf}')
     yaru = re.search(r"VERSION = '([^']+)'", (root / 'scripts/install-yaru-icons.py').read_text()).group(1)
     marker = home / '.local/share/icons/Yaru/.shaffy-version'
     if marker.exists() and marker.read_text().strip() != yaru:
@@ -187,9 +177,8 @@ def steps(root, home):
         Step('Ansible controller', ['mise', 'upgrade', 'ansible-core'], cwd=root),
         Step('Ansible collections', ['mise', 'exec', 'ansible-core', '--', 'ansible-galaxy', 'collection',
                                      'install', '-r', 'requirements.yml', '-p', 'collections'], cwd=root),
-        Step('mise tools, Zotero MCP and Compound Engineering',
+        Step('mise tools (Quarto and Zotero MCP among them) and Compound Engineering',
              ['bash', str(root / 'scripts/install-workspace-tools.sh')]),
-        Step('Quarto and qpdf', ['bash', str(root / 'scripts/install-publishing-tools.sh')]),
         Step('Yaru icons', ['sh', '-c', 'mkdir -p "$(dirname "$1")" && { [ -f "$1" ] || curl --fail --location '
                             '--output "$1" "$2"; } && python3 "$3" "$1"', 'yaru', str(archive),
                             f'https://github.com/ubuntu/yaru/archive/refs/tags/{yaru}.tar.gz',

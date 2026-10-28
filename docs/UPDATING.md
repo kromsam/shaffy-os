@@ -35,13 +35,13 @@ one and run it again. A step with nothing to do is skipped.
 3. **Ansible controller**: `mise upgrade ansible-core` in the checkout.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.
-5. **mise tools, Zotero MCP and Compound Engineering**:
-   `scripts/install-workspace-tools.sh`. mise's `latest` is the newest release
-   that is at least three days old ([workspace tools](WORKSPACE-TOOLS.md)).
-6. **Quarto and qpdf**: `scripts/install-publishing-tools.sh`.
-7. **Yaru icons**: downloads and installs the pinned release, only when the
+5. **mise tools and Compound Engineering**: `scripts/install-workspace-tools.sh`,
+   for every tool of the mise configuration, Quarto and Zotero MCP among them.
+   mise's `latest` is the newest release that is at least three days old
+   ([workspace tools](WORKSPACE-TOOLS.md)).
+6. **Yaru icons**: downloads and installs the pinned release, only when the
    installed one differs.
-8. **LazyVim plugins**: `nvim --headless "+Lazy! restore" +qa`, only when the
+7. **LazyVim plugins**: `nvim --headless "+Lazy! restore" +qa`, only when the
    installed plugins differ from the managed `lazy-lock.json`. It returns them
    to the lock; it never moves the lock.
 
@@ -66,8 +66,8 @@ use.
 ## This repository's pins
 
 The repository pins what it cannot take as `latest`: the Ansible collections,
-Zotero MCP, qpdf, the Yaru icons, yabridge's revision, the CI container and
-its checkout action, and the LazyVim plugin lock. Raise them on dev:
+the Yaru icons, yabridge's revision, the CI container and its checkout action,
+and the LazyVim plugin lock. Packages and mise tools have no pins here. Raise them on dev:
 
 ```sh
 # in the dev worktree
@@ -78,10 +78,9 @@ git diff
 ```
 
 The script refuses to change main. For each pin it takes the newest stable
-release that is at least three days old where the upstream records a date
-(Galaxy, PyPI and GitHub releases), recomputes the SHA-256 of a download that
-is checked against one, and rewrites every file that names the pin, the docs
-included. The CI container follows `cachyos/cachyos:latest`, and the checkout
+release, at least three days old where the upstream records a date (Galaxy
+does), recomputes the SHA-256 of a download that is checked against one, and
+rewrites every file that names the pin, the docs included. The CI container follows `cachyos/cachyos:latest`, and the checkout
 action its newest release tag. A pin it cannot raise is reported and left as
 it was, and the run then exits with an error.
 
@@ -98,5 +97,5 @@ yabridge is reported only. Read the upstream changes on its
 `scripts/build-audio-bridge.sh` and [maintenance](MAINTENANCE.md) by hand.
 
 Commit the refreshed pins on dev. Once CI passes and dev is released, the next
-`./bin/shaffy update` on the machine installs the new Zotero MCP, qpdf and
-Yaru icons, the new collections and the plugins of the new lock.
+`./bin/shaffy update` on the machine installs the new Yaru icons, the new
+collections and the plugins of the new lock.

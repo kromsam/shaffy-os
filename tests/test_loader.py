@@ -64,7 +64,7 @@ class ValidInputTests(LoaderCase):
         servers = data['settings']['ai']['mcp_servers']
         self.assertEqual(servers['zotero']['env'],
                          {'ZOTERO_LOCAL': 'true', 'ZOTERO_LOCAL_WRITE': 'true'})
-        self.assertEqual(servers['zotero']['command'], '~/.local/bin/zotero-mcp')
+        self.assertEqual(servers['zotero']['command'], '/usr/bin/mise')
         self.assertEqual(servers['notes']['args'], ['--read-only'])
         self.assertIn('ai.mcp_servers.zotero.env.ZOTERO_LOCAL_WRITE', data['present'])
         self.assertNotIn('ai.mcp_servers.zotero.command', data['present'])

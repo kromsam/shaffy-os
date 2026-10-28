@@ -19,7 +19,8 @@ before mise activates in a shell.
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
 | Compound Engineering | Native Claude Code and Codex plugin from `EveryInc/compound-engineering-plugin`, tracking `main` |
 | agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
-| Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.15.1 through uv, with CPU-only PyTorch |
+| Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |
+| Quarto | mise `"aqua:quarto-dev/quarto-cli" = "latest"` |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
 Project-specific runtime choices belong in a project's `mise.toml` or the
@@ -35,8 +36,10 @@ bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, Compo
 ./bin/shaffy status
 ```
 
-The script refuses to run as root. It reads each mise tool's version selector
-from `home/dot_config/mise/config.toml`; all public mise tools use `latest`.
+The script refuses to run as root. It installs every tool
+`home/dot_config/mise/config.toml` names, with the version and options of the
+home's mise configuration, which the home apply renders from that file; all
+public mise tools use `latest`.
 `./bin/shaffy update` runs it again to install updates, after the packages
 ([Updating](UPDATING.md)); running it by hand does the same. Applying the home changes the
 configuration and launchers, but does not download new tool versions. The
@@ -50,13 +53,11 @@ time. The public file wins over the supplement's mise fragment; to take a fix
 that is younger once, run the script as
 `MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
 
-The Zotero MCP version remains pinned in the script itself;
-`scripts/refresh-pins.py` raises it on dev. Compound Engineering refreshes from upstream
-`main` through both hosts' native plugin managers; home apply never downloads it. Use this install
-path instead of the tools' own update commands, so mise keeps ownership of its
-binaries and the other tools retain their declared versions. Quarto also uses
-`latest` in the mise configuration and is installed or updated by
-`scripts/install-publishing-tools.sh`; that script retains qpdf's separate pin.
+Compound Engineering refreshes from upstream `main` through both hosts' native
+plugin managers; home apply never downloads it. Use this install path instead of
+the tools' own update commands, so mise keeps ownership of its binaries and the
+other tools retain their declared versions. Zotero MCP was a `uv tool` until
+2026-10; the script removes that copy before mise installs the server.
 
 The Proton Pass CLI comes from mise's aqua backend, which checks each release
 against the checksum Proton publishes beside it.
@@ -85,8 +86,10 @@ Desktop API switched on; each client signs in to it the first time it is used
 (`/mcp` in Claude Code, `codex mcp login beeper` in Codex). In Claude Desktop,
 Beeper's own Beeper Desktop extension does the same.
 
-Zotero MCP reads the local library through Zotero's local API with writes
-switched off (`ZOTERO_LOCAL=true`, `ZOTERO_LOCAL_WRITE=false`). The `zotero`
+Zotero MCP is a mise tool; each client starts it with
+`mise exec pypi:zotero-mcp-server -- zotero-mcp serve`, and in a shell where mise
+is active `zotero-mcp` is on the path. It reads the local library through
+Zotero's local API with writes switched off (`ZOTERO_LOCAL=true`, `ZOTERO_LOCAL_WRITE=false`). The `zotero`
 integration switches the local API on in Zotero's profile, and Zotero must be
 running. Reading the library and
 semantic search need no cloud API key. Semantic search needs an index built with

@@ -50,9 +50,8 @@ then run `./bin/shaffy integration zotero adopt`.
 
 ## Publishing tools
 
-Quarto is mise-managed. `scripts/install-publishing-tools.sh` installs the
-checksum-pinned official qpdf under the desktop user's home, with a chezmoi-managed
-launcher.
+Quarto is a mise tool, which `scripts/install-workspace-tools.sh` installs and
+updates. qpdf is a package of the `writing` group.
 
 ## Synchronization
 

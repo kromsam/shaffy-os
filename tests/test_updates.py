@@ -18,9 +18,7 @@ from shaffy import pins, updates  # noqa: E402
 
 NOW = datetime.datetime(2026, 10, 28, tzinfo=datetime.timezone.utc)
 OLD, NEW = '2026-10-01T00:00:00Z', '2026-10-27T00:00:00Z'  # NEW is younger than three days
-PINNED = ('requirements.yml', 'scripts/install-workspace-tools.sh', 'docs/WORKSPACE-TOOLS.md',
-          'scripts/install-publishing-tools.sh', 'home/private_dot_local/bin/executable_qpdf',
-          'scripts/install-yaru-icons.py', 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md',
+PINNED = ('requirements.yml', 'scripts/install-yaru-icons.py', 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md',
           'scripts/build-audio-bridge.sh', '.github/workflows/selftest.yml', 'tests/tool-versions.json')
 DIGEST = 'sha256:' + 'ab' * 32
 YARU = b'yaru archive'
@@ -34,17 +32,6 @@ class FakeUpstream(pins.Upstream):
         if url.startswith(pins.GALAXY):
             return {'data': [{'version': '99.0.0', 'created_at': NEW}, {'version': '98.0.0-rc1', 'created_at': OLD},
                              {'version': '97.1.0', 'created_at': OLD}]}
-        if url.startswith('https://pypi.org/'):
-            return {'releases': {'9.0.0': [{'upload_time_iso_8601': OLD, 'yanked': True}],
-                                 '8.1.0': [{'upload_time_iso_8601': OLD}],
-                                 '8.2.0b1': [{'upload_time_iso_8601': OLD}],
-                                 '8.3.0': [{'upload_time_iso_8601': NEW}]}}
-        if url.startswith('https://api.github.com/repos/qpdf/'):
-            asset = {'name': 'qpdf-20.1.0-bin-linux-x86_64.zip', 'digest': 'sha256:' + 'cd' * 32}
-            return [{'tag_name': 'v21.0.0', 'draft': False, 'prerelease': False, 'published_at': NEW, 'assets': []},
-                    {'tag_name': 'v20.1.0', 'draft': False, 'prerelease': False, 'published_at': OLD,
-                     'assets': [asset]},
-                    {'tag_name': 'v20.2.0', 'draft': False, 'prerelease': True, 'published_at': OLD, 'assets': []}]
         if url.startswith('https://hub.docker.com/'):
             return {'digest': DIGEST}
         raise AssertionError(url)
@@ -79,8 +66,6 @@ class PinTests(unittest.TestCase):
     def test_each_pin_takes_the_newest_stable_release_old_enough(self):
         found = self.found()
         self.assertEqual(found['Ansible collection community.general'].latest, '97.1.0')
-        self.assertEqual(found['Zotero MCP (zotero-mcp-server)'].latest, '8.1.0')  # 9.0.0 is yanked
-        self.assertEqual(found['qpdf'].latest, '20.1.0')
         self.assertEqual(found['Yaru icons'].latest, '30.04.1ubuntu')  # the pinned …ubuntu line
         self.assertEqual(found['GitHub action actions/checkout'].latest, 'v9.1.0')
         self.assertEqual(found['CI container cachyos/cachyos:latest'].latest, 'ab' * 6)
@@ -93,11 +78,6 @@ class PinTests(unittest.TestCase):
                 pin.raise_to()
         text = {path: (self.root / path).read_text() for path in PINNED}
         self.assertIn('version: 97.1.0', text['requirements.yml'])
-        self.assertIn("zotero-mcp-server[semantic,pdf]==8.1.0'", text['scripts/install-workspace-tools.sh'])
-        self.assertIn('`zotero-mcp-server[semantic,pdf]` 8.1.0 ', text['docs/WORKSPACE-TOOLS.md'])
-        self.assertIn('cd' * 32, text['scripts/install-publishing-tools.sh'])
-        self.assertNotIn('12.4.1', text['scripts/install-publishing-tools.sh'])
-        self.assertIn('/qpdf/20.1.0/', text['home/private_dot_local/bin/executable_qpdf'])
         yaru = hashlib.sha256(YARU).hexdigest()
         for path in ('scripts/install-yaru-icons.py', 'docs/OMARCHY-IMPLEMENTATION.md'):
             self.assertIn('30.04.1ubuntu', text[path])
@@ -164,17 +144,14 @@ class ReportTests(unittest.TestCase):
             self.assertIn('pacman-contrib', updates.pacman().summary)
 
     def test_user_installs_are_compared_with_this_checkouts_pins(self):
-        (self.home / '.local/share/qpdf/1.0.0').mkdir(parents=True)
         (self.home / '.local/share/icons/Yaru').mkdir(parents=True)
         (self.home / '.local/share/icons/Yaru/.shaffy-version').write_text('1.0ubuntu\n')
         (self.home / '.local/share/yabridge').mkdir(parents=True)
         (self.home / '.local/share/yabridge/build-receipt.json').write_text(json.dumps({'revision': 'e' * 40}))
-        with mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/uv'), \
-                mock.patch.object(updates, '_run', return_value=Result(0, 'zotero-mcp-server v0.0.1\n- zotero-mcp\n')):
-            section = updates.installs(ROOT, self.home)
-        self.assertEqual(section.summary, '4 differ from the pins')
-        self.assertTrue(section.lines[0].startswith('Zotero MCP 0.0.1 → '))
-        self.assertTrue(section.lines[3].endswith('(rebuild by hand: docs/MAINTENANCE.md)'))
+        section = updates.installs(ROOT, self.home)
+        self.assertEqual(section.summary, '2 differ from the pins')
+        self.assertTrue(section.lines[0].startswith('Yaru icons 1.0ubuntu → '))
+        self.assertTrue(section.lines[1].endswith('(rebuild by hand: docs/MAINTENANCE.md)'))
 
     def test_plugins_are_compared_with_the_managed_lock(self):
         (self.home / '.config/nvim').mkdir(parents=True)

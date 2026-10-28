@@ -3,6 +3,7 @@
 packages:
   - zettlr
   - pandoc-cli
+  - qpdf
   - texlive-meta
   - texlive-langeuropean
   - texlive-langcyrillic

@@ -2,9 +2,9 @@
 
 `./bin/shaffy outdated` reports them; scripts/refresh-pins.py raises them on dev, in one
 diff to review before a release. Like mise's `latest`, a release counts only once it is
-three days old, where the upstream records a date (Galaxy, PyPI and GitHub releases; git
-tags and the CI image's tag carry none). yabridge is a reviewed source: it is reported,
-and its revision changes by hand.
+three days old where the upstream records a date, as Galaxy does; git tags and the CI
+image's tag carry none. yabridge is a reviewed source: it is reported, and its revision
+changes by hand. Tools mise installs follow `latest` and have no pin here.
 """
 from dataclasses import dataclass
 import datetime
@@ -48,10 +48,7 @@ class Upstream:
         self.now = now or datetime.datetime.now(datetime.timezone.utc)
 
     def read(self, url):
-        headers = {'User-Agent': 'shaffy-os-pins'}
-        if url.startswith('https://api.github.com/') and os.environ.get('GITHUB_TOKEN'):
-            headers['Authorization'] = f"Bearer {os.environ['GITHUB_TOKEN']}"
-        request = urllib.request.Request(url, headers=headers)
+        request = urllib.request.Request(url, headers={'User-Agent': 'shaffy-os-pins'})
         with urllib.request.urlopen(request, timeout=60) as response:
             return response.read()
 
@@ -113,45 +110,6 @@ def collections(root, upstream):
         pin.raise_to = raise_to
         pins.append(pin)
     return pins
-
-
-def zotero_mcp(root, upstream):
-    script = 'scripts/install-workspace-tools.sh'
-    current = re.search(r"zotero-mcp-server\[[^\]]*\]==([0-9.]+)'", (root / script).read_text()).group(1)
-    pin = Pin('Zotero MCP (zotero-mcp-server)', current)
-    releases = upstream.json('https://pypi.org/pypi/zotero-mcp-server/json')['releases']
-    usable = [version for version, files in releases.items()
-              if STABLE.fullmatch(version) and files and not all(f.get('yanked') for f in files)
-              and upstream.old_enough(min(f['upload_time_iso_8601'] for f in files))]
-    pin.latest = max(usable, key=numeric, default=current)
-    pin.raise_to = lambda: [
-        _edit(root, script, f"]=={current}'", f"]=={pin.latest}'", 1),
-        _edit(root, 'docs/WORKSPACE-TOOLS.md', f'`zotero-mcp-server[semantic,pdf]` {current} ',
-              f'`zotero-mcp-server[semantic,pdf]` {pin.latest} ', 1)]
-    return [pin]
-
-
-def qpdf(root, upstream):
-    script, launcher = 'scripts/install-publishing-tools.sh', 'home/private_dot_local/bin/executable_qpdf'
-    text = (root / script).read_text()
-    current = re.search(r'qpdf-([0-9.]+)-bin-linux-x86_64\.zip', text).group(1)
-    digest = re.search(r"hexdigest\(\) == '([0-9a-f]{64})'", text).group(1)
-    pin = Pin('qpdf', current)
-    releases = [r for r in upstream.json('https://api.github.com/repos/qpdf/qpdf/releases?per_page=20')
-                if not r['draft'] and not r['prerelease'] and STABLE.fullmatch(r['tag_name'].removeprefix('v'))
-                and upstream.old_enough(r['published_at'])]
-    newest = max(releases, key=lambda r: numeric(r['tag_name']), default=None)
-    pin.latest = newest['tag_name'].removeprefix('v') if newest else current
-
-    def raise_to():
-        name = f'qpdf-{pin.latest}-bin-linux-x86_64.zip'
-        asset = next(a for a in newest['assets'] if a['name'] == name)
-        sha256 = (asset.get('digest') or '').removeprefix('sha256:') or \
-            hashlib.sha256(upstream.read(asset['browser_download_url'])).hexdigest()
-        _edit(root, script, digest, sha256, 1)
-        return [_edit(root, script, current, pin.latest), _edit(root, launcher, current, pin.latest)]
-    pin.raise_to = raise_to
-    return [pin]
 
 
 def yaru(root, upstream):
@@ -254,7 +212,7 @@ def refresh_lazyvim(root, run=subprocess.run):
     return ['home/dot_config/nvim/lazy-lock.json', *changes]
 
 
-FAMILIES = (collections, zotero_mcp, qpdf, yaru, yabridge, ci_container, actions_checkout, lazyvim)
+FAMILIES = (collections, yaru, yabridge, ci_container, actions_checkout, lazyvim)
 
 
 def check(root, upstream=None):

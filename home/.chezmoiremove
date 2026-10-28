@@ -13,6 +13,8 @@
 # Retired with the AUR's Beeper package, whose entry started it without Chromium's sandbox.
 # The AppImage writes its own Beeper.desktop.
 .local/share/applications/beeper.desktop
+# Retired with the official qpdf zip: qpdf is the writing group's package now.
+.local/bin/qpdf
 # Retired memory integration. Private data and recovery copies remain untouched.
 .local/bin/gbrain
 .local/bin/gbrain-mcp

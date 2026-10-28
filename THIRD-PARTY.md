@@ -35,8 +35,8 @@ repository holds only version declarations and scripts.
   education; use at work needs a Pro licence.
 - The Proton Pass CLI, selected as `latest` in the mise configuration (GPL-3.0).
 - yabridge, built from a pinned revision by `scripts/build-audio-bridge.sh` (GPL-3.0).
-- Quarto, selected as `latest` in the mise configuration, and qpdf, pinned in
-  `scripts/install-publishing-tools.sh`; the script installs or updates both.
+- Quarto and Zotero MCP, selected as `latest` in the mise configuration;
+  `scripts/install-workspace-tools.sh` installs or updates them.
 - Yaru icons, installed from a checked upstream release by `scripts/install-yaru-icons.py`
   (icons CC BY-SA 4.0, scripts GPL-3.0).
 - Neovim plugins, which lazy.nvim downloads at first start (`lazy-lock.json` pins them).
