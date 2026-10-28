@@ -4,12 +4,14 @@ packages:
   - chromium
   - spotify-launcher
   - proton-pass
+  - claude-desktop
   - tailscale
   - proton-vpn-gtk-app
   - freerdp
   - remmina
   - neovim
   - lazygit
+  - github-cli
   - tree-sitter-cli
   - nodejs
   # Mason installs the editor's JavaScript language tools with npm.
@@ -24,7 +26,6 @@ packages:
   - sane-airscan
   - simple-scan
 aur:
-  - name: beeper-v4-bin
   - name: ttf-ms-fonts
 required:
   # tailscale: the Noctalia Tailnet plugin is always enabled, and the tailnet role runs the

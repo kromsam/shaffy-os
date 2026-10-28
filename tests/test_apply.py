@@ -142,18 +142,20 @@ class HomeApplyTests(unittest.TestCase):
         self.assertNotIn('daemon-reload', second.stdout)
         self.assertEqual(self.events(self.record()['last_completed_op']), ['begin', 'phase-start', 'phase-done'])
 
-    def test_disabling_an_mcp_server_removes_it_from_both_clients_and_converges(self):
+    def test_disabling_an_mcp_server_removes_it_from_every_client_and_converges(self):
         self.attach()
         first = self.shaffy('apply', '--home')
         self.assertEqual(first.returncode, 0, first.stderr)
         self.assertIn('zotero', tomllib.loads(self.codex())['mcp_servers'])
+        desktop = self.home / '.config/Claude/claude_desktop_config.json'
+        self.assertIn('zotero', json.loads(desktop.read_text())['mcpServers'])
         config = self.supplement / 'config.yaml'
         config.write_text(config.read_text().replace('    zotero:\n', '    zotero:\n      enabled: false\n'))
         applied = self.shaffy('apply', '--home')
         self.assertEqual(applied.returncode, 0, applied.stderr)
         codex = tomllib.loads(self.codex())['mcp_servers']
         claude = json.loads((self.home / '.claude.json').read_text())['mcpServers']
-        for servers in (codex, claude):
+        for servers in (codex, claude, json.loads(desktop.read_text())['mcpServers']):
             self.assertNotIn('zotero', servers)
             self.assertIn('notes', servers)
         second = self.shaffy('apply', '--home')

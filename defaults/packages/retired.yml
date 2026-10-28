@@ -1,4 +1,8 @@
 # Public retirements: packages that an earlier version of Shaffy OS installed
 # and that are removed only because they are listed here, keeping their dependencies
-# and profiles. Empty: nothing has been retired since the first public version.
-retired: []
+# and profiles.
+retired:
+  # From the AUR until 2026-10: Zotero now comes from the CachyOS repository (writing) and
+  # Beeper from its own AppImage (scripts/install-beeper-desktop.py).
+  - zotero-bin
+  - beeper-v4-bin

@@ -113,7 +113,7 @@ name; XDG-aware applications do not require them.
 
 The system apply asks for sudo in your terminal and comes first: it prepares
 snapper's `home` configuration. It installs the complete package selection,
-including the AUR builds, and enables Docker. Expect substantial downloads,
+including the AUR build, and enables Docker. Expect substantial downloads,
 including TeX Live and Wine. `diff` previews home changes; the system package
 selection is in [defaults/packages](defaults/packages/README.md).
 
@@ -124,12 +124,13 @@ tools with the repository's installers, without sudo:
 bash scripts/install-workspace-tools.sh
 bash scripts/install-publishing-tools.sh
 python3 scripts/install-silverbullet-desktop.py
+python3 scripts/install-beeper-desktop.py
 mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
 bash scripts/build-audio-bridge.sh
 ```
 
 These install the mise tools, Zotero MCP, Compound Engineering and its browser fallback, Quarto, qpdf,
-SilverBullet Desktop, LazyVim's language tools and the Windows VST2 bridge. They are separate from
+SilverBullet Desktop, Beeper Desktop, LazyVim's language tools and the Windows VST2 bridge. They are separate from
 an ordinary apply and download or build software in the user's home. For the
 Yaru icon theme selected by the desktop:
 

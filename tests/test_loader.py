@@ -83,6 +83,12 @@ class ValidInputTests(LoaderCase):
         self.assertFalse(servers['zotero']['enabled'])
         self.assertEqual(servers['other'], {'enabled': False})
 
+    def test_a_server_can_be_an_address_instead_of_a_command(self):
+        path = self.supplement('schema_version: 1\nsupplement_id: t\n'
+                               'ai:\n  mcp_servers:\n    chat:\n      url: "http://127.0.0.1:9000/mcp"\n')
+        servers = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']
+        self.assertEqual(servers['chat'], {'url': 'http://127.0.0.1:9000/mcp'})
+
 
 class InvalidInputTests(LoaderCase):
     def test_projects_alias_needs_an_explicit_nonstandard_target(self):
@@ -160,7 +166,18 @@ class InvalidInputTests(LoaderCase):
     def test_new_server_needs_a_command(self):
         message = self.problems('schema_version: 1\nsupplement_id: t\n'
                                 'ai:\n  mcp_servers:\n    other:\n      args: []\n')
-        self.assertIn('ai.mcp_servers.other: needs a command', message)
+        self.assertIn('ai.mcp_servers.other: needs a command or a url', message)
+
+    def test_a_server_is_a_command_or_an_address(self):
+        start = 'schema_version: 1\nsupplement_id: t\nai:\n  mcp_servers:\n'
+        for server, expected in (
+                ('    zotero:\n      url: "http://127.0.0.1:9000/mcp"\n',
+                 'ai.mcp_servers.zotero: has both a command and a url'),
+                ('    chat:\n      url: "http://127.0.0.1:9000/mcp"\n      args: []\n',
+                 'ai.mcp_servers.chat: args and env need a command'),
+                ('    chat:\n      url: "file:///tmp/mcp"\n', 'ai.mcp_servers.chat.url')):
+            with self.subTest(server=server):
+                self.assertIn(expected, self.problems(start + server))
 
     def test_server_enabled_must_be_a_boolean(self):
         message = self.problems('schema_version: 1\nsupplement_id: t\n'
@@ -297,42 +314,36 @@ class PackageTests(LoaderCase):
             self.assertIn(f'shaffy.packages.groups.{name}', (ROOT / f'roles/{name}/tasks/main.yml').read_text())
             self.assertEqual(site.get(name), [name], f'site.yml does not run the {name} role under its tag')
         self.assertEqual(site.get('packages'), ['packages'])
-        self.assertEqual(retired, [])
+        self.assertEqual(retired, ['zotero-bin', 'beeper-v4-bin'])
 
     def test_defaults_install_every_group_and_remove_only_the_retired(self):
         packages = self.load()['shaffy']['packages']
         self.assertIn('docker', packages['groups']['workflows'])
         self.assertEqual(packages['extra'], [])
-        self.assertEqual(packages['remove'], [])  # nothing public is retired yet
-        self.assertEqual(packages['aur']['writing'], [{'name': 'zotero-bin', 'replaces': 'zotero'}])
+        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'zotero-bin'])
+        self.assertIn('zotero', packages['groups']['writing'])
+        self.assertEqual(packages['aur'], {group: ([{'name': 'ttf-ms-fonts'}] if group == 'desktop_apps' else [])
+                                           for group in packages['groups']})
 
     def test_choices_add_omit_and_remove(self):
         packages = self.packages('packages:\n  extra: [htop, zellij]\n  omit: [reaper]\n  remove: [reaper]\n')
         self.assertNotIn('reaper', packages['groups']['workflows'])
         self.assertEqual(packages['extra'], ['htop', 'zellij'])
-        self.assertEqual(packages['remove'], ['reaper'])  # only listed packages are removed
+        # Only listed packages are removed: the settings' and the public retirements.
+        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'reaper', 'zotero-bin'])
 
     def test_aur_omissions_and_removals_follow_the_same_rules(self):
-        packages = self.packages('packages:\n  omit: [beeper-v4-bin, zotero-bin]\n'
-                                 '  remove: [beeper-v4-bin]\n')
-        self.assertEqual(packages['aur']['desktop_apps'], [{'name': 'ttf-ms-fonts'}])
-        self.assertEqual(packages['aur']['writing'], [])
-        self.assertEqual(packages['remove'], ['beeper-v4-bin'])
-
-    def test_omitting_an_aur_replacement_allows_the_distribution_package(self):
-        packages = self.packages('packages:\n  omit: [zotero-bin]\n  extra: [zotero]\n')
-        self.assertEqual(packages['aur']['writing'], [])
-        self.assertEqual(packages['extra'], ['zotero'])
-        self.assertEqual(packages['remove'], [])
+        packages = self.packages('packages:\n  omit: [ttf-ms-fonts]\n  remove: [ttf-ms-fonts]\n')
+        self.assertEqual(packages['aur']['desktop_apps'], [])
+        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'ttf-ms-fonts', 'zotero-bin'])
 
     def test_contradictory_choices_fail(self):
         for text, message in (
                 ('packages:\n  omit: [docker]\n', 'packages.omit: docker is required by the workflows group'),
                 ('packages:\n  omit: [htop]\n', 'packages.omit: htop is in no package group'),
                 ('packages:\n  extra: [docker]\n', 'packages.extra: docker is already in the workflows group'),
-                ('packages:\n  extra: [beeper-v4-bin]\n', 'packages.extra: beeper-v4-bin is already in the desktop_apps group'),
-                ('packages:\n  remove: [beeper-v4-bin]\n', 'packages.remove: beeper-v4-bin is also installed by the desktop_apps group; omit it too'),
-                ('packages:\n  extra: [zotero]\n', 'zotero-bin replaces zotero, but both are selected'),
+                ('packages:\n  extra: [ttf-ms-fonts]\n', 'packages.extra: ttf-ms-fonts is already in the desktop_apps group'),
+                ('packages:\n  remove: [ttf-ms-fonts]\n', 'packages.remove: ttf-ms-fonts is also installed by the desktop_apps group; omit it too'),
                 ('packages:\n  remove: [reaper]\n', 'packages.remove: reaper is also installed by the workflows'),
                 ('packages:\n  extra: [htop]\n  remove: [htop]\n', 'packages.remove: htop is also installed by packages.extra'),
                 ('packages:\n  omit: [mise]\n  remove: [mise]\n', 'packages.remove: mise is needed by Shaffy OS itself'),
@@ -377,8 +388,7 @@ class PackageTests(LoaderCase):
         directory = self.tmp / 'checkout/defaults/packages'
         directory.mkdir(parents=True)
         for aur in ('null', '{}', '[probe-bin]', '[{}]', '[{name: null}]',
-                    '[{name: probe-bin, extra: true}]', '[{name: probe-bin, replaces: []}]',
-                    '[{name: probe-bin, replaces: sudo}]', '[{name: probe-bin, replaces: probe-bin}]',
+                    '[{name: probe-bin, extra: true}]', '[{name: probe-bin, replaces: probe}]',
                     '[{name: probe-bin}, {name: probe-bin}]'):
             with self.subTest(aur=aur):
                 (directory / 'one.yml').write_text(f'packages: []\nrequired: []\naur: {aur}\n')

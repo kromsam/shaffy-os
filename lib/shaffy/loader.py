@@ -181,8 +181,16 @@ BACKUP_MARKER = ('.local', 'state', 'shaffy', 'home-backup')
 
 def _effective_problems(settings):
     servers = settings.get('ai', {}).get('mcp_servers', {})
-    problems = [f'effective settings: ai.mcp_servers.{name}: needs a command'
-                for name, spec in servers.items() if spec.get('enabled', True) and 'command' not in spec]
+    problems = []
+    for name, spec in servers.items():
+        if not spec.get('enabled', True):
+            continue
+        if 'command' not in spec and 'url' not in spec:
+            problems.append(f'effective settings: ai.mcp_servers.{name}: needs a command or a url')
+        elif 'command' in spec and 'url' in spec:
+            problems.append(f'effective settings: ai.mcp_servers.{name}: has both a command and a url')
+        elif 'url' in spec and ('args' in spec or 'env' in spec):
+            problems.append(f'effective settings: ai.mcp_servers.{name}: args and env need a command')
     if ('projects' in settings.get('folder_links', {}).values()
             and 'projects' not in settings.get('folders', {})):
         problems.append('folder_links: a projects target needs folders.projects; '

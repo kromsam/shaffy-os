@@ -8,6 +8,9 @@ ai:
     # Retirement marker: absence alone would retain an existing client entry.
     gbrain:
       enabled: false
+    # Beeper Desktop's own server, while Beeper runs with its Desktop API on.
+    beeper:
+      url: "http://127.0.0.1:23373/v0/mcp"
     zotero:
       command: "~/.local/bin/zotero-mcp"
       args: ["serve"]

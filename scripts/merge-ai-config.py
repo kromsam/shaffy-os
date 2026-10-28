@@ -83,14 +83,19 @@ def merge_codex(text, servers, compound_engineering=None):
     return merge_tables(text, 'marketplaces', {CE_MARKETPLACE: marketplace})
 
 
-def merge_claude(text, servers):
+def merge_claude(text, servers, typed=True):
+    """Claude Code's entries name their transport. Claude Desktop's file holds commands only,
+    without one; it reaches HTTP servers through its own connectors and extensions."""
     result = json.loads(text) if text.strip() else {}
     original = copy.deepcopy(result)
     for name, spec in servers.items():
         if spec is None:
             result.get('mcpServers', {}).pop(name, None)
-        else:
-            result.setdefault('mcpServers', {})[name] = {'type': 'stdio', **spec}
+        elif typed:
+            transport = 'http' if 'url' in spec else 'stdio'
+            result.setdefault('mcpServers', {})[name] = {'type': transport, **spec}
+        elif 'command' in spec:
+            result.setdefault('mcpServers', {})[name] = spec
     if result == original and text.strip():
         return text
     # A modifier may be rendering a new file. Empty TOML is valid; empty JSON
@@ -119,8 +124,9 @@ def mcp_servers():
             entries[name] = None
             continue
         entry = {key: value for key, value in spec.items() if key != 'enabled'}
-        entry['command'] = os.path.expanduser(spec['command'])
-        entry.setdefault('args', [])
+        if 'command' in entry:
+            entry['command'] = os.path.expanduser(spec['command'])
+            entry.setdefault('args', [])
         entries[name] = entry
     return entries
 
@@ -137,8 +143,10 @@ if __name__ == '__main__':
             output = merge_codex(text, servers, enabled)
         elif sys.argv[1] == 'claude':
             output = merge_claude(text, servers)
+        elif sys.argv[1] == 'claude-desktop':
+            output = merge_claude(text, servers, typed=False)
         else:
-            raise ValueError('expected claude, claude-settings or codex')
+            raise ValueError('expected claude, claude-desktop, claude-settings or codex')
     except Exception as error:  # refuse to rewrite the file on invalid settings
         sys.exit(f'merge-ai-config: cannot read the Shaffy OS settings: {error}')
     sys.stdout.write(output)

@@ -298,6 +298,11 @@ class RenderTests(unittest.TestCase):
             self.assertIn(f'TryExec={appimage}', launcher)
             self.assertNotIn('--no-sandbox', launcher)
             self.assertNotIn('text/markdown', launcher)  # Markdown files keep their own application
+            beeper = (home / '.local/share/applications/Beeper.desktop').read_text()
+            appimage = f'{home if DIRECT else "/home/tester"}/.local/lib/beeper/Beeper.AppImage'
+            self.assertIn(f'Exec="{appimage}" %U', beeper)
+            self.assertIn(f'TryExec={appimage}', beeper)
+            self.assertNotIn('--no-sandbox', beeper)
             self.assertIn(f'screenshot-path "{home if DIRECT else "/home/tester"}/Screenshots/',
                           (home / '.config/niri/cfg/misc.kdl').read_text())
             self.assertTrue((home / '.local/share/pandoc/csl').is_dir())

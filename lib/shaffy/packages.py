@@ -41,19 +41,16 @@ def load_groups(checkout, parse):
         invalid = _names(data['packages'], f'{label}: packages') + _names(data['required'], f'{label}: required')
         aur = data.get('aur', [])
         if not isinstance(aur, list) or not all(
-                isinstance(entry, dict) and {'name'} <= set(entry) <= {'name', 'replaces'}
-                and all(isinstance(value, str) and NAME.fullmatch(value) for value in entry.values())
+                isinstance(entry, dict) and set(entry) == {'name'}
+                and isinstance(entry['name'], str) and NAME.fullmatch(entry['name'])
                 for entry in aur):
-            invalid.append(f'{label}: aur must be a list of {{name, optional replaces}} package entries')
+            invalid.append(f'{label}: aur must be a list of {{name}} package entries')
         if invalid:
             problems += invalid
             continue
         names = data['packages'] + [entry['name'] for entry in aur]
         problems += [f'{label}: required {name} is not in its packages'
                      for name in data['required'] if name not in names]
-        for entry in aur:
-            if entry.get('replaces') in PROTECTED or entry.get('replaces') == entry['name']:
-                problems.append(f'{label}: {entry["name"]} cannot replace {entry["replaces"]}')
         for name in names:
             if name in owner:
                 problems.append(f'{label}: {name} already belongs to the {owner[name]} group')
@@ -91,11 +88,6 @@ def resolve(groups, retired, settings):
     installed = {name for name in owner if name not in omit} | set(extra)
     aur = {group: [entry for entry in data['aur'] if entry['name'] not in omit]
            for group, data in groups.items()}
-    for entries in aur.values():
-        for entry in entries:
-            if entry.get('replaces') in installed:
-                problems.append(f'packages: {entry["name"]} replaces {entry["replaces"]}, '
-                                'but both are selected for installation')
     for name in remove:
         if name in PROTECTED:
             problems.append(f'packages.remove: {name} is needed by Shaffy OS itself')

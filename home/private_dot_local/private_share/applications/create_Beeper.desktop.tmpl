@@ -1,0 +1,16 @@
+{{- $appimage := printf "%s/.local/lib/beeper/Beeper.AppImage" .chezmoi.homeDir -}}
+# Starts the self-updating AppImage that scripts/install-beeper-desktop.py installs
+# (TryExec hides the entry in launchers that read it until then). Created once: Beeper
+# rewrites this file under the same name each time it starts, keeping Chromium's sandbox.
+[Desktop Entry]
+Type=Application
+Name=Beeper
+GenericName=Unified Messenger
+Comment=The ultimate messaging app
+TryExec={{ $appimage }}
+Exec="{{ $appimage }}" %U
+Icon=beepertexts
+Terminal=false
+StartupWMClass=Beeper
+MimeType=x-scheme-handler/beeper;
+Categories=Network;InstantMessaging;

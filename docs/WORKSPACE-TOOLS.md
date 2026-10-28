@@ -1,7 +1,8 @@
 # Workspace tools
 
 The command-line tools for AI-assisted work and terminal workspaces. tmux,
-zoxide, uv, Node.js and npm are packages in the `desktop_apps` group. The other tools
+zoxide, uv, the GitHub CLI (`gh`), Node.js and npm are packages in the
+`desktop_apps` group. The other tools
 are declared in chezmoi's `~/.config/mise/config.toml` (source
 `home/dot_config/mise/config.toml`) or in `scripts/install-workspace-tools.sh`,
 which installs them as the desktop user. Launchers in `~/.local/bin` run the
@@ -19,7 +20,7 @@ before mise activates in a shell.
 | Compound Engineering | Native Claude Code and Codex plugin from `EveryInc/compound-engineering-plugin`, tracking `main` |
 | agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
 | Zotero MCP | `zotero-mcp-server[semantic,pdf]` 0.12.4 through uv, with CPU-only PyTorch |
-| tmux, zoxide | the `desktop_apps` package group |
+| tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
 Project-specific runtime choices belong in a project's `mise.toml` or the
 supplement's mise fragment (`overrides.mise`), which renders as
@@ -28,7 +29,7 @@ supplement's mise fragment (`overrides.mise`), which renders as
 ## Install and update
 
 ```sh
-./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, Node.js and npm
+./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, gh, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
 bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, Compound Engineering and its browser fallback
 ./bin/shaffy status
@@ -62,17 +63,31 @@ against the checksum Proton publishes beside it.
 ## AI tools and MCP servers
 
 Run `claude` or `codex` in a project. The home apply merges the MCP servers of
-`ai.mcp_servers` into `~/.claude.json` and `~/.codex/config.toml` and keeps
-every other setting in both files; restart running sessions to see a change.
+`ai.mcp_servers` into `~/.claude.json`, Claude Desktop's
+`~/.config/Claude/claude_desktop_config.json` and `~/.codex/config.toml`, and
+keeps every other setting in those files: Claude Desktop's preferences, its
+extensions and the claude.ai connectors stay the app's own. Restart running
+sessions, and Claude Desktop, to see a change.
 
 Set `ai.mcp_servers.NAME.enabled: false` in the supplement to remove that named
-server from both clients on a home apply. Omitting its name leaves an existing
+server from every client on a home apply. Omitting its name leaves an existing
 entry alone.
 
-The public default is one server, Zotero MCP, reading the local library through
-Zotero's local API with writes switched off (`ZOTERO_LOCAL=true`,
-`ZOTERO_LOCAL_WRITE=false`). The `zotero` integration switches the local API on
-in Zotero's profile, and Zotero must be running. Reading the library and
+A server is a command the client starts (`command`, `args`, `env`) or the
+address of a streamable HTTP server that runs on its own (`url`). Claude
+Desktop's configuration holds commands only, so it leaves address servers out;
+it reaches those through its own connectors and extensions.
+
+The public defaults are two servers. Beeper's, at
+`http://127.0.0.1:23373/v0/mcp`, answers while Beeper Desktop runs with its
+Desktop API switched on; each client signs in to it the first time it is used
+(`/mcp` in Claude Code, `codex mcp login beeper` in Codex). In Claude Desktop,
+Beeper's own Beeper Desktop extension does the same.
+
+Zotero MCP reads the local library through Zotero's local API with writes
+switched off (`ZOTERO_LOCAL=true`, `ZOTERO_LOCAL_WRITE=false`). The `zotero`
+integration switches the local API on in Zotero's profile, and Zotero must be
+running. Reading the library and
 semantic search need no cloud API key. Semantic search needs an index built with
 `zotero-mcp update-db`; nothing reindexes automatically, and write authorisation
 is not granted. A supplement switches local writes on with
@@ -80,8 +95,8 @@ is not granted. A supplement switches local writes on with
 
 To opt out, set `ai.mcp_servers.zotero.enabled: false` in the supplement and
 run `./bin/shaffy apply --home`. This removes only the `zotero` MCP entry from
-both clients and is independent of the `zotero` home integration and the
-`zotero-bin` package selection. Set `enabled: true`, or remove the override,
+every client and is independent of the `zotero` home integration and the
+`zotero` package selection. Set `enabled: true`, or remove the override,
 to restore the public default. The same switch works for other named MCP
 servers. Merely deleting a custom server from the supplement leaves an
 existing client entry alone. An unfamiliar inline TOML entry is refused for

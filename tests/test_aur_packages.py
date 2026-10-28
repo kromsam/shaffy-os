@@ -22,7 +22,7 @@ def aur_packages():
 
 class RoleTests(unittest.TestCase):
     def test_roles_install_only_the_resolved_aur_selection(self):
-        for role in ('desktop_apps', 'writing'):
+        for role in ('desktop_apps',):
             tasks = yaml.safe_load((ROOT / f'roles/{role}/tasks/main.yml').read_text())
             installs = [task for task in tasks
                         if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package']
@@ -32,7 +32,7 @@ class RoleTests(unittest.TestCase):
             self.assertNotIn('aur_package', installs[0].get('vars', {}))
 
     def test_the_roles_take_these_packages_from_the_aur_and_the_repository_keeps_no_recipes(self):
-        self.assertEqual(aur_packages(), ['beeper-v4-bin', 'ttf-ms-fonts', 'zotero-bin'])
+        self.assertEqual(aur_packages(), ['ttf-ms-fonts'])
         self.assertFalse((ROOT / 'packages').exists())
         files = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z', '-co', '--exclude-standard'],
                                capture_output=True, text=True, check=True).stdout.split('\0')
@@ -42,11 +42,6 @@ class RoleTests(unittest.TestCase):
     def test_yay_is_declared_for_their_updates(self):
         group = yaml.safe_load((ROOT / 'defaults/packages/desktop_apps.yml').read_text())
         self.assertIn('yay', group['packages'])
-
-    def test_beeper_keeps_its_sandbox(self):
-        entry = (ROOT / 'home/private_dot_local/private_share/applications/beeper.desktop').read_text()
-        self.assertIn('\nExec=beeper %U\n', entry)
-        self.assertNotIn('no-sandbox', entry.split('[Desktop Entry]', 1)[1])
 
 
 @unittest.skipIf(shutil.which('makepkg') is None or shutil.which('git') is None or os.getuid() == 0,

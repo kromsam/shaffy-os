@@ -13,9 +13,7 @@ packages:
   - harper
   - otf-fira-sans
   - ttf-firacode-nerd
-aur:
-  - name: zotero-bin
-    replaces: zotero
+  - zotero
 required:
   # The role selects LibreOffice's Tabbed interface in the target user's profile.
   - libreoffice-fresh

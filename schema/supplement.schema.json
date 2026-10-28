@@ -30,7 +30,7 @@
       "minProperties": 1,
       "properties": {
         "mcp_servers": {
-          "description": "MCP servers merged into the Claude and Codex configurations; a name overrides or extends the default of the same name. Set enabled to false to remove that server from both configurations.",
+          "description": "MCP servers merged into the Claude Code, Claude Desktop and Codex configurations; a name overrides or extends the default of the same name. Set enabled to false to remove that server from every configuration.",
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
@@ -644,6 +644,11 @@
           "description": "Program to start; a leading ~/ means the target home directory.",
           "type": "string",
           "minLength": 1
+        },
+        "url": {
+          "description": "Address of a streamable HTTP server that runs on its own, instead of a command. Claude Desktop's configuration holds commands only, so it leaves such a server out.",
+          "type": "string",
+          "pattern": "^https?://[^\\s]+$"
         },
         "args": {
           "type": "array",

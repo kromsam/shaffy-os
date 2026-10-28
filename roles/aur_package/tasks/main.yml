@@ -2,8 +2,7 @@
 # One AUR package, installed when it is missing. The repository keeps no
 # recipes: scripts/build-aur-package.sh clones the AUR's current recipe and builds it as the
 # target user, and root installs only its own copy, after checking the digest and the name.
-# Updates are yay's (`yay`), not the apply's. `aur_package: {name, replaces (a distribution
-# package it supersedes)}`.
+# Updates are yay's (`yay`), not the apply's. `aur_package: {name}`.
 - name: Check the installed {{ aur_package.name }}
   ansible.builtin.command:
     argv: ['pacman', '-Q', '{{ aur_package.name }}']
@@ -117,30 +116,6 @@
         owner: root
         group: root
         mode: '0600'
-
-    - name: Check whether the superseded distribution package is installed
-      ansible.builtin.command:
-        argv: ['pacman', '-Q', '{{ aur_package.replaces }}']
-      register: aur_package_replaced
-      changed_when: false
-      failed_when: aur_package_replaced.rc not in [0, 1]
-      check_mode: false
-      when: aur_package.replaces is defined
-
-    - name: Refuse to replace a newer distribution package
-      ansible.builtin.command:
-        argv: ['vercmp', '{{ aur_package_replaced.stdout.split()[1] }}', '{{ aur_package_identity.stdout.split()[1] }}']
-      register: aur_package_replaced_compare
-      changed_when: false
-      failed_when: aur_package_replaced_compare.stdout | int > 0
-      check_mode: false
-      when: aur_package.replaces is defined and aur_package_replaced.rc == 0
-
-    - name: Remove only the superseded distribution package
-      ansible.builtin.command:
-        argv: ['pacman', '-R', '--noconfirm', '{{ aur_package.replaces }}']
-      changed_when: true
-      when: aur_package.replaces is defined and aur_package_replaced.rc == 0
 
     - name: Install the verified copy of {{ aur_package.name }}
       ansible.builtin.command:

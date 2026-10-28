@@ -9,6 +9,9 @@
 # Retired with the Sticky Notes plugin. Notes already saved in
 # <documents>/sticky-notes stay untouched.
 .local/share/applications/sticky-notes.desktop
+# Retired with the AUR's Beeper package, whose entry started it without Chromium's sandbox.
+# The AppImage writes its own Beeper.desktop.
+.local/share/applications/beeper.desktop
 # Retired memory integration. Private data and recovery copies remain untouched.
 .local/bin/gbrain
 .local/bin/gbrain-mcp

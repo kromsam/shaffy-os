@@ -12,7 +12,25 @@ import unittest
 
 REPO = Path(__file__).resolve().parents[1]
 HOME = REPO / 'home'
+DESKTOP = 'dot_config/private_Claude/modify_private_claude_desktop_config.json'
+DESKTOP_TARGET = '.config/Claude/claude_desktop_config.json'
 merge = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
+
+
+class ClaudeMergeTests(unittest.TestCase):
+    def test_a_current_desktop_file_is_returned_byte_for_byte(self):
+        # Claude Desktop formats its own file; a merge with nothing to change must not reformat it.
+        text = '{\n    "mcpServers": {\n        "zotero": {\n            "command": "z",\n            "args": []\n        }\n    }\n}'
+        self.assertEqual(merge['merge_claude'](text, {'zotero': {'command': 'z', 'args': []}}, typed=False), text)
+
+    def test_an_address_reaches_claude_code_and_codex_but_not_claude_desktop(self):
+        servers = {'chat': {'url': 'http://127.0.0.1:9000/mcp'}}
+        code = json.loads(merge['merge_claude']('{}', servers))
+        self.assertEqual(code['mcpServers']['chat'], {'type': 'http', 'url': 'http://127.0.0.1:9000/mcp'})
+        codex = tomllib.loads(merge['merge_codex']('model = "x"\n', servers))
+        self.assertEqual(codex['mcp_servers']['chat'], {'url': 'http://127.0.0.1:9000/mcp'})
+        desktop = '{"mcpServers": {"chat": {"command": "the user\'s own"}}}'
+        self.assertEqual(merge['merge_claude'](desktop, servers, typed=False), desktop)
 
 
 class CodexMergeTests(unittest.TestCase):
@@ -85,19 +103,27 @@ class ApplyingCheckoutTests(unittest.TestCase):
         self.assertIn('model = "x"', output)
 
     def test_claude_config_uses_this_checkouts_merge_and_servers(self):
-        output = self.render('modify_private_dot_claude.json', '.claude.json', '{"theme": "dark"}')
+        output = self.render('modify_dot_claude.json', '.claude.json', '{"theme": "dark"}')
         data = json.loads(output)
         self.assertEqual(data['mcpServers']['marker']['command'], '/only/in/this/checkout')
         self.assertEqual(data['theme'], 'dark')
 
-    def test_supplement_can_disable_a_default_and_add_a_server_in_both_clients(self):
+    def test_claude_desktop_config_gets_untyped_servers_and_keeps_preferences(self):
+        output = self.render(DESKTOP, DESKTOP_TARGET, '{"preferences": {"sidebarMode": "chat"}}')
+        data = json.loads(output)
+        self.assertEqual(data['mcpServers']['marker'], {'command': '/only/in/this/checkout', 'args': []})
+        self.assertEqual(data['preferences'], {'sidebarMode': 'chat'})
+
+    def test_supplement_can_disable_a_default_and_add_a_server_in_every_client(self):
         supplement = ('ai:\n  mcp_servers:\n    marker:\n      enabled: false\n'
                       '    new:\n      enabled: true\n      command: "~/bin/new-mcp"\n')
         for source, target, existing, parse, key in (
                 ('private_dot_codex/modify_private_config.toml', '.codex/config.toml',
                  'model="kept"\n[mcp_servers.marker]\ncommand="old"\n', tomllib.loads, 'mcp_servers'),
-                ('modify_private_dot_claude.json', '.claude.json',
-                 '{"theme":"dark","mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers')):
+                ('modify_dot_claude.json', '.claude.json',
+                 '{"theme":"dark","mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers'),
+                (DESKTOP, DESKTOP_TARGET,
+                 '{"preferences":{},"mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers')):
             with self.subTest(target=target):
                 output = self.render(source, target, existing, supplement)
                 servers = parse(output)[key]
@@ -107,7 +133,7 @@ class ApplyingCheckoutTests(unittest.TestCase):
                 self.assertEqual(servers['new']['args'], [])
 
     def test_a_new_claude_file_with_the_default_server_disabled_is_valid_json(self):
-        output = self.render('modify_private_dot_claude.json', '.claude.json', '',
+        output = self.render('modify_dot_claude.json', '.claude.json', '',
                              'ai:\n  mcp_servers:\n    marker:\n      enabled: false\n')
         self.assertEqual(json.loads(output), {})
 

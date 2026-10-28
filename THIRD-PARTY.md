@@ -22,13 +22,13 @@ revisions are the ones the files were compared with.
 These are fetched at install or first start, under their own licences; the
 repository holds only version declarations and scripts.
 
-- The AUR packages `zotero-bin`, `ttf-ms-fonts` and `beeper-v4-bin`: the
-  `aur_package` role builds each from the AUR's current recipe on the machine
-  when it is missing, and yay updates them; the repository holds no recipe.
-  Installing `ttf-ms-fonts` accepts Microsoft's End User Licence Agreement for
-  its core fonts, which the package installs. Beeper is proprietary;
-  `home/.../applications/beeper.desktop` starts it without the AUR entry's
-  `--no-sandbox`.
+- The AUR package `ttf-ms-fonts`: the `aur_package` role builds it from the
+  AUR's current recipe on the machine when it is missing, and yay updates it;
+  the repository holds no recipe. Installing it accepts Microsoft's End User
+  Licence Agreement for its core fonts, which the package installs.
+- Beeper Desktop, downloaded from Beeper's stable channel by
+  `scripts/install-beeper-desktop.py`; the app then updates itself. Beeper is
+  proprietary.
 - SilverBullet Desktop, downloaded from upstream's stable channel by
   `scripts/install-silverbullet-desktop.py`; the app then updates itself. It is
   built on the MIT-licensed SilverBullet and is free for personal use and

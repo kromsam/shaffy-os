@@ -175,7 +175,7 @@ in [home folders](HOME-FOLDERS.md).
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
 | `ai.compound_engineering.enabled` | Global CE activation for Claude Code and Codex (default true). False keeps the plugin installed and requires native project opt-in; new repos start off. | Public default applies. | home |
-| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}`, merged into `~/.claude.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from both clients. A leading `~/` in `command` means the home. A name the defaults already have (`zotero`) is changed key by key; a new enabled name needs a `command`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `zotero` server. | home |
+| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}` or, for a streamable HTTP server that runs on its own, `{enabled, url}`, merged into `~/.claude.json`, Claude Desktop's `~/.config/Claude/claude_desktop_config.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from every client. Claude Desktop's file takes no `url` servers. A leading `~/` in `command` means the home. A name the defaults already have (`beeper`, `zotero`) is changed key by key; a new enabled name needs a `command` or a `url`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `beeper` and `zotero` servers. | home |
 
 ### tailnet
 
@@ -232,7 +232,7 @@ lifecycle are in [home backup](HOME-BACKUP.md).
 ```yaml
 packages:
   extra: [gimp, htop]    # also install these
-  omit: [chromium, beeper-v4-bin]  # leave these repository and AUR packages out
+  omit: [chromium, ttf-ms-fonts]  # leave these repository and AUR packages out
   remove: [nano]         # remove these
 ```
 
@@ -246,9 +246,6 @@ packages:
   refused (omit it as well), and so is one Shaffy OS itself runs on, such as
   `chezmoi`, `snapper` or `niri`.
 - Pacman group names are refused in `extra` and `remove`; list the packages.
-- An AUR package and the package it replaces cannot both be selected. To use
-  the repository's `zotero`, for example, omit `zotero-bin` before adding
-  `zotero` to `extra`.
 
 The `packages` role applies `extra` and `remove`; each group's role applies its
 omissions. A package in the public retirement list,
@@ -256,7 +253,7 @@ omissions. A package in the public retirement list,
 is ever removed because it is missing from a list.
 
 Package choices and home integrations have separate scopes. Omitting or
-removing `zotero-bin` does not change Zotero's home integration or the AI
+removing `zotero` does not change Zotero's home integration or the AI
 clients' MCP entries. To remove that MCP connection on a home apply, set:
 
 ```yaml

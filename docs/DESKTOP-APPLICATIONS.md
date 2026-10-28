@@ -2,19 +2,19 @@
 
 The system apply installs the applications below from package groups in
 `defaults/packages/`, one group per role, in the configured CachyOS and Arch
-repository priority and without refreshing the package databases. Three
-applications come from the AUR ([AUR packages](#aur-packages)). SilverBullet
-Desktop is installed per user from its own release channel
-([SilverBullet](#silverbullet)).
+repository priority and without refreshing the package databases. The
+Microsoft core fonts come from the AUR ([AUR packages](#aur-packages)).
+SilverBullet Desktop and Beeper Desktop are installed per user from their own
+release channels ([SilverBullet](#silverbullet), [Beeper](#beeper)).
 Application profiles, accounts and credentials are the applications' own and
 stay outside both the repository and the supplement.
 
 A supplement changes the selection with `packages`: `omit` leaves group
 packages out without uninstalling them, `extra` installs more and `remove`
 removes listed packages (see `defaults/packages/README.md`). These rules cover
-both repository and AUR packages. For example, `omit: [beeper-v4-bin]` leaves
-Beeper out; adding `remove: [beeper-v4-bin]` also uninstalls it on the next
-system apply. Application profiles remain untouched.
+both repository and AUR packages. For example, `omit: [ttf-ms-fonts]` leaves
+the Microsoft fonts out; adding `remove: [ttf-ms-fonts]` also uninstalls them on
+the next system apply. Application profiles remain untouched.
 
 ## Applications
 
@@ -24,7 +24,8 @@ system apply. Application profiles remain untouched.
 | Chromium | `chromium` | A second browser for sites that need it. |
 | Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
 | Proton Pass | `proton-pass` | The desktop password manager; Niri blocks its window out of screen capture. See [Proton Pass](#proton-pass). |
-| Beeper | AUR `beeper-v4-bin` | A launcher entry that keeps Chromium's sandbox; its account and profile are its own. |
+| Claude Desktop | `claude-desktop` | The home apply merges the MCP servers of `ai.mcp_servers` into its configuration, as for Claude Code; its preferences, extensions and account are its own. See [AI tools and MCP servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers). |
+| Beeper | upstream AppImage | Chats from several networks in one app; see [Beeper](#beeper). |
 | SilverBullet Desktop | upstream AppImage | Markdown notes in local spaces that can sync with a SilverBullet Server; see [SilverBullet](#silverbullet). |
 | Proton VPN | `proton-vpn-gtk-app` | Account and server selection stay in its own window. |
 | Tailscale | `tailscale` | The `tailnet` role, only with `tailnet` settings; see [Tailnet](#tailnet). |
@@ -33,7 +34,7 @@ system apply. Application profiles remain untouched.
 | mpv | `mpv` | Plays video and audio; Niri keeps its window opaque, as Omarchy does. |
 | Document Scanner | `simple-scan`, `sane-airscan` | Scans from network scanners without a vendor driver; see [Scanning](#scanning). |
 | Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
-| tmux, zoxide, uv | `tmux`, `zoxide`, `uv` | See [workspace tools](WORKSPACE-TOOLS.md). |
+| tmux, zoxide, uv, GitHub CLI | `tmux`, `zoxide`, `uv`, `github-cli` | See [workspace tools](WORKSPACE-TOOLS.md). |
 
 The `desktop_apps` group also holds `nodejs`, `npm` and `yay`, the AUR helper that
 updates the AUR packages. `tailscale` is the group's `required` package: the
@@ -116,6 +117,30 @@ connect one to a server space with **Join Space**, or add sync later under the
 space's gear icon. SilverBullet Desktop is free for personal use and education;
 use at work needs a Pro licence. [Migrating to Proton Pass and
 SilverBullet](MIGRATING-PASSWORDS-AND-NOTES.md) converts a Logseq graph.
+
+## Beeper
+
+Beeper Desktop brings chats from several networks into one app. Beeper
+publishes it for Linux as an AppImage, so it is installed per user, without
+sudo:
+
+```sh
+python3 scripts/install-beeper-desktop.py
+```
+
+The script downloads the AppImage from Beeper's stable channel, checks its size
+and SHA-512 against the channel's update feed, the file the app's own updater
+reads, and installs it with its icon as `~/.local/lib/beeper/Beeper.AppImage`.
+An installed copy is left alone: the app updates itself. The home apply creates
+the launcher `~/.local/share/applications/Beeper.desktop` once; Beeper rewrites
+that file each time it starts, registers itself for `beeper:` links and keeps
+Chromium's sandbox. Without the installer the launcher stays hidden; deleting
+the AppImage's folder uninstalls the app.
+
+The account and profile in `~/.config/BeeperTexts` are Beeper's own; an
+installation that had the earlier AUR package `beeper-v4-bin` keeps using that
+profile. Beeper's MCP server is a public default; see [AI tools and MCP
+servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers).
 
 ## Scanning
 
@@ -208,9 +233,8 @@ Tabbed again.
 The `writing` group installs Zettlr, Pandoc, TeX Live, LibreOffice, Vale,
 Harper, English spelling and hyphenation dictionaries and the Fira fonts; a
 supplement adds other languages' packages with `packages.extra`, for example
-`libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero comes
-from the AUR's `zotero-bin`, which replaces the distribution's `zotero` package
-only when that one is not newer. Reapply with
+`libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero is the CachyOS
+repository's `zotero` package. Reapply with
 `./bin/shaffy apply --system --tags writing`.
 
 The `zettlr` integration renders Zettlr's DOCX and PDF (LuaLaTeX) export
@@ -356,12 +380,10 @@ containers; those with a restart policy come back.
 
 ## AUR packages
 
-Three applications come from the Arch User Repository: Beeper
-(`beeper-v4-bin`), the Microsoft core fonts (`ttf-ms-fonts`) and Zotero
-(`zotero-bin`, installed by the `writing` role). The repository keeps no
-recipes.
+One package comes from the Arch User Repository: the Microsoft core fonts
+(`ttf-ms-fonts`). The repository keeps no recipes.
 
-When one is missing, the `aur_package` role installs it from the AUR's current
+When it is missing, the `aur_package` role installs it from the AUR's current
 recipe, without an AUR helper and without passwordless sudo:
 `scripts/build-aur-package.sh` clones the recipe into
 `~/.cache/shaffy/build/NAME/` as the target user and reports the repository
@@ -376,10 +398,6 @@ yay            # repository packages and AUR packages together, showing recipe c
 ```
 
 Read what yay shows before confirming: an AUR recipe is code its maintainer can
-change at any time. Two recipes carry the vendor's own terms. Installing
-`ttf-ms-fonts` accepts Microsoft's licence, which the package installs; the set
-has no Calibri, Aptos or Segoe UI. Beeper is proprietary, and its AUR entry
-starts it with `--no-sandbox`: the home apply installs
-`~/.local/share/applications/beeper.desktop`, which overrides that entry and
-keeps Chromium's sandbox. Origins and licences are in
-[THIRD-PARTY.md](../THIRD-PARTY.md).
+change at any time. Installing `ttf-ms-fonts` accepts Microsoft's licence, which
+the package installs; the set has no Calibri, Aptos or Segoe UI. Origins and
+licences are in [THIRD-PARTY.md](../THIRD-PARTY.md).

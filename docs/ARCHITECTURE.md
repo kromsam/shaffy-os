@@ -641,10 +641,11 @@ and changes nothing else.
 - `packages.omit` never uninstalls. Packages are removed only because they are
   listed, in the supplement's `packages.remove` or in the public
   `defaults/packages/retired.yml`.
-- MCP entries are merged by name into both AI clients. Setting
-  `ai.mcp_servers.NAME.enabled: false` removes that entry; removing a name
-  from the supplement alone preserves an existing entry or restores its
-  public default. Unrelated entries and client settings remain untouched.
+- MCP entries are merged by name into the AI clients: Claude Code, Claude
+  Desktop and Codex. Setting `ai.mcp_servers.NAME.enabled: false` removes that
+  entry; removing a name from the supplement alone preserves an existing entry
+  or restores its public default. Unrelated entries and client settings remain
+  untouched.
 - Framework-owned files are retired through `home/.chezmoiremove`, never
   directories that hold user data.
 - Databases, credentials and personal folders are never deleted by an apply.
