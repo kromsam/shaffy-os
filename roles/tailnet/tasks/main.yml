@@ -73,7 +73,8 @@
     force: true
   register: tailnet_dns_link
 
-# Now rather than in a handler: an apply stopped before the handlers would leave the change unloaded.
+# These two now rather than in handlers: an apply stopped before the handlers would leave the
+# change unloaded.
 - name: Reload DNS integration without disconnecting Wi-Fi
   ansible.builtin.command:
     argv: ['nmcli', 'general', 'reload', 'dns-full']
@@ -84,7 +85,7 @@
   ansible.builtin.systemd_service:
     name: tailscaled.service
     state: restarted
-  when: tailnet_dns_link.changed or (tailnet_refresh_daemon | default(false) | bool)
+  when: tailnet_dns_link.changed  # noqa: no-handler
 
 - name: Read only the required client preferences privately
   ansible.builtin.command:

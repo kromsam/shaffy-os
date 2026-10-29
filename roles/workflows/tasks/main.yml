@@ -23,7 +23,7 @@
     group: root
     mode: '0644'
   notify: Restart the Docker engine
-- name: Enable the local Docker engine without starting any restored workloads
+- name: Enable and start the local Docker engine
   ansible.builtin.systemd_service:
     name: docker.service
     enabled: true

@@ -20,7 +20,7 @@
   failed_when: "kde_connect_firewall.rc != 0 or 'Status: active' not in kde_connect_firewall.stdout"
   check_mode: false
 
-# An identical rule with another comment is updated in place (an earlier comment included).
+# An identical rule with another comment is updated in place.
 - name: Allow KDE Connect only from the configured network and interface
   ansible.builtin.command:
     argv: [ufw, allow, in, 'on', '{{ shaffy.settings.kde_connect.interface }}',
