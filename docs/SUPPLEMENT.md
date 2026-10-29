@@ -462,7 +462,10 @@ own for that:
   supplement in its own repository against the released `main`: the settings
   and the home they render, the lint, the supplement's tests under `tests/` and
   a secret scan of its history. Copy `supplement.example/.github/workflows/shaffy.yml`
-  into the supplement to call it on every push.
+  into the supplement to call it on every push. While the Shaffy OS repository is
+  private, the run's own token cannot read it: allow its workflows to be used by
+  repositories of the same owner, and store a fine-grained token that can only
+  read its contents as the supplement repository's `SHAFFY_OS_TOKEN` secret.
 
 Never bring deployed files back into the public `home/` source. `chezmoi add`
 and `chezmoi re-add` write the rendered file, private values included, into

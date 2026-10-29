@@ -1,6 +1,7 @@
 # Checks this supplement with Shaffy OS's reusable workflow, against its released main:
 # the settings and the home they render, lint, the supplement's own tests and a secret
-# scan (.github/workflows/supplement.yml in kromsam/shaffy-os).
+# scan (.github/workflows/supplement.yml in kromsam/shaffy-os). While that repository is
+# private, store a read-only token for it as this repository's SHAFFY_OS_TOKEN secret.
 name: shaffy
 on:
   push:
@@ -10,3 +11,5 @@ permissions:
 jobs:
   supplement:
     uses: kromsam/shaffy-os/.github/workflows/supplement.yml@main
+    secrets:
+      SHAFFY_OS_TOKEN: ${{ secrets.SHAFFY_OS_TOKEN }}

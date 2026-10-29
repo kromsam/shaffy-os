@@ -11,6 +11,10 @@ on:
         description: The Shaffy OS branch or tag to check against
         type: string
         default: main
+    secrets:
+      SHAFFY_OS_TOKEN:
+        description: A read-only token for kromsam/shaffy-os, needed while that repository is private
+        required: false
 permissions:
   contents: read
 jobs:
@@ -33,6 +37,8 @@ jobs:
           repository: kromsam/shaffy-os
           ref: ${{ inputs.shaffy-ref }}
           path: shaffy-os
+          # The run's own token reads only the supplement's repository.
+          token: ${{ secrets.SHAFFY_OS_TOKEN || github.token }}
       # runuser without -l keeps the step's directory.
       - name: Install the development tools (mise.dev.toml)
         working-directory: shaffy-os
