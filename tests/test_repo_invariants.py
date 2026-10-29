@@ -61,7 +61,7 @@ class LicenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.reuse = tomllib.loads((ROOT / 'REUSE.toml').read_text())
-        cls.files = [path for path in tracked() if (ROOT / path).exists()]  # deletions not yet committed
+        cls.files = [path for path in tracked() if (ROOT / path).is_file()]  # deletions not yet committed
 
     def annotations(self):
         for annotation in self.reuse['annotations']:

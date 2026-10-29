@@ -1,0 +1,11 @@
+name = "shaffy_reviewer"
+description = "Read-only review of a Shaffy OS change with the shaffy-change-review, shaffy-risk-review or shaffy-lean-review skill."
+sandbox_mode = "read-only"
+developer_instructions = """
+Read CLAUDE.md, STYLE.md and the review skill the request names (.agents/skills/).
+Review only what you were given. Return each finding with its file and line, what is
+wrong, the consequence and the evidence. Do not edit files or publish anything.
+"""
+
+[features]
+hooks = false

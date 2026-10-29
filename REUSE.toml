@@ -112,3 +112,14 @@ path = "home/private_dot_local/private_share/zotero-data/styles/chicago-notes-bi
 precedence = "override"
 SPDX-FileCopyrightText = ["Andrew Dunning", "2026 Sam Simons"]
 SPDX-License-Identifier = "CC-BY-SA-3.0"
+
+# Agent principles from pstack (cursor/plugins), through the pstack-claude port.
+[[annotations]]
+path = [
+  ".agents/skills/principle-laziness-protocol/SKILL.md",
+  ".agents/skills/principle-prove-it-works/SKILL.md",
+  ".agents/skills/principle-test-behavior-not-implementation/SKILL.md",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Lauren Tan", "2026 Michael Denyer", "2026 Sam Simons"]
+SPDX-License-Identifier = "MIT"
