@@ -2,7 +2,7 @@
 
 The tools come from the checkout's development tools (mise.dev.toml, run through
 `mise exec` with MISE_ENV=dev), except fish_indent, which comes with fish. Templates
-(`*.tmpl`) are left out: no formatter reads their template syntax, and the sandboxed
+(`*.tmpl`, and everything in `home/.chezmoitemplates/`) are left out: no formatter reads their template syntax, and the sandboxed
 render checks what they produce. So are the files REUSE.toml attributes to another
 project, which keep their upstream's form. Without --fix nothing is written; with it the
 formatters and the linters' safe fixes rewrite the files first. Each tool's output is
@@ -59,7 +59,8 @@ STEPS = (
 def language(path, root=ROOT):
     """The language a file is linted as, or None."""
     target = root / path
-    if path.endswith('.tmpl') or target.is_symlink() or not target.is_file():
+    if path.endswith('.tmpl') or path.startswith('home/.chezmoitemplates/') or target.is_symlink() \
+            or not target.is_file():
         return None
     suffix = Path(path).suffix
     if path in ('site.yml', 'records.yml') or (path.startswith('roles/') and suffix == '.yml'):

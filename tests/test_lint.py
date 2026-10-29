@@ -28,6 +28,7 @@ class LintTests(unittest.TestCase):
             'scripts/run.sh': 'echo hi\n',
             'home/launcher': '#!/bin/sh\nexec true\n',
             'home/config.toml.tmpl': '#!/usr/bin/python3\n{{ .x }}\n',
+            'home/.chezmoitemplates/skill.md': '{{- /* a template */ -}}\n# Skill\n',
             'roles/x/tasks/main.yml': '- name: X\n',
             'site.yml': '- hosts: localhost\n',
             '.github/workflows/ci.yml': 'on: push\n',
@@ -54,9 +55,11 @@ class LintTests(unittest.TestCase):
     def test_each_file_goes_to_its_language_and_templates_to_none(self):
         kinds = {path: lint.language(path, self.root) for path in
                  ('lib/a.py', 'bin/tool', 'scripts/run.sh', 'home/launcher', 'home/config.toml.tmpl',
-                  'roles/x/tasks/main.yml', 'site.yml', '.github/workflows/ci.yml', 'README.md', 'REUSE.toml')}
+                  'home/.chezmoitemplates/skill.md', 'roles/x/tasks/main.yml', 'site.yml',
+                  '.github/workflows/ci.yml', 'README.md', 'REUSE.toml')}
         self.assertEqual(kinds, {'lib/a.py': 'python', 'bin/tool': 'python', 'scripts/run.sh': 'shell',
                                  'home/launcher': 'shell', 'home/config.toml.tmpl': None,
+                                 'home/.chezmoitemplates/skill.md': None,
                                  'roles/x/tasks/main.yml': 'ansible', 'site.yml': 'ansible',
                                  '.github/workflows/ci.yml': 'workflow', 'README.md': 'markdown',
                                  'REUSE.toml': None})
