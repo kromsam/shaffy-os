@@ -17,6 +17,10 @@ select = [
   "RUF100",               # no unused noqa
 ]
 
+# Reported, never removed by --fix: an agent adds an import in one edit and the code that
+# uses it in the next, and the edit hook must not undo the first in between.
+unfixable = ["F401"]
+
 [lint.isort]
 # `import x` and `from x import y` sorted together by module, as the code already does.
 force-sort-within-sections = true
