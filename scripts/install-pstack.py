@@ -17,10 +17,10 @@ MARKETPLACE = MERGE['PSTACK_MARKETPLACE']
 PLUGIN = MERGE['PSTACK_PLUGIN']
 
 
-def declared(home, enabled):
-    """Refuse installation until source-owned settings have been applied."""
+def declared(home, enabled, hooks):
+    """Refuse installation until source-owned settings, the supplement's hooks among them, have been applied."""
     for path, merge, parse in (
-        (home / '.claude/settings.json', lambda text: MERGE['merge_claude_settings'](text, enabled), json.loads),
+        (home / '.claude/settings.json', lambda text: MERGE['merge_claude_settings'](text, enabled, hooks), json.loads),
         (home / '.codex/config.toml', lambda text: MERGE['merge_codex'](text, {}, enabled), tomllib.loads),
     ):
         text = path.read_text() if path.exists() else ''
@@ -70,7 +70,7 @@ def settings_snapshot(home):
     }
 
 
-def reconcile_settings(home, enabled, original_settings):
+def reconcile_settings(home, enabled, hooks, original_settings):
     """Native installs enable the plugin; restore opt-in through the source apply."""
     current = settings_snapshot(home)
     if not enabled and (
@@ -78,14 +78,14 @@ def reconcile_settings(home, enabled, original_settings):
         or current['codex'].get('plugins', {}).get(PLUGIN, {}).get('enabled') is not False
     ):
         subprocess.run([str(REPO / 'bin/shaffy'), 'apply', '--home', '--checkout', str(REPO)], check=True, cwd=REPO)
-    declared(home, enabled)
+    declared(home, enabled, hooks)
     if settings_snapshot(home) != original_settings:
         raise ValueError(
             'Native plugin refresh changed unrelated settings; review the source-owned diff before continuing.'
         )
 
 
-def refresh(home, enabled, original_settings, env):
+def refresh(home, enabled, hooks, original_settings, env):
     registry = home / '.claude/plugins/known_marketplaces.json'
     known = json.loads(registry.read_text()) if registry.exists() else {}
     try:
@@ -102,20 +102,22 @@ def refresh(home, enabled, original_settings, env):
         retire_compound_engineering(home, env)
     finally:
         # Restore source-owned activation even when a later native command fails.
-        reconcile_settings(home, enabled, original_settings)
+        reconcile_settings(home, enabled, hooks, original_settings)
 
 
 def main():
     from shaffy.loader import load
 
-    enabled = load(REPO)['shaffy']['settings']['ai']['pstack']['enabled']
+    data = load(REPO)['shaffy']
+    enabled = data['settings']['ai']['pstack']['enabled']
+    hooks = MERGE['bound_hooks'](data)
     home = Path.home()
     if os.getuid() == 0:
         raise ValueError('Run as the desktop user, without sudo.')
-    declared(home, enabled)
+    declared(home, enabled, hooks)
     original_settings = settings_snapshot(home)
     env = {**os.environ, 'DISABLE_AUTOUPDATER': '1'}
-    refresh(home, enabled, original_settings, env)
+    refresh(home, enabled, hooks, original_settings, env)
     versions = {}
     registry = home / '.claude/plugins/installed_plugins.json'
     if registry.exists():

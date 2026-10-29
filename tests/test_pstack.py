@@ -123,7 +123,7 @@ class PstackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
             with self.assertRaisesRegex(ValueError, 'Apply the declared'):
-                INSTALL['declared'](home, True)
+                INSTALL['declared'](home, True, {})
             for enabled in (True, False):
                 for name, content in (
                     ('.claude/settings.json', MERGE['merge_claude_settings']('', enabled)),
@@ -132,9 +132,26 @@ class PstackTests(unittest.TestCase):
                     path = home / name
                     path.parent.mkdir(exist_ok=True)
                     path.write_text(content)
-                INSTALL['declared'](home, enabled)
+                INSTALL['declared'](home, enabled, {})
                 with self.assertRaises(ValueError):
-                    INSTALL['declared'](home, not enabled)
+                    INSTALL['declared'](home, not enabled, {})
+
+    def test_installer_accepts_the_bound_supplements_hooks(self):
+        # The home apply merges the supplement's hooks into Claude's settings while one is bound.
+        hooks = MERGE['bound_hooks']({'selection': {'mode': 'supplement'}})
+        self.assertTrue(hooks)
+        self.assertEqual(MERGE['bound_hooks']({'selection': {'mode': 'none'}}), {})
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for name, content in (
+                ('.claude/settings.json', MERGE['merge_claude_settings']('', True, hooks)),
+                ('.codex/config.toml', MERGE['merge_codex']('', {}, True)),
+            ):
+                (home / name).parent.mkdir()
+                (home / name).write_text(content)
+            INSTALL['declared'](home, True, hooks)
+            with self.assertRaisesRegex(ValueError, 'Apply the declared'):
+                INSTALL['declared'](home, True, {})
 
     def native_run(self, claude, codex, applied, fail):
         """The plugin managers and the home apply, as the refresh calls them."""
@@ -173,9 +190,9 @@ class PstackTests(unittest.TestCase):
                 with mock.patch.object(INSTALL['subprocess'], 'run', side_effect=native_run):
                     if fail:
                         with self.assertRaises(subprocess.CalledProcessError):
-                            INSTALL['refresh'](home, False, original, {})
+                            INSTALL['refresh'](home, False, {}, original, {})
                     else:
-                        INSTALL['refresh'](home, False, original, {})
+                        INSTALL['refresh'](home, False, {}, original, {})
                 self.assertEqual(applied, [[str(ROOT / 'bin/shaffy'), 'apply', '--home', '--checkout', str(ROOT)]])
                 self.assertEqual(INSTALL['settings_snapshot'](home), original)
 
@@ -196,7 +213,7 @@ class PstackTests(unittest.TestCase):
             path.write_text(json.dumps(changed))
             with mock.patch.object(INSTALL['subprocess'], 'run') as run:
                 with self.assertRaisesRegex(ValueError, 'unrelated settings'):
-                    INSTALL['reconcile_settings'](home, False, original)
+                    INSTALL['reconcile_settings'](home, False, {}, original)
                 run.assert_not_called()
 
 

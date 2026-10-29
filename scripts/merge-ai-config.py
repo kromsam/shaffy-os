@@ -122,6 +122,11 @@ def supplement_hooks(checkout, codex=False):
     return {'SessionStart': group(60), 'PostToolUse': group(120, edits), 'Stop': group(300)}
 
 
+def bound_hooks(data, codex=False):
+    """The supplement's hooks, which exist only while a supplement is bound."""
+    return supplement_hooks(REPO, codex) if data['selection']['mode'] == 'supplement' else {}
+
+
 def merge_hooks(settings, hooks):
     """Replace this script's own hook groups, append them after every other one, which keeps
     the others' places (Codex trusts a hook by its place), and drop them when `hooks` is empty."""
@@ -194,12 +199,10 @@ if __name__ == '__main__':
         data = load_data(REPO)['shaffy']
         enabled = data['settings']['ai'].get('pstack', {}).get('enabled')
         servers = mcp_servers()
-        # The supplement's hooks exist only while a supplement is bound.
-        bound = data['selection']['mode'] == 'supplement'
         if sys.argv[1] == 'claude-settings':
-            output = merge_claude_settings(text, enabled, supplement_hooks(REPO) if bound else {})
+            output = merge_claude_settings(text, enabled, bound_hooks(data))
         elif sys.argv[1] == 'codex-hooks':
-            output = merge_codex_hooks(text, supplement_hooks(REPO, codex=True) if bound else {})
+            output = merge_codex_hooks(text, bound_hooks(data, codex=True))
         elif sys.argv[1] == 'codex':
             output = merge_codex(text, servers, enabled)
         elif sys.argv[1] == 'claude':
