@@ -553,7 +553,7 @@ def status(args):
             else:
                 print('  Root has not taken it. Run ./bin/shaffy apply --resume to clear it.')
         elif pending:
-            print(f'  Began in checkout {pending.get("checkout", record["checkout"]["path"])}.')
+            print(f'  Began in checkout {pending["checkout"]}.')
             starts = [
                 e
                 for e in records.events()

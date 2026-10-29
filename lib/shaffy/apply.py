@@ -374,7 +374,7 @@ class HomeApply:
             if not pending:
                 raise ApplyError('there is no unfinished operation to resume')
             op = pending['op']
-            began_in = Path(pending.get('checkout', record['checkout']['path']))
+            began_in = Path(pending['checkout'])
             if began_in != self.checkout:
                 raise ApplyError(
                     f'operation {op} began in {began_in}; resume it there, or run ./bin/shaffy apply --abandon'
