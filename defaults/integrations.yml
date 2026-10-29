@@ -47,12 +47,12 @@ reaper:
 
 zettlr:
   scope: home
-  description: Zettlr's export profiles, toolbar and packaged Pandoc
+  description: Zettlr's export profiles, toolbar, packaged Pandoc and, with zotero managed, citation library
   targets:
     - .config/Zettlr/**
   activation:
     - {kind: config-key, file: "~/.config/Zettlr/config.json",
-       keys: [export.useBundledPandoc, display.hideToolbarInDistractionFree]}
+       keys: [export.useBundledPandoc, display.hideToolbarInDistractionFree, export.cslLibrary]}
 
 zotero:
   scope: home

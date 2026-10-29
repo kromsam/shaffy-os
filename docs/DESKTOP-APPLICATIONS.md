@@ -260,7 +260,8 @@ Without `writing.language` the exports set no language, and without
 Zettlr's citations come from Zotero through the Better BibTeX add-on. While the `zotero`
 integration is managed, `scripts/install-workspace-tools.sh` installs a checked
 Better BibTeX release into Zotero's profile when the profile has none, and
-Zotero updates it from then on. The profile's `user.js` lets Zotero enable an
+Zotero updates it from then on; one removed in Zotero comes back with the next
+`./bin/shaffy update` while the integration is managed. The profile's `user.js` lets Zotero enable an
 add-on found in the profile, which it otherwise keeps disabled. The home apply
 creates `~/.local/share/zotero-library`, and with the `zettlr` integration
 managed as well, Zettlr cites from `~/.local/share/zotero-library/My Library.json`.
