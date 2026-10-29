@@ -26,7 +26,7 @@ jobs:
       - name: Install the toolset
         run: >-
           pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
-          chezmoi lua niri noctalia fish tmux base-devel wayland libxkbcommon
+          chezmoi niri noctalia fish tmux base-devel wayland libxkbcommon
           mise uv gitleaks xdg-user-dirs
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
