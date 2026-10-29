@@ -64,7 +64,7 @@ class VersionRecordTests(unittest.TestCase):
 
 
 class CheckTests(unittest.TestCase):
-    def test_no_home_checks_the_settings_without_this_machines_folders(self):
+    def test_no_home_leaves_out_this_machines_home_and_system(self):
         supplement = ROOT / 'tests/fixtures/supplements/comprehensive'
         with tempfile.TemporaryDirectory() as directory:
 
