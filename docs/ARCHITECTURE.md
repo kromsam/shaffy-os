@@ -74,10 +74,9 @@ for an installation from an earlier version).
 6. Emit one JSON object under the key `shaffy`.
 
 That object holds `selection` (mode, path, source and `supplement_id`),
-`settings` (the effective values), `present` (the dotted keys the supplement
-set, so absence stays distinguishable from a default), `overrides` (absolute
-paths of the fragments), `assets` (target, path, SHA-256 and the `executable`
-and `private` attributes), `system_overrides`, `packages` (`groups` and `aur`
+`settings` (the effective values), `overrides` (absolute paths of the
+fragments), `assets` (target, path, SHA-256 and the `executable` and
+`private` attributes), `system_overrides`, `packages` (`groups` and `aur`
 hold each group's repository and AUR selections after omissions, alongside
 `extra` and `remove`) and `integrations` (each catalogued
 integration with its requested state, scope, targets and activation records).

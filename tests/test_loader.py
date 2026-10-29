@@ -52,7 +52,6 @@ class ValidInputTests(LoaderCase):
         data = self.load(without=True)['shaffy']
         self.assertEqual(data['selection']['mode'], 'none')
         self.assertIn('zotero', data['settings']['ai']['mcp_servers'])
-        self.assertEqual(data['present'], [])
         self.assertNotIn('folders', data['settings'])
 
     def test_minimal_example_is_valid_and_changes_nothing(self):
@@ -66,8 +65,6 @@ class ValidInputTests(LoaderCase):
         self.assertEqual(servers['zotero']['env'], {'ZOTERO_LOCAL': 'true', 'ZOTERO_LOCAL_WRITE': 'true'})
         self.assertEqual(servers['zotero']['command'], '/usr/bin/mise')
         self.assertEqual(servers['notes']['args'], ['--read-only'])
-        self.assertIn('ai.mcp_servers.zotero.env.ZOTERO_LOCAL_WRITE', data['present'])
-        self.assertNotIn('ai.mcp_servers.zotero.command', data['present'])
 
     def test_explicit_empty_list_is_kept(self):
         path = self.supplement(
@@ -222,7 +219,6 @@ class MinimumReleaseTests(LoaderCase):
         with self.at('v2026.11.02'):
             data = self.load(supplement=self.supplement(self.REQUIRES.format('v2026.10.20')))['shaffy']
         self.assertNotIn('minimum_release', data['settings'])
-        self.assertEqual(data['present'], [])
 
     def test_checkout_without_release_tags_is_refused(self):
         with self.at(None):

@@ -11,7 +11,6 @@ from pathlib import Path
 import re
 
 NAME = re.compile(r'^[a-z][a-z0-9_]*$')
-STATES = ('managed', 'disabled', 'released')
 KINDS = {
     'wants-link': {'unit', 'link'},
     'unit': {'unit', 'scope'},

@@ -49,13 +49,11 @@ def _sets(arguments, long, short):
     return False
 
 
-def refusal(command, arguments, mode=None, edit_apply=False, edit_watch=False):
+def refusal(command, arguments, mode=None):
     """Return a refusal message, or None when the command may run."""
     if mode == 'apply':
         return None
     mutating = command in ALWAYS or (command in FLAGS and _sets(arguments, *FLAGS[command]))
-    if command == 'edit' and (edit_apply or edit_watch):
-        mutating = True
     if not mutating:
         return None
     return (

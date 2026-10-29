@@ -62,10 +62,6 @@ class DecisionTests(unittest.TestCase):
             with self.subTest(command=command, arguments=arguments):
                 self.assertIsNone(refusal(command, arguments))
 
-    def test_edit_apply_from_configuration_is_refused(self):
-        self.assertIsNotNone(refusal('edit', ['x'], edit_apply=True))
-        self.assertIsNotNone(refusal('edit', ['x'], edit_watch=True))
-
     def test_only_the_wrapper_passes_the_hook(self):
         self.assertIsNone(refusal('apply', [], mode='apply'))
         # The render sandbox passes the template guard only, with its token file.

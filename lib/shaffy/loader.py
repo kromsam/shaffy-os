@@ -153,17 +153,6 @@ def defaults_schema(schema):
     return result
 
 
-def present_keys(data, prefix=''):
-    """Dotted paths of every key present, so absence stays distinguishable from false."""
-    keys = []
-    for key, value in data.items():
-        path = f'{prefix}{key}'
-        keys.append(path)
-        if isinstance(value, dict):
-            keys.extend(present_keys(value, path + '.'))
-    return keys
-
-
 def merge(base, override):
     """Mappings merge recursively; scalars and lists replace; false and [] are kept."""
     result = copy.deepcopy(base)
@@ -222,14 +211,13 @@ def load(checkout, supplement=None, without=False, home=None):
     defaults_path = checkout / 'defaults/config.yaml'
     defaults = parse(defaults_path)
     problems = validate(defaults, defaults_schema(schema), str(defaults_path))
-    overrides, present, supplement_id = {}, [], None
+    overrides, supplement_id = {}, None
     if selection['mode'] == 'supplement':
         config = Path(selection['path']) / 'config.yaml'
         overrides = parse(config)
         # Too old a checkout would also report the newer fields as unknown keys; say only that.
         too_old = release_problem(checkout, overrides.get('minimum_release'))
         problems += [f'{config}: {too_old}'] if too_old else validate(overrides, schema, str(config))
-        present = present_keys({k: v for k, v in overrides.items() if k not in IDENTITY_KEYS})
         supplement_id = overrides.get('supplement_id')
     if problems:
         raise SettingsError(problems)
@@ -300,7 +288,6 @@ def load(checkout, supplement=None, without=False, home=None):
             'selection': {**selection, 'supplement_id': supplement_id},
             'settings': settings,
             'overrides': fragments,
-            'present': sorted(present),
             'references': sorted({*fragments.values(), *(a['path'] for a in assets)}),
             'reference_paths': sorted(written),
             'assets': assets,

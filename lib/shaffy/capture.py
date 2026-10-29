@@ -1,8 +1,8 @@
 """Freeze the supplement inputs of one operation (docs/ARCHITECTURE.md, "Capture").
 
-The capture copies the supplement's config.yaml (and, once fields reference
-files, those files) into a private run directory, refuses a supplement that
-changes while it is copied, and records per-file SHA-256 digests plus a digest
+The capture copies the supplement's config.yaml and the files it references
+into a private run directory, refuses a supplement that changes while it is
+copied, and records per-file SHA-256 digests plus a digest
 of the normalized settings. chezmoi then reads the capture through the loader
 marker, so an edit made during an apply cannot mix old and new settings.
 """

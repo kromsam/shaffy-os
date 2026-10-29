@@ -130,8 +130,7 @@ an error.
   every problem at once, each with its file and key.
 
 `./bin/shaffy check` validates the settings and renders the home for a
-synthetic user; `./bin/shaffy data` prints the effective settings as JSON,
-including `present`, the keys the supplement itself set.
+synthetic user; `./bin/shaffy data` prints the effective settings as JSON.
 
 ## Field reference
 
