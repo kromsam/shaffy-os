@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SENSITIVE = (
     'sbctl',
     'move-zotero-profile',
-    'prepare-login-keyring',
     'cryptsetup',
     'mkfs',
     'mkswap',
@@ -78,12 +77,6 @@ class RoutineApplyTests(unittest.TestCase):
             if word in path.read_text(errors='replace')
         ]
         self.assertEqual(found, [])
-
-    def test_the_keyring_migration_runs_only_when_named(self):
-        play = yaml.safe_load((ROOT / 'site.yml').read_text())[0]
-        entry = next(e for e in play['roles'] if e['role'] == 'login_keyring_migration')
-        self.assertIn('never', entry['tags'])
-        self.assertNotIn('login_keyring_migration', routine_roles())
 
     def test_every_sensitive_user_command_takes_a_snapshot_pair_first(self):
         for script in ('move-zotero-profile.py',):

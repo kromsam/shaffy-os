@@ -46,5 +46,3 @@
 
 - name: Unlock the encrypted login keyring using the disk-unlock password
   ansible.builtin.import_tasks: keyring.yml
-# An existing keyring under another name is promoted to `login` by the separate,
-# explicit login_keyring_migration role.

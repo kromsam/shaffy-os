@@ -100,7 +100,7 @@ class PreflightEvaluationTests(unittest.TestCase):
         self.assertNotIn('Unknown argument', result.stdout)
 
     @host_test("reads this laptop's Niri session and PAM stack")
-    def test_an_unmigrated_default_keyring_is_refused_before_any_write(self):
+    def test_a_default_keyring_under_another_name_is_refused_before_any_write(self):
         with tempfile.TemporaryDirectory() as home:
             keyrings = Path(home) / '.local/share/keyrings'
             keyrings.mkdir(parents=True)
@@ -108,7 +108,13 @@ class PreflightEvaluationTests(unittest.TestCase):
             (keyrings / 'Standaard_sleutelbos.keyring').write_bytes(b'GnomeKeyring\n')
             result = self.preflight(getpass.getuser(), home)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Run ./bin/shaffy apply --system --tags login_keyring_migration first', result.stdout)
+        self.assertIn('is not the login keyring', result.stdout)
+
+    @host_test("reads this laptop's Niri session and PAM stack")
+    def test_an_account_without_keyrings_passes(self):
+        with tempfile.TemporaryDirectory() as home:
+            result = self.preflight(getpass.getuser(), home)
+        self.assertEqual(result.returncode, 0, result.stdout[-2000:])
 
     def test_without_automatic_login_nothing_is_checked(self):
         result = self.preflight('someone-else', autologin=False)  # would be refused if checked

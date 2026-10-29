@@ -34,9 +34,9 @@ password login.
 The role first checks, without writing, that Niri's session exists, the target
 account exists, both PAM modules are installed, the packaged automatic-login
 stack has exactly the expected keyring hooks, `/` is encrypted, and the user's
-default keyring is `login` (or its migration is prepared for the next boot): with
-another default, the first automatic login would create an empty `login` keyring
-beside it. The standard password-login stack stays as packaged. The system
+default keyring is `login`: with another default, the first automatic login would
+create an empty `login` keyring beside it ([a keyring under another
+name](#a-keyring-under-another-name)). The standard password-login stack stays as packaged. The system
 operation's snapper pair is the rollback for its edits. Installation reloads
 systemd's configuration only; never restart SDDM from the desktop, since that ends
 the session.
@@ -49,35 +49,42 @@ GNOME Keyring's PAM module unlocks only the collection whose file is
 `login.keyring` (GNOME Keyring 50 derives the identifier from the basename). On a
 fresh account the first login creates it, and setup is complete.
 
-## Migrating an existing keyring (the `login_keyring_migration` role)
+## A keyring under another name
 
-A keyring created under another name, such as the default keyring a localized
-desktop named in its own language, stays locked after automatic login. Promoting
-it is a separate step that runs only when named:
+A keyring made under another name, such as the default keyring a localized
+desktop named in its own language, stays locked after automatic login, so the
+role refuses automatic login while `default` names it. Rename it once by hand
+before setting `login.autologin`. The keyring daemon must not run meanwhile,
+since it keeps the collection open and writes it back:
 
-```sh
-./bin/shaffy apply --system --tags login_keyring_migration
-```
+1. Reboot, and at SDDM's login screen switch to a text console (Ctrl+Alt+F3)
+   and log in there, so no desktop session starts the daemon.
+2. Keep its socket from starting it, and check that none runs; `pgrep` prints
+   nothing:
 
-The keyring daemon must not run while its file is renamed, so the role installs
-`shaffy-login-keyring.service`, which runs `prepare-login-keyring.py` as the user
-at the next boot, before SDDM. The helper refuses a running daemon, an existing
-`login.keyring`, linked paths, unexpected ownership or permissions, a default
-alias naming no file, and a plaintext keyring. It copies the directory to
-`~/.local/state/shaffy/login-keyring/<time>/before/`, verifies the copy by hash,
-renames the encrypted file to `login.keyring` without changing its bytes, points
-`default` at it and writes `result.json`. The collection's label and password stay
-the same. If it fails, SDDM still starts; read the unit's log before trying again.
+   ```sh
+   systemctl --user stop gnome-keyring-daemon.socket gnome-keyring-daemon.service
+   pgrep -u "$USER" -l gnome-keyring
+   ```
 
-After the reboot, run the same tag again: once `login` is the default it removes
-the unit, its SDDM ordering and the helper, including copies an earlier version
-installed under other names. With `login.keyring` present while `default` still
-names another keyring, the migration is half-finished; the role refuses and the
-keyring directory needs a review with the daemon stopped.
+3. Keep a private copy, rename the keyring that `default` names to
+   `login.keyring` and point `default` at it:
 
-Check it without changing anything with
-`python3 roles/login_keyring_migration/files/prepare-login-keyring.py`, which
-prints whether a migration is needed.
+   ```sh
+   cp -a ~/.local/share/keyrings ~/.local/share/keyrings.before
+   cd ~/.local/share/keyrings
+   test ! -e login.keyring && mv -- "$(cat default).keyring" login.keyring && printf 'login\n' > default
+   ```
+
+   If `login.keyring` already exists, the last line changes nothing: a login
+   has made one beside the old keyring, and which of the two to keep needs a
+   review.
+
+4. Reboot and log in. The renamed keyring keeps its items, label and password,
+   and automatic login unlocks it only when that password is the disk password;
+   change it in a keyring manager such as Seahorse when it differs. Then set
+   `login.autologin: true`, apply the `login` role and check the result as
+   below. Remove `~/.local/share/keyrings.before` once it holds.
 
 ## Checking the result
 
@@ -112,16 +119,15 @@ To undo a single edit by hand, compare with the operation's snapper pair of `/`
 pacman keeps when it was changed, so reinstalling `sddm` does not restore it;
 the role's only change to it is the `pam_systemd_loadkey.so` line.
 
-The promoted, encrypted `login.keyring` can stay and keeps newer credentials. A
-migration's copy is under `~/.local/state/shaffy/login-keyring/<time>/before/`
-with its receipt. Never copy an older keyring over newer credentials or move
-keyring files while the daemon runs; a file-level rollback needs an offline
-review of everything saved since.
+A renamed, encrypted `login.keyring` can stay and keeps newer credentials. Never
+copy an older keyring over newer credentials or move keyring files while the
+daemon runs; a file-level rollback needs an offline review of everything saved
+since.
 
 Run the focused checks with:
 
 ```sh
-/usr/bin/python3 -m unittest tests.test_login_keyring tests.test_login_preflight -v
+/usr/bin/python3 -m unittest tests.test_login_preflight -v
 ```
 
 Sources: [systemd's PAM handoff manual](https://man.archlinux.org/man/pam_systemd_loadkey.8),

@@ -52,9 +52,6 @@
       tags: [tailnet]
     - role: login
       tags: [login]
-    # Runs only when named: ./bin/shaffy apply --system --tags login_keyring_migration
-    - role: login_keyring_migration
-      tags: [never, login_keyring_migration]
     - role: browser
       tags: [browser]
     - role: keyboard
