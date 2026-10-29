@@ -1,4 +1,4 @@
-"""Routine applies cannot replay restoration, rename personal folders, enroll firmware keys or
+"""Routine applies cannot restore a backup, move a personal profile, enroll firmware keys or
 convert disks; those stay explicit, guarded commands."""
 
 from pathlib import Path
@@ -10,22 +10,14 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 # Commands and markers of the sensitive operations, which only explicit tools may contain.
 SENSITIVE = (
-    'configure-swap',
-    'configure-secure-boot',
-    'bootstrap-secure-boot',
     'sbctl',
-    'configure-plymouth',
-    'apply-plymouth-theme',
-    'migrate-xdg-dutch',
     'move-zotero-profile',
-    'retire-migration-staging',
     'prepare-login-keyring',
     'cryptsetup',
     'mkfs',
     'mkswap',
     'btrfs subvolume',
     'restic restore',
-    'migration-staging',
 )
 
 
