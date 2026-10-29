@@ -100,7 +100,7 @@ class LintTests(unittest.TestCase):
             },
         )
 
-    def test_fix_rewrites_before_it_checks_and_a_project_tool_gets_no_files(self):
+    def test_every_fix_runs_before_any_check_and_a_project_tool_gets_no_files(self):
         status, lines = self.lint(['lib/a.py', 'bin/tool', 'site.yml', 'vendored.lua'], fix=True)
         self.assertEqual(status, 0)
         config = ['--config', str(ROOT / 'ruff.toml')]
@@ -108,8 +108,8 @@ class LintTests(unittest.TestCase):
             self.calls,
             [
                 ['ruff', 'check', '--fix', *config, 'lib/a.py', 'bin/tool'],
-                ['ruff', 'check', *config, 'lib/a.py', 'bin/tool'],
                 ['ruff', 'format', *config, 'lib/a.py', 'bin/tool'],
+                ['ruff', 'check', *config, 'lib/a.py', 'bin/tool'],
                 ['ruff', 'format', '--check', *config, 'lib/a.py', 'bin/tool'],
                 ['ansible-lint'],
             ],

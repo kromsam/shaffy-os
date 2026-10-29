@@ -224,25 +224,21 @@ def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_availabl
         for line in wrong:
             out(f'  {line}')
         failed = bool(wrong)
-    for step in STEPS:
-        files = by_language.get(step.language)
-        if not files:
-            continue
+    # Every fix first, then every check, so what is reported is the files as they end up.
+    steps = [step for step in STEPS if by_language.get(step.language)]
+    present = {step: is_available(step, root) for step in steps}
+    for step in steps:
+        if fix and step.fix is not None and present[step]:
+            arguments = _command(step, step.fix, by_language[step.language])
+            call(arguments, cwd=root, env=_environment(), capture_output=True, text=True, check=False)
+    for step in steps:
+        files = by_language[step.language]
         label = f'{step.tool} {step.check[0]}' if step.check and not step.check[0].startswith('-') else step.tool
-        if not is_available(step, root):
+        if not present[step]:
             if require:
                 out(f'{label}: not installed; install it with {INSTALL}')
                 failed = True
             continue
-        if fix and step.fix is not None:
-            call(
-                _command(step, step.fix, files),
-                cwd=root,
-                env=_environment(),
-                capture_output=True,
-                text=True,
-                check=False,
-            )
         result = call(
             _command(step, step.check, files), cwd=root, env=_environment(), capture_output=True, text=True, check=False
         )
