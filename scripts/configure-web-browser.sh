@@ -3,7 +3,7 @@
 set -euo pipefail
 mode=${1:---check}
 browser_desktop=${2:-zen.desktop}
-[[ $# -le 2 && ( $mode == --check || $mode == --apply ) && $browser_desktop =~ ^[A-Za-z0-9._-]+\.desktop$ ]] || {
+[[ $# -le 2 && ($mode == --check || $mode == --apply) && $browser_desktop =~ ^[A-Za-z0-9._-]+\.desktop$ ]] || {
   echo 'Usage: bash scripts/configure-web-browser.sh [--check|--apply] [BROWSER.desktop]' >&2
   exit 2
 }

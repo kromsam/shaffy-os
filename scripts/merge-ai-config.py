@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Merge owned MCP and CE entries, preserving unrelated agent configuration."""
+
 import copy
 import json
 import os
@@ -32,9 +33,9 @@ def merge_tables(text, namespace, entries):
             # Stop at the next table header line itself. A pattern starting with
             # \s* would also swallow the blank lines before that header, leaving
             # them behind and adding blank lines on every rewrite.
-            end = re.search(r'(?m)^[ \t]*\[', result[match.end():])
+            end = re.search(r'(?m)^[ \t]*\[', result[match.end() :])
             stop = match.end() + end.start() if end else len(result)
-            result = result[:match.start()] + result[stop:]
+            result = result[: match.start()] + result[stop:]
         if name in tomllib.loads(result).get(namespace, {}):
             kind = 'MCP' if namespace == 'mcp_servers' else namespace
             raise ValueError(f'Review the existing inline {kind} entry for {name}')
@@ -75,11 +76,9 @@ def merge_codex(text, servers, compound_engineering=None):
     if compound_engineering is None:
         return text
     existing = tomllib.loads(text)
-    plugin = {**existing.get('plugins', {}).get(CE_PLUGIN, {}),
-              'enabled': compound_engineering}
+    plugin = {**existing.get('plugins', {}).get(CE_PLUGIN, {}), 'enabled': compound_engineering}
     text = merge_tables(text, 'plugins', {CE_PLUGIN: plugin})
-    marketplace = {'source_type': 'git',
-                   'source': f'https://github.com/{CE_REPOSITORY}.git', 'ref': 'main'}
+    marketplace = {'source_type': 'git', 'source': f'https://github.com/{CE_REPOSITORY}.git', 'ref': 'main'}
     return merge_tables(text, 'marketplaces', {CE_MARKETPLACE: marketplace})
 
 
@@ -108,7 +107,8 @@ def merge_claude_settings(text, compound_engineering):
     original = copy.deepcopy(result)
     result.setdefault('enabledPlugins', {})[CE_PLUGIN] = compound_engineering
     result.setdefault('extraKnownMarketplaces', {})[CE_MARKETPLACE] = {
-        'source': {'source': 'github', 'repo': CE_REPOSITORY}}
+        'source': {'source': 'github', 'repo': CE_REPOSITORY}
+    }
     if result == original and text.strip():
         return text
     return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
@@ -117,6 +117,7 @@ def merge_claude_settings(text, compound_engineering):
 def mcp_servers():
     """Effective MCP entries, with ~/ expanded and disabled entries marked for removal."""
     from shaffy.fastload import load_data
+
     servers = load_data(REPO)['shaffy']['settings']['ai']['mcp_servers']
     entries = {}
     for name, spec in servers.items():
@@ -135,6 +136,7 @@ if __name__ == '__main__':
     text = sys.stdin.read()
     try:
         from shaffy.fastload import load_data
+
         enabled = load_data(REPO)['shaffy']['settings']['ai'].get('compound_engineering', {}).get('enabled')
         servers = mcp_servers()
         if sys.argv[1] == 'claude-settings':

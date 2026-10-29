@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Small Niri/Noctalia adapters. No user text is evaluated by a shell."""
+
 from contextlib import contextmanager
 import fcntl
 import json
@@ -73,41 +74,69 @@ def state_file(name):
 
 def choose(title, entries):
     """Only a displayed, fixed choice can dispatch an action. Escape is a no-op."""
-    result = subprocess.run(['noctalia', 'dmenu', '--prompt', title],
-                            input='\n'.join(entries) + '\n', text=True, capture_output=True)
+    result = subprocess.run(
+        ['noctalia', 'dmenu', '--prompt', title], input='\n'.join(entries) + '\n', text=True, capture_output=True
+    )
     return result.stdout.rstrip('\n') if result.returncode == 0 else ''
 
 
 def menu(name='menu'):
-    panels = {label: ['noctalia', 'msg', 'panel-open', 'control-center', tab]
-              for label, tab in [('Audio', 'audio'), ('Network', 'network'), ('Bluetooth', 'bluetooth'),
-                                 ('Display', 'monitor'), ('Power', 'power'), ('Calendar', 'calendar'),
-                                 ('Notifications', 'notifications')]}
+    panels = {
+        label: ['noctalia', 'msg', 'panel-open', 'control-center', tab]
+        for label, tab in [
+            ('Audio', 'audio'),
+            ('Network', 'network'),
+            ('Bluetooth', 'bluetooth'),
+            ('Display', 'monitor'),
+            ('Power', 'power'),
+            ('Calendar', 'calendar'),
+            ('Notifications', 'notifications'),
+        ]
+    }
     menus = {
-        'menu': {'Applications': ['noctalia', 'msg', 'panel-open', 'launcher'],
-                 'Capture': [SELF, 'capture'], 'Style': [SELF, 'style'],
-                 'Controls': [SELF, 'controls'], 'Tools': [SELF, 'tools'],
-                 'System': ['noctalia', 'msg', 'panel-open', 'session']},
+        'menu': {
+            'Applications': ['noctalia', 'msg', 'panel-open', 'launcher'],
+            'Capture': [SELF, 'capture'],
+            'Style': [SELF, 'style'],
+            'Controls': [SELF, 'controls'],
+            'Tools': [SELF, 'tools'],
+            'System': ['noctalia', 'msg', 'panel-open', 'session'],
+        },
         'controls': panels,
-        'style': {'Wallpaper': ['noctalia', 'msg', 'panel-open', 'wallpaper'],
-                  'Theme and shell settings': ['noctalia', 'msg', 'settings-open'],
-                  'Toggle window transparency': ['niri', 'msg', 'action', 'toggle-window-rule-opacity'],
-                  'Toggle gaps and borders': [SELF, 'gaps'],
-                  'Night light': ['noctalia', 'msg', 'nightlight-force-toggle'],
-                  'Stay awake': ['noctalia', 'msg', 'caffeine-toggle'],
-                  'Toggle top bar': ['noctalia', 'msg', 'bar-toggle']},
-        'capture': {'Screenshot region and annotate': ['noctalia', 'msg', 'screenshot-region'],
-                    'Screenshot monitor': ['noctalia', 'msg', 'screenshot-fullscreen'],
-                    'Record or stop recording': ['noctalia', 'msg', 'plugin', 'noctalia/screen_recorder:service', 'all', 'toggle'],
-                    'Recorder audio and settings': ['noctalia', 'msg', 'settings-open-plugin', 'noctalia/screen_recorder'],
-                    'Pick color': [SELF, 'color'], 'Extract text (OCR)': [SELF, 'ocr'],
-                    'Read QR code': [SELF, 'qr']},
-        'tools': {'Timer': ['noctalia', 'msg', 'panel-open', 'noctalia/timer:panel'],
-                  'World clocks': ['noctalia', 'msg', 'panel-open', 'noctalia/world_clock:panel'],
-                  'Share files (LocalSend)': ['localsend'], 'Convert image or video': [SELF, 'transcode'],
-                  'System monitor': ['alacritty', '--class', 'shaffy-btop', '-e', 'btop'],
-                  'Emoji': ['noctalia', 'msg', 'panel-open', 'launcher', '/emo'],
-                  'Clipboard history': ['noctalia', 'msg', 'panel-open', 'clipboard']},
+        'style': {
+            'Wallpaper': ['noctalia', 'msg', 'panel-open', 'wallpaper'],
+            'Theme and shell settings': ['noctalia', 'msg', 'settings-open'],
+            'Toggle window transparency': ['niri', 'msg', 'action', 'toggle-window-rule-opacity'],
+            'Toggle gaps and borders': [SELF, 'gaps'],
+            'Night light': ['noctalia', 'msg', 'nightlight-force-toggle'],
+            'Stay awake': ['noctalia', 'msg', 'caffeine-toggle'],
+            'Toggle top bar': ['noctalia', 'msg', 'bar-toggle'],
+        },
+        'capture': {
+            'Screenshot region and annotate': ['noctalia', 'msg', 'screenshot-region'],
+            'Screenshot monitor': ['noctalia', 'msg', 'screenshot-fullscreen'],
+            'Record or stop recording': [
+                'noctalia',
+                'msg',
+                'plugin',
+                'noctalia/screen_recorder:service',
+                'all',
+                'toggle',
+            ],
+            'Recorder audio and settings': ['noctalia', 'msg', 'settings-open-plugin', 'noctalia/screen_recorder'],
+            'Pick color': [SELF, 'color'],
+            'Extract text (OCR)': [SELF, 'ocr'],
+            'Read QR code': [SELF, 'qr'],
+        },
+        'tools': {
+            'Timer': ['noctalia', 'msg', 'panel-open', 'noctalia/timer:panel'],
+            'World clocks': ['noctalia', 'msg', 'panel-open', 'noctalia/world_clock:panel'],
+            'Share files (LocalSend)': ['localsend'],
+            'Convert image or video': [SELF, 'transcode'],
+            'System monitor': ['alacritty', '--class', 'shaffy-btop', '-e', 'btop'],
+            'Emoji': ['noctalia', 'msg', 'panel-open', 'launcher', '/emo'],
+            'Clipboard history': ['noctalia', 'msg', 'panel-open', 'clipboard'],
+        },
     }
     entries = menus[name]
     selected = choose(name.capitalize(), entries)
@@ -131,8 +160,11 @@ def shell_toggle(name):
 def gaps():
     with state_file('gaps') as state:
         state['off'] = not state.get('off', False)
-        text = ('layout {\n    gaps 0\n    border { off; }\n}\n'
-                if state['off'] else '// Normal gaps and borders from the base configuration.\n')
+        text = (
+            'layout {\n    gaps 0\n    border { off; }\n}\n'
+            if state['off']
+            else '// Normal gaps and borders from the base configuration.\n'
+        )
         atomic_write(CONFIG / 'niri/omarchy-overrides.kdl', text, mode=0o644)
 
 
@@ -163,8 +195,14 @@ def scratchpad():
     focused = next(w for w in workspaces if w['is_focused'])
     with state_file('scratchpad') as state:
         if focused['name'] == 'scratchpad':
-            previous = next((w for w in workspaces if w['id'] == state.get('return_id')
-                             and state.get('session') == os.environ.get('NIRI_SOCKET')), None)
+            previous = next(
+                (
+                    w
+                    for w in workspaces
+                    if w['id'] == state.get('return_id') and state.get('session') == os.environ.get('NIRI_SOCKET')
+                ),
+                None,
+            )
             if previous:
                 action('focus-monitor', previous['output'])
                 action('focus-workspace', previous['name'] or previous['idx'])
@@ -199,8 +237,11 @@ def capture_text(mode):
     with tempfile.TemporaryDirectory(prefix='shaffy-capture-') as directory:
         picture = Path(directory) / 'selection.png'
         run(['grim', '-g', selection.stdout.strip(), str(picture)], capture_output=True)
-        command = (['tesseract', str(picture), 'stdout', '-l', ocr_languages()] if mode == 'ocr'
-                   else ['zbarimg', '--quiet', '--raw', str(picture)])
+        command = (
+            ['tesseract', str(picture), 'stdout', '-l', ocr_languages()]
+            if mode == 'ocr'
+            else ['zbarimg', '--quiet', '--raw', str(picture)]
+        )
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode or not result.stdout.strip():
             notify('No text found.' if mode == 'ocr' else 'No QR/barcode found.')
@@ -223,16 +264,34 @@ def color():
 
 
 def transcode():
-    selected = subprocess.run(['zenity', '--file-selection', '--title=Choose an image or video to convert'],
-                              capture_output=True, text=True)
+    selected = subprocess.run(
+        ['zenity', '--file-selection', '--title=Choose an image or video to convert'], capture_output=True, text=True
+    )
     if selected.returncode:
         return
     source = Path(selected.stdout.rstrip('\n')).resolve(strict=True)
-    formats = {'MP4 video (H.264 + AAC)': ('.mp4', ['-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p',
-                                                          '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-movflags', '+faststart']),
-               'PNG image': ('.png', ['-frames:v', '1']),
-               'JPEG image': ('.jpg', ['-frames:v', '1', '-q:v', '2']),
-               'WebP image': ('.webp', ['-frames:v', '1', '-q:v', '85'])}
+    formats = {
+        'MP4 video (H.264 + AAC)': (
+            '.mp4',
+            [
+                '-c:v',
+                'libx264',
+                '-crf',
+                '23',
+                '-pix_fmt',
+                'yuv420p',
+                '-vf',
+                'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+                '-c:a',
+                'aac',
+                '-movflags',
+                '+faststart',
+            ],
+        ),
+        'PNG image': ('.png', ['-frames:v', '1']),
+        'JPEG image': ('.jpg', ['-frames:v', '1', '-q:v', '2']),
+        'WebP image': ('.webp', ['-frames:v', '1', '-q:v', '85']),
+    }
     selected = choose('Convert to', formats)
     if selected not in formats:
         return
@@ -249,8 +308,21 @@ def transcode():
         with tempfile.TemporaryDirectory(prefix='.shaffy-convert-', dir=source.parent) as directory:
             output = Path(directory) / ('output' + suffix)
             notify('Conversion started.')
-            run(['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-n', '-i', str(source),
-                 *flags, str(output)], capture_output=True)
+            run(
+                [
+                    'ffmpeg',
+                    '-nostdin',
+                    '-hide_banner',
+                    '-loglevel',
+                    'error',
+                    '-n',
+                    '-i',
+                    str(source),
+                    *flags,
+                    str(output),
+                ],
+                capture_output=True,
+            )
             os.replace(output, destination)
     except BaseException:
         destination.unlink(missing_ok=True)

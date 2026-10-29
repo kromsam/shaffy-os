@@ -7,6 +7,7 @@ pins, the retirements past their removal date. `steps` is the update routine, in
 `./bin/shaffy update` runs it and stops at the first failure.
 Neither changes configuration: a release still reaches the machine through an apply.
 """
+
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import json
@@ -18,9 +19,11 @@ import subprocess
 from .source import release, release_key
 
 # Applications whose own updaters keep them current: (name, the file that shows it is installed).
-SELF_UPDATING = (('SilverBullet Desktop', '.local/lib/silverbullet-desktop/SilverBullet.AppImage'),
-                 ('Beeper Desktop', '.local/lib/beeper/Beeper.AppImage'),
-                 ('Spotify', '.local/share/spotify-launcher'))
+SELF_UPDATING = (
+    ('SilverBullet Desktop', '.local/lib/silverbullet-desktop/SilverBullet.AppImage'),
+    ('Beeper Desktop', '.local/lib/beeper/Beeper.AppImage'),
+    ('Spotify', '.local/share/spotify-launcher'),
+)
 
 
 @dataclass
@@ -62,7 +65,7 @@ def mise(root):
     if result.returncode != 0:
         return Section('mise tools', f'not checked: {result.stderr.strip() or "mise outdated failed"}')
     tools = json.loads(result.stdout or '{}')
-    lines = [f"{name} {tool['current']} → {tool['latest']}" for name, tool in sorted(tools.items())]
+    lines = [f'{name} {tool["current"]} → {tool["latest"]}' for name, tool in sorted(tools.items())]
     return Section('mise tools', f'{len(lines)} behind' if lines else 'up to date', lines)
 
 
@@ -76,8 +79,10 @@ def installs(root, home):
     revision = re.search(r'revision=([0-9a-f]{40})', (root / 'scripts/build-audio-bridge.sh').read_text()).group(1)
     receipt = home / '.local/share/yabridge/build-receipt.json'
     if receipt.exists() and json.loads(receipt.read_text()).get('revision') != revision:
-        lines.append(f'yabridge {json.loads(receipt.read_text())["revision"][:12]} → {revision[:12]} '
-                     '(rebuild by hand: docs/MAINTENANCE.md)')
+        lines.append(
+            f'yabridge {json.loads(receipt.read_text())["revision"][:12]} → {revision[:12]} '
+            '(rebuild by hand: docs/MAINTENANCE.md)'
+        )
     return Section('User installs', f'{len(lines)} differ from the pins' if lines else 'match the pins', lines)
 
 
@@ -95,8 +100,7 @@ def lazyvim(home):
         head = _run(['git', '-C', str(plugins / name), 'rev-parse', 'HEAD']).stdout.strip()
         if head != entry['commit']:
             differ.append(f'{name} {head[:7]} → {entry["commit"][:7]}')
-    return Section('LazyVim plugins', f'{len(differ)} differ from the lock' if differ else 'match the lock',
-                   differ)
+    return Section('LazyVim plugins', f'{len(differ)} differ from the lock' if differ else 'match the lock', differ)
 
 
 def self_updating(home):
@@ -127,19 +131,23 @@ def shaffy_release(root):
 
 def pin_section(root, upstream=None):
     from . import pins
+
     found = pins.check(root, upstream)
     behind = [p for p in found if p.behind]
-    lines = [f'{p.name} {p.current} → {p.latest}' + (f' ({p.note})' if p.note and not p.raise_to else '')
-             for p in behind]
+    lines = [
+        f'{p.name} {p.current} → {p.latest}' + (f' ({p.note})' if p.note and not p.raise_to else '') for p in behind
+    ]
     lines += [f'{p.name}: not checked: {p.error}' for p in found if p.error]
-    summary = (f'{len(behind)} behind; refresh them on dev with python3 scripts/refresh-pins.py'
-               if behind else 'up to date')
+    summary = (
+        f'{len(behind)} behind; refresh them on dev with python3 scripts/refresh-pins.py' if behind else 'up to date'
+    )
     return Section('Repository pins', summary, lines)
 
 
 def removal_section(root, today=None):
     """Retirements and one-off migrations past their removal date (lib/shaffy/sunset.py)."""
     from . import sunset
+
     due = sunset.due(root, today)
     lines = [f'{path}:{number}: {line}' for path, number, _, line in due]
     summary = f'{len(due)} past their date; delete them on dev' if due else 'none due'
@@ -148,8 +156,15 @@ def removal_section(root, today=None):
 
 def report(root, home, pins=True):
     """Every section, read in parallel; the network reads dominate."""
-    checks = [pacman, aur, lambda: mise(root), lambda: installs(root, home), lambda: lazyvim(home),
-              lambda: self_updating(home), lambda: shaffy_release(root)]
+    checks = [
+        pacman,
+        aur,
+        lambda: mise(root),
+        lambda: installs(root, home),
+        lambda: lazyvim(home),
+        lambda: self_updating(home),
+        lambda: shaffy_release(root),
+    ]
     if pins:
         checks += [lambda: pin_section(root), lambda: removal_section(root)]
     with ThreadPoolExecutor(max_workers=len(checks)) as pool:
@@ -180,23 +195,62 @@ def steps(root, home):
     archive = home / f'.cache/shaffy/downloads/yaru-{yaru}.tar.gz'
     marker = home / '.local/share/icons/Yaru/.shaffy-version'
     return [
-        Step('System packages (snap-pac snapshots the system around the upgrade)', ['sudo', 'pacman', '-Syu'],
-             packages=True),
-        Step('AUR packages (read the recipe changes yay shows)', ['yay', '-Sua'], packages=True,
-             skip=lambda: None if shutil.which('yay') else 'yay is not installed'),
+        Step(
+            'System packages (snap-pac snapshots the system around the upgrade)',
+            ['sudo', 'pacman', '-Syu'],
+            packages=True,
+        ),
+        Step(
+            'AUR packages (read the recipe changes yay shows)',
+            ['yay', '-Sua'],
+            packages=True,
+            skip=lambda: None if shutil.which('yay') else 'yay is not installed',
+        ),
         Step('Ansible controller', ['mise', 'upgrade', 'ansible-core'], cwd=root),
-        Step('Ansible collections', ['mise', 'exec', 'ansible-core', '--', 'ansible-galaxy', 'collection',
-                                     'install', '-r', 'requirements.yml', '-p', 'collections'], cwd=root),
-        Step('mise tools (Quarto and Zotero MCP among them) and Compound Engineering',
-             ['bash', str(root / 'scripts/install-workspace-tools.sh')]),
-        Step('Yaru icons', ['sh', '-c', 'mkdir -p "$(dirname "$1")" && { [ -f "$1" ] || curl --fail --location '
-                            '--output "$1" "$2"; } && python3 "$3" "$1"', 'yaru', str(archive),
-                            f'https://github.com/ubuntu/yaru/archive/refs/tags/{yaru}.tar.gz',
-                            str(root / 'scripts/install-yaru-icons.py')],
-             skip=lambda: None if marker.exists() and marker.read_text().strip() != yaru
-             else 'not installed, or already the pinned release'),
-        Step('LazyVim plugins, back to the managed lock', ['nvim', '--headless', '+Lazy! restore', '+qa'],
-             skip=lambda: None if lazyvim(home).lines else 'they match the lock'),
+        Step(
+            'Ansible collections',
+            [
+                'mise',
+                'exec',
+                'ansible-core',
+                '--',
+                'ansible-galaxy',
+                'collection',
+                'install',
+                '-r',
+                'requirements.yml',
+                '-p',
+                'collections',
+            ],
+            cwd=root,
+        ),
+        Step(
+            'mise tools (Quarto and Zotero MCP among them) and Compound Engineering',
+            ['bash', str(root / 'scripts/install-workspace-tools.sh')],
+        ),
+        Step(
+            'Yaru icons',
+            [
+                'sh',
+                '-c',
+                'mkdir -p "$(dirname "$1")" && { [ -f "$1" ] || curl --fail --location '
+                '--output "$1" "$2"; } && python3 "$3" "$1"',
+                'yaru',
+                str(archive),
+                f'https://github.com/ubuntu/yaru/archive/refs/tags/{yaru}.tar.gz',
+                str(root / 'scripts/install-yaru-icons.py'),
+            ],
+            skip=lambda: (
+                None
+                if marker.exists() and marker.read_text().strip() != yaru
+                else 'not installed, or already the pinned release'
+            ),
+        ),
+        Step(
+            'LazyVim plugins, back to the managed lock',
+            ['nvim', '--headless', '+Lazy! restore', '+qa'],
+            skip=lambda: None if lazyvim(home).lines else 'they match the lock',
+        ),
     ]
 
 

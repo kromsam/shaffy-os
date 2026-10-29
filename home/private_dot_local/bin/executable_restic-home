@@ -12,8 +12,9 @@ change during the run are restored and compared with the home. Samples come from
 outside hidden directories, where keys and credentials live, because the receipt
 records their SHA-256. The monthly `check` reads all repository data.
 """
+
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import fcntl
 import hashlib
 import json
@@ -25,8 +26,18 @@ import secrets
 import subprocess
 import time
 
-MODES = ['init', 'inspect', 'snapshots', 'dry-run', 'backup', 'verify', 'check', 'retention-plan',
-         'maintenance', 'status']
+MODES = [
+    'init',
+    'inspect',
+    'snapshots',
+    'dry-run',
+    'backup',
+    'verify',
+    'check',
+    'retention-plan',
+    'maintenance',
+    'status',
+]
 SAMPLES = 3  # random files restored after each backup, besides the marker
 SAMPLE_LIMIT = 64 * 1024 * 1024  # larger files are not sampled, to keep verification short
 ATTEMPTS = 40
@@ -50,16 +61,28 @@ def scope(settings):
 
 
 def verify_snapshot(snapshot, settings):
-    require(snapshot.get('hostname') == settings['host'] and snapshot.get('paths') == [settings['home']]
-            and set(settings['tags']).issubset(snapshot.get('tags') or []),
-            "Snapshot is outside this home's backup scope")
+    require(
+        snapshot.get('hostname') == settings['host']
+        and snapshot.get('paths') == [settings['home']]
+        and set(settings['tags']).issubset(snapshot.get('tags') or []),
+        "Snapshot is outside this home's backup scope",
+    )
 
 
 def retention_args(settings):
     keep = settings['retention']
-    return ['forget', *scope(settings), '--group-by', 'host,paths,tags',
-            '--keep-daily', str(keep['daily']), '--keep-weekly', str(keep['weekly']),
-            '--keep-monthly', str(keep['monthly'])]
+    return [
+        'forget',
+        *scope(settings),
+        '--group-by',
+        'host,paths,tags',
+        '--keep-daily',
+        str(keep['daily']),
+        '--keep-weekly',
+        str(keep['weekly']),
+        '--keep-monthly',
+        str(keep['monthly']),
+    ]
 
 
 def parse_backup_summary(path):
@@ -116,12 +139,20 @@ class Backup:
         for name in list(self.env):
             if name.startswith('RESTIC_'):
                 self.env.pop(name)
-        self.env.update(RESTIC_REPOSITORY=self.settings['repository'],
-                        RESTIC_PASSWORD_FILE=str(self.config / 'password'),
-                        RESTIC_CACHE_DIR=str(self.cache))
-        self.command = ['/usr/bin/restic', '--retry-lock', '5m',
-                        '-o', f'sftp.command=/usr/bin/ssh -F {self.config / "ssh_config"} restic-home-nas -s sftp',
-                        '-o', 'sftp.connections=2']
+        self.env.update(
+            RESTIC_REPOSITORY=self.settings['repository'],
+            RESTIC_PASSWORD_FILE=str(self.config / 'password'),
+            RESTIC_CACHE_DIR=str(self.cache),
+        )
+        self.command = [
+            '/usr/bin/restic',
+            '--retry-lock',
+            '5m',
+            '-o',
+            f'sftp.command=/usr/bin/ssh -F {self.config / "ssh_config"} restic-home-nas -s sftp',
+            '-o',
+            'sftp.connections=2',
+        ]
 
     def last_receipt(self):
         receipt = self.state / 'last-success.json'
@@ -140,20 +171,31 @@ class Backup:
         require(re.fullmatch('[0-9a-f]{64}', actual), 'Unexpected repository identity format')
         if allow_unpinned:
             return actual
-        require(pinned, 'The settings name no repository ID yet; put the ID from restic-home inspect (an '
-                        'existing repository) or init (a new one) into backup.repository.id and apply the home')
+        require(
+            pinned,
+            'The settings name no repository ID yet; put the ID from restic-home inspect (an '
+            'existing repository) or init (a new one) into backup.repository.id and apply the home',
+        )
         require(pinned == actual, 'Repository identity differs from backup.repository.id in the settings')
         return actual
 
     def init(self):
-        require(not self.settings.get('repository_id'),
-                'The settings already name a repository; init creates a new one only before that')
+        require(
+            not self.settings.get('repository_id'),
+            'The settings already name a repository; init creates a new one only before that',
+        )
         exists = subprocess.run([*self.command, 'cat', 'config'], env=self.env, capture_output=True)
         require(exists.returncode != 0, 'A repository already exists there; use restic-home inspect to adopt it')
         self.run('init', stdout=subprocess.DEVNULL)
-        print(json.dumps({'repository_id': self.repository(allow_unpinned=True),
-                          'next': 'put this ID into backup.repository.id, apply the home, then run '
-                                  'restic-home backup'}, indent=2))
+        print(
+            json.dumps(
+                {
+                    'repository_id': self.repository(allow_unpinned=True),
+                    'next': 'put this ID into backup.repository.id, apply the home, then run restic-home backup',
+                },
+                indent=2,
+            )
+        )
 
     def snapshots(self):
         snapshots = self.json('snapshots', '--json', *scope(self.settings))
@@ -173,8 +215,13 @@ class Backup:
         directory = self.home
         for _ in range(12):
             try:
-                entries = [e for e in os.scandir(directory) if not e.name.startswith('.') and not e.is_symlink()
-                           and not any(Path(e.path) == x or x in Path(e.path).parents for x in excluded)]
+                entries = [
+                    e
+                    for e in os.scandir(directory)
+                    if not e.name.startswith('.')
+                    and not e.is_symlink()
+                    and not any(Path(e.path) == x or x in Path(e.path).parents for x in excluded)
+                ]
             except OSError:
                 return None
             if not entries:
@@ -192,7 +239,7 @@ class Backup:
         excluded = []
         for line in (self.config / 'excludes').read_text().splitlines():
             if line.startswith('$HOME/'):
-                excluded.append(self.home / line[len('$HOME/'):])
+                excluded.append(self.home / line[len('$HOME/') :])
         samples, seen = [], set()
         for _ in range(ATTEMPTS):
             if len(samples) == SAMPLES:
@@ -208,8 +255,12 @@ class Backup:
             if before.st_size == 0 or before.st_size > SAMPLE_LIMIT or before.st_mtime_ns // 1000 >= started_us:
                 continue
             node = self.node(snapshot_id, path)
-            if not node or node.get('type') != 'file' or node.get('size') != before.st_size \
-                    or mtime_us(node['mtime']) != before.st_mtime_ns // 1000:
+            if (
+                not node
+                or node.get('type') != 'file'
+                or node.get('size') != before.st_size
+                or mtime_us(node['mtime']) != before.st_mtime_ns // 1000
+            ):
                 continue
             try:
                 expected = sha256(path)
@@ -219,8 +270,10 @@ class Backup:
             if (after.st_mtime_ns, after.st_size) != (before.st_mtime_ns, before.st_size):
                 continue
             data = self.run('dump', snapshot_id, str(path), stdout=subprocess.PIPE).stdout
-            require(hashlib.sha256(data).hexdigest() == expected,
-                    f'The restored {path} differs from the unchanged file in the home')
+            require(
+                hashlib.sha256(data).hexdigest() == expected,
+                f'The restored {path} differs from the unchanged file in the home',
+            )
             samples.append({'path': str(path), 'sha256': expected})
         return samples
 
@@ -229,45 +282,71 @@ class Backup:
         verify_snapshot(self.json('cat', 'snapshot', snapshot_id), self.settings)
         for sample in samples:
             data = self.run('dump', snapshot_id, sample['path'], stdout=subprocess.PIPE).stdout
-            require(hashlib.sha256(data).hexdigest() == sample['sha256'],
-                    'Restored sample does not match its recorded content')
+            require(
+                hashlib.sha256(data).hexdigest() == sample['sha256'],
+                'Restored sample does not match its recorded content',
+            )
         return len(samples)
 
     def backup(self, dry_run=False):
         marker = self.state / 'marker'
-        text = f'{secrets.token_hex(16)} {datetime.now(timezone.utc).isoformat()}\n'
+        text = f'{secrets.token_hex(16)} {datetime.now(UTC).isoformat()}\n'
         with marker.open('w') as stream:
             stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
         started_us = time.time_ns() // 1000
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
         stdout = self.cache / ('dry-run.jsonl' if dry_run else 'backup.jsonl')
         stderr = self.cache / ('dry-run.stderr' if dry_run else 'backup.stderr')
-        args = ['backup', '--json', '--host', self.settings['host'], '--tag', ','.join(self.settings['tags']),
-                '--one-file-system', '--exclude-caches', '--exclude-file', str(self.config / 'excludes')]
+        args = [
+            'backup',
+            '--json',
+            '--host',
+            self.settings['host'],
+            '--tag',
+            ','.join(self.settings['tags']),
+            '--one-file-system',
+            '--exclude-caches',
+            '--exclude-file',
+            str(self.config / 'excludes'),
+        ]
         if dry_run:
             args.append('--dry-run')
         with stdout.open('w') as out, stderr.open('w') as err:
-            result = subprocess.run([*self.command, *args, str(self.home)], env=self.env,
-                                    stdout=out, stderr=err)
-        require(result.returncode == 0,
-                f'Backup did not complete cleanly (exit {result.returncode}); inspect private {stderr}')
+            result = subprocess.run([*self.command, *args, str(self.home)], env=self.env, stdout=out, stderr=err)
+        require(
+            result.returncode == 0,
+            f'Backup did not complete cleanly (exit {result.returncode}); inspect private {stderr}',
+        )
         summary = parse_backup_summary(stdout)
         if dry_run:
-            print(json.dumps({'dry_run': True, 'files': summary.get('total_files_processed'),
-                              'bytes': summary.get('total_bytes_processed')}))
+            print(
+                json.dumps(
+                    {
+                        'dry_run': True,
+                        'files': summary.get('total_files_processed'),
+                        'bytes': summary.get('total_bytes_processed'),
+                    }
+                )
+            )
             return
         snapshot_id = summary.get('snapshot_id', '')
         samples = [{'path': str(marker), 'sha256': hashlib.sha256(text.encode()).hexdigest()}]
         self.verify(snapshot_id, samples)
         samples += self.random_samples(snapshot_id, started_us)
-        receipt = {'started_at': started_at, 'completed_at': datetime.now(timezone.utc).isoformat(),
-                   'snapshot_id': snapshot_id,
-                   'repository_id': self.repository(), 'status': 'verified', 'samples': samples,
-                   'verified_samples': len(samples), 'random_samples': len(samples) - 1,
-                   'files': summary.get('total_files_processed'),
-                   'bytes': summary.get('total_bytes_processed')}
+        receipt = {
+            'started_at': started_at,
+            'completed_at': datetime.now(UTC).isoformat(),
+            'snapshot_id': snapshot_id,
+            'repository_id': self.repository(),
+            'status': 'verified',
+            'samples': samples,
+            'verified_samples': len(samples),
+            'random_samples': len(samples) - 1,
+            'files': summary.get('total_files_processed'),
+            'bytes': summary.get('total_bytes_processed'),
+        }
         save_json(self.state / 'last-success.json', receipt)
         print(json.dumps({k: v for k, v in receipt.items() if k != 'samples'}))
 
@@ -279,12 +358,21 @@ class Backup:
         for snapshot in remove:
             verify_snapshot(snapshot, self.settings)
             require(snapshot['id'] in allowed, 'Retention selected an unexpected snapshot')
-        print(json.dumps({'snapshots': len(existing), 'snapshots_to_remove': len(remove),
-                          'retention': self.settings['retention']}))
+        print(
+            json.dumps(
+                {
+                    'snapshots': len(existing),
+                    'snapshots_to_remove': len(remove),
+                    'retention': self.settings['retention'],
+                }
+            )
+        )
         if apply:
             receipt = self.last_receipt()
-            require(receipt['status'] == 'verified' and receipt['repository_id'] == self.repository(),
-                    'Verify a successful backup before enabling maintenance')
+            require(
+                receipt['status'] == 'verified' and receipt['repository_id'] == self.repository(),
+                'Verify a successful backup before enabling maintenance',
+            )
             require(receipt['snapshot_id'] in allowed, 'Last verified backup is missing')
             self.run(*retention_args(self.settings), '--prune')
             self.run('check')
@@ -317,10 +405,19 @@ def main():
         if args.mode == 'inspect':
             snapshots = backup.json('snapshots', '--json')
             pinned = backup.settings.get('repository_id')
-            print(json.dumps({'repository_id': repo_id, 'pinned_id': pinned, 'matches_settings': pinned == repo_id,
-                              'snapshots': [
-                {k: s.get(k) for k in ['id', 'time', 'hostname', 'paths', 'tags']}
-                for s in snapshots]}, indent=2))
+            print(
+                json.dumps(
+                    {
+                        'repository_id': repo_id,
+                        'pinned_id': pinned,
+                        'matches_settings': pinned == repo_id,
+                        'snapshots': [
+                            {k: s.get(k) for k in ['id', 'time', 'hostname', 'paths', 'tags']} for s in snapshots
+                        ],
+                    },
+                    indent=2,
+                )
+            )
         elif args.mode == 'snapshots':
             print(json.dumps(backup.snapshots(), indent=2))
         elif args.mode in ['backup', 'dry-run']:

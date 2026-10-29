@@ -4,6 +4,8 @@ These run lib/shaffy/root_op.py in-process as the current user against a
 temporary state directory with the fake snapper; the privileged container test
 runs the whole route as root.
 """
+
+from contextlib import redirect_stderr, redirect_stdout
 import copy
 import hashlib
 import io
@@ -14,15 +16,14 @@ import shutil
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import root_op  # noqa: E402
-from shaffy.capture import capture  # noqa: E402
-from shaffy.loader import load  # noqa: E402
-from shaffy.records import disagreements  # noqa: E402
+from shaffy import root_op
+from shaffy.capture import capture
+from shaffy.loader import load
+from shaffy.records import disagreements
 
 FIXTURE = ROOT / 'tests/fixtures/supplements/comprehensive'
 
@@ -43,13 +44,29 @@ class RootStepTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def run_step(self, action, op='op-1', uid=4242, capture_dir=None, sha=None):
-        arguments = [action, '--op', op, '--uid', str(uid), '--test-prerequisites', 'fake',
-                     '--state-dir', str(self.state)]
+        arguments = [
+            action,
+            '--op',
+            op,
+            '--uid',
+            str(uid),
+            '--test-prerequisites',
+            'fake',
+            '--state-dir',
+            str(self.state),
+        ]
         if action == 'begin':
             directory = Path(capture_dir or self.capture)
-            arguments += ['--user', 'tester', '--home', '/home/tester', '--capture', str(directory),
-                          '--manifest-sha256',
-                          sha or hashlib.sha256((directory / 'manifest.json').read_bytes()).hexdigest()]
+            arguments += [
+                '--user',
+                'tester',
+                '--home',
+                '/home/tester',
+                '--capture',
+                str(directory),
+                '--manifest-sha256',
+                sha or hashlib.sha256((directory / 'manifest.json').read_bytes()).hexdigest(),
+            ]
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = root_op.main(arguments)
@@ -66,13 +83,16 @@ class RootStepTests(unittest.TestCase):
         code, result, err = self.run_step('begin')
         self.assertEqual(code, 0, err)
         copy_dir = self.state / 'ops/op-1/capture'
-        self.assertEqual((copy_dir / 'supplement/config.yaml').read_bytes(),
-                         (self.capture / 'supplement/config.yaml').read_bytes())
+        self.assertEqual(
+            (copy_dir / 'supplement/config.yaml').read_bytes(), (self.capture / 'supplement/config.yaml').read_bytes()
+        )
         self.assertEqual(oct(copy_dir.stat().st_mode & 0o777), '0o700')
         record = self.record()
         self.assertEqual(record['pending']['op'], 'op-1')
-        self.assertEqual(record['binding'], {'mode': 'supplement', 'path': str(self.supplement),
-                                             'supplement_id': 'synthetic-desktop'})
+        self.assertEqual(
+            record['binding'],
+            {'mode': 'supplement', 'path': str(self.supplement), 'supplement_id': 'synthetic-desktop'},
+        )
         for readable in ('targets/4242.json', 'targets/4242.journal.jsonl'):  # the user side reads both
             self.assertEqual(oct((self.state / readable).stat().st_mode & 0o777), '0o644', readable)
         # The pre snapshots come before root `pending`, and the record before its journal line.
@@ -94,8 +114,10 @@ class RootStepTests(unittest.TestCase):
         self.assertEqual(record['phases']['system']['op'], 'op-1')
         self.assertEqual(self.events()[-2:], ['phase-done', 'complete'])
         log = [json.loads(l) for l in (self.state / 'targets/fake-snapshots.jsonl').read_text().splitlines()]
-        self.assertEqual([(e['config'], e['type'], e['pre']) for e in log],
-                         [('root', 'pre', None), ('home', 'pre', None), ('root', 'post', 1), ('home', 'post', 2)])
+        self.assertEqual(
+            [(e['config'], e['type'], e['pre']) for e in log],
+            [('root', 'pre', None), ('home', 'pre', None), ('root', 'post', 1), ('home', 'post', 2)],
+        )
 
     def test_finish_keeps_the_newest_ten_root_copies(self):
         for number in range(12):
@@ -114,8 +136,13 @@ class RootStepTests(unittest.TestCase):
         self.run_step('abandon', op='00000000T000000Z-abandoned')
         for number in range(11):
             op = f'op-{number + 10}'
-            other = capture(ROOT, {'mode': 'supplement', 'path': str(self.supplement), 'source': 'binding'},
-                            self.tmp / 'user-state', op, load)
+            other = capture(
+                ROOT,
+                {'mode': 'supplement', 'path': str(self.supplement), 'source': 'binding'},
+                self.tmp / 'user-state',
+                op,
+                load,
+            )
             self.run_step('begin', op=op, capture_dir=other['directory'])
             self.run_step('finish', op=op)
         self.assertTrue((self.state / 'ops/00000000T000000Z-abandoned/capture').is_dir())
@@ -127,13 +154,15 @@ class RootStepTests(unittest.TestCase):
         self.assertTrue(result['resumed'])
         self.assertEqual(self.events(), ['snapper-home-created', 'begin', 'phase-start', 'resume-start'])
         self.run_step('finish')
-        self.assertEqual(json.loads((self.state / 'targets/fake-snapshots.jsonl').read_text()
-                                    .splitlines()[-1])['pre'], 4)  # paired with the resume's pre
+        self.assertEqual(
+            json.loads((self.state / 'targets/fake-snapshots.jsonl').read_text().splitlines()[-1])['pre'], 4
+        )  # paired with the resume's pre
 
     def test_another_unfinished_operation_refuses(self):
         self.run_step('begin')
-        second = capture(ROOT, {'mode': 'none', 'path': None, 'source': 'binding'},
-                         self.tmp / 'user-state', 'op-2', load)
+        second = capture(
+            ROOT, {'mode': 'none', 'path': None, 'source': 'binding'}, self.tmp / 'user-state', 'op-2', load
+        )
         code, _, err = self.run_step('begin', op='op-2', capture_dir=second['directory'])
         self.assertEqual(code, 1)
         self.assertIn('system operation op-1 is unfinished', err)
@@ -176,6 +205,7 @@ class RootStepTests(unittest.TestCase):
         selection = {'mode': 'supplement', 'path': str(self.supplement), 'source': 'binding'}
         manifest = capture(ROOT, selection, self.tmp / 'user-state', 'op-5', load)
         from shaffy.capture import verify
+
         verify(manifest['directory'])
         code, _, err = self.run_step('begin', op='op-5', capture_dir=manifest['directory'])
         self.assertEqual(code, 0, err)
@@ -207,9 +237,23 @@ class RootStepTests(unittest.TestCase):
 
     def test_rebind_moves_the_root_binding_only_between_operations(self):
         self.run_step('begin')
-        arguments = ['rebind', '--op', 'op-2', '--uid', '4242', '--mode', 'supplement', '--path', '/new',
-                     '--supplement-id', 'synthetic-desktop', '--test-prerequisites', 'fake',
-                     '--state-dir', str(self.state)]
+        arguments = [
+            'rebind',
+            '--op',
+            'op-2',
+            '--uid',
+            '4242',
+            '--mode',
+            'supplement',
+            '--path',
+            '/new',
+            '--supplement-id',
+            'synthetic-desktop',
+            '--test-prerequisites',
+            'fake',
+            '--state-dir',
+            str(self.state),
+        ]
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
             self.assertEqual(root_op.main(arguments), 1)
         self.assertIn('is unfinished', err.getvalue())
@@ -221,12 +265,28 @@ class RootStepTests(unittest.TestCase):
     def test_a_second_target_user_is_added_to_the_home_configuration(self):
         self.run_step('begin')
         self.run_step('finish')
-        second = capture(ROOT, {'mode': 'none', 'path': None, 'source': 'binding'},
-                         self.tmp / 'user-state', 'op-6', load)
-        arguments = ['begin', '--op', 'op-6', '--uid', '4343', '--user', 'second', '--home', '/home/second',
-                     '--capture', second['directory'], '--manifest-sha256',
-                     hashlib.sha256((Path(second['directory']) / 'manifest.json').read_bytes()).hexdigest(),
-                     '--test-prerequisites', 'fake', '--state-dir', str(self.state)]
+        second = capture(
+            ROOT, {'mode': 'none', 'path': None, 'source': 'binding'}, self.tmp / 'user-state', 'op-6', load
+        )
+        arguments = [
+            'begin',
+            '--op',
+            'op-6',
+            '--uid',
+            '4343',
+            '--user',
+            'second',
+            '--home',
+            '/home/second',
+            '--capture',
+            second['directory'],
+            '--manifest-sha256',
+            hashlib.sha256((Path(second['directory']) / 'manifest.json').read_bytes()).hexdigest(),
+            '--test-prerequisites',
+            'fake',
+            '--state-dir',
+            str(self.state),
+        ]
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             self.assertEqual(root_op.main(arguments), 0)
         self.assertEqual((self.state / 'targets/fake-home-users').read_text().split(), ['tester', 'second'])
@@ -235,8 +295,9 @@ class RootStepTests(unittest.TestCase):
     def test_a_different_binding_is_refused(self):
         self.run_step('begin')
         self.run_step('finish')
-        other = capture(ROOT, {'mode': 'none', 'path': None, 'source': 'binding'},
-                        self.tmp / 'user-state', 'op-3', load)
+        other = capture(
+            ROOT, {'mode': 'none', 'path': None, 'source': 'binding'}, self.tmp / 'user-state', 'op-3', load
+        )
         code, _, err = self.run_step('begin', op='op-3', capture_dir=other['directory'])
         self.assertEqual(code, 1)
         self.assertIn('supplement rebind', err)
@@ -254,15 +315,22 @@ class RootStepTests(unittest.TestCase):
 
 
 class AgreementTests(unittest.TestCase):
-    USER = {'target': {'uid': 1000, 'user': 'u', 'home': '/home/u'},
-            'binding': {'mode': 'supplement', 'path': '/s', 'supplement_id': 'id'}, 'pending': None}
+    USER = {
+        'target': {'uid': 1000, 'user': 'u', 'home': '/home/u'},
+        'binding': {'mode': 'supplement', 'path': '/s', 'supplement_id': 'id'},
+        'pending': None,
+    }
 
     def test_equal_records_agree_and_every_compared_field_counts(self):
         root = copy.deepcopy(self.USER)
         self.assertEqual(disagreements(self.USER, root), [])
-        for path, value in ((('target', 'uid'), 1001), (('target', 'home'), '/x'),
-                            (('binding', 'mode'), 'none'), (('binding', 'path'), '/t'),
-                            (('binding', 'supplement_id'), 'other')):
+        for path, value in (
+            (('target', 'uid'), 1001),
+            (('target', 'home'), '/x'),
+            (('binding', 'mode'), 'none'),
+            (('binding', 'path'), '/t'),
+            (('binding', 'supplement_id'), 'other'),
+        ):
             changed = copy.deepcopy(root)
             changed[path[0]][path[1]] = value
             with self.subTest(field='.'.join(path)):
@@ -284,15 +352,22 @@ class WrapperTests(unittest.TestCase):
         from shaffy import system
         from shaffy.records import Records, new_record
         from shaffy.source import manifest
+
         self.system = system
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         tmp = Path(self.temporary.name)
         self.root_state = tmp / 'root'
         (self.root_state / 'targets').mkdir(parents=True)
-        environment = mock.patch.dict(os.environ, {
-            'HOME': str(tmp / 'home'), 'XDG_STATE_HOME': str(tmp / 'home/.local/state'),
-            'SHAFFY_TEST_PREREQUISITES': 'fake', 'SHAFFY_TEST_ROOT_STATE': str(self.root_state)})
+        environment = mock.patch.dict(
+            os.environ,
+            {
+                'HOME': str(tmp / 'home'),
+                'XDG_STATE_HOME': str(tmp / 'home/.local/state'),
+                'SHAFFY_TEST_PREREQUISITES': 'fake',
+                'SHAFFY_TEST_ROOT_STATE': str(self.root_state),
+            },
+        )
         environment.start()
         self.addCleanup(environment.stop)
         container = mock.patch.object(system, '_in_container', return_value=True)
@@ -305,14 +380,28 @@ class WrapperTests(unittest.TestCase):
         self.source = manifest(ROOT)
 
     def pending(self, op='op-9'):
-        self.user['pending'] = {'op': op, 'scope': 'system', 'capture': '/nonexistent', 'phase': 'system',
-                                'started_at': 'x', 'checkout': str(ROOT), 'settings_sha256': 'x',
-                                'source': self.source}
+        self.user['pending'] = {
+            'op': op,
+            'scope': 'system',
+            'capture': '/nonexistent',
+            'phase': 'system',
+            'started_at': 'x',
+            'checkout': str(ROOT),
+            'settings_sha256': 'x',
+            'source': self.source,
+        }
         self.records.write(self.user)
 
     def root(self, **fields):
-        record = {'record_version': 1, 'target': self.user['target'], 'binding': self.user['binding'],
-                  'pending': None, 'last_completed_op': None, 'phases': {}, **fields}
+        record = {
+            'record_version': 1,
+            'target': self.user['target'],
+            'binding': self.user['binding'],
+            'pending': None,
+            'last_completed_op': None,
+            'phases': {},
+            **fields,
+        }
         (self.root_state / f'targets/{self.uid}.json').write_text(json.dumps(record))
 
     def root_journal(self, *events, op='op-9'):
@@ -354,6 +443,7 @@ class WrapperTests(unittest.TestCase):
 
     def test_a_record_for_another_target_is_not_resumed(self):
         from shaffy.records import RecordError
+
         self.user['target'] = {**self.user['target'], 'uid': self.uid + 1, 'home': '/home/second'}
         self.pending()
         with self.assertRaisesRegex(RecordError, 'is bound for'):
@@ -385,9 +475,14 @@ class WrapperTests(unittest.TestCase):
     def test_a_root_operation_is_abandoned_without_a_user_record(self):
         self.root(pending={'op': 'op-root'})
         plays = []
-        with mock.patch.object(self.system.bootstrap, 'problems', return_value=[]), \
-                mock.patch.object(self.system.SystemApply, '_run_play',
-                                  side_effect=lambda playbook, operation, tags=None: plays.append((playbook, operation)) or 0):
+        with (
+            mock.patch.object(self.system.bootstrap, 'problems', return_value=[]),
+            mock.patch.object(
+                self.system.SystemApply,
+                '_run_play',
+                side_effect=lambda playbook, operation, tags=None: plays.append((playbook, operation)) or 0,
+            ),
+        ):
             self.assertEqual(self.system.SystemApply(ROOT, out=lambda _: None).abandon(), 0)
         self.assertEqual(plays[0][0], 'records.yml')
         self.assertEqual((plays[0][1]['op'], plays[0][1]['action']), ('op-root', 'abandon'))
@@ -408,6 +503,7 @@ class WrapperTests(unittest.TestCase):
 
     def test_a_home_apply_after_an_unfinished_first_system_operation_names_that_operation(self):
         from shaffy.apply import ApplyError, HomeApply
+
         self.pending()  # the root record exists, but the user record is not marked bound yet
         self.root(pending={'op': 'op-9'})
         with self.assertRaisesRegex(ApplyError, 'operation op-9 is unfinished; run ./bin/shaffy apply --resume'):

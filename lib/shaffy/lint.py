@@ -14,6 +14,7 @@ reformatted it; after any other tool, and when the agent stops, it checks the fi
 that differ from HEAD without writing. What remains goes back to the agent, and a
 stop is held back once. A tool that is not installed is skipped there, not reported.
 """
+
 from dataclasses import dataclass
 import json
 import os
@@ -59,8 +60,12 @@ STEPS = (
 def language(path, root=ROOT):
     """The language a file is linted as, or None."""
     target = root / path
-    if path.endswith('.tmpl') or path.startswith('home/.chezmoitemplates/') or target.is_symlink() \
-            or not target.is_file():
+    if (
+        path.endswith('.tmpl')
+        or path.startswith('home/.chezmoitemplates/')
+        or target.is_symlink()
+        or not target.is_file()
+    ):
         return None
     suffix = Path(path).suffix
     if path in ('site.yml', 'records.yml') or (path.startswith('roles/') and suffix == '.yml'):
@@ -92,12 +97,14 @@ def third_party(root=ROOT):
 
 def changed(root=ROOT):
     """Files that differ from HEAD, and untracked ones Git does not ignore."""
+
     def listing(*arguments):
-        result = subprocess.run(['git', '-C', str(root), *arguments, '-z'], capture_output=True, text=True,
-                                check=False)
+        result = subprocess.run(['git', '-C', str(root), *arguments, '-z'], capture_output=True, text=True, check=False)
         return [path for path in result.stdout.split('\0') if path]
-    return sorted(set(listing('diff', '--name-only', 'HEAD')) | set(listing('ls-files', '--others',
-                                                                         '--exclude-standard')))
+
+    return sorted(
+        set(listing('diff', '--name-only', 'HEAD')) | set(listing('ls-files', '--others', '--exclude-standard'))
+    )
 
 
 def _environment():
@@ -109,8 +116,9 @@ def available(step, root=ROOT):
         return shutil.which(step.tool) is not None
     if shutil.which('mise') is None:
         return False
-    result = subprocess.run(['mise', 'which', step.tool], cwd=root, env=_environment(), capture_output=True,
-                            check=False)
+    result = subprocess.run(
+        ['mise', 'which', step.tool], cwd=root, env=_environment(), capture_output=True, check=False
+    )
     return result.returncode == 0
 
 
@@ -148,10 +156,17 @@ def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_availabl
                 failed = True
             continue
         if fix and step.fix is not None:
-            call(_command(step, step.fix, files), cwd=root, env=_environment(), capture_output=True, text=True,
-                 check=False)
-        result = call(_command(step, step.check, files), cwd=root, env=_environment(), capture_output=True,
-                      text=True, check=False)
+            call(
+                _command(step, step.fix, files),
+                cwd=root,
+                env=_environment(),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        result = call(
+            _command(step, step.check, files), cwd=root, env=_environment(), capture_output=True, text=True, check=False
+        )
         scope = 'the playbooks' if step.project else f'{len(files)} file(s)'
         if result.returncode == 0:
             out(f'{label}: {scope} clean')
@@ -201,8 +216,7 @@ def main(args):
     if args.paths:
         named = [os.path.relpath(Path(p).resolve(), ROOT) for p in args.paths]
         everything = _files(ROOT)
-        paths = [f for f in everything if any(f == n or f.startswith(n.rstrip('/') + '/') or n == '.'
-                                               for n in named)]
+        paths = [f for f in everything if any(f == n or f.startswith(n.rstrip('/') + '/') or n == '.' for n in named)]
     else:
         paths = changed() if args.changed else _files(ROOT)
     return run(paths, fix=args.fix)

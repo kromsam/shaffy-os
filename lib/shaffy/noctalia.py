@@ -6,6 +6,7 @@ unmanaged config.toml and the create-only 99-runtime.toml load after the managed
 places silently takes the runtime value. `shaffy check` reports each such key so
 it can be promoted into a fragment or cleared deliberately.
 """
+
 from pathlib import Path
 import tomllib
 
@@ -24,7 +25,7 @@ def _flatten(data, prefix=''):
 def _read(path):
     try:
         return _flatten(tomllib.loads(Path(path).read_text()))
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError, tomllib.TOMLDecodeError:
         return {}
 
 
@@ -34,8 +35,11 @@ def overlaps(rendered_dir, home):
     managed = {}
     for fragment in sorted(rendered_dir.glob('9[0-7]-*.toml')):
         managed.update(_read(fragment))
-    runtime = [home / '.config/noctalia/99-runtime.toml', home / '.config/noctalia/config.toml',
-               home / '.local/state/noctalia/settings.toml']
+    runtime = [
+        home / '.config/noctalia/99-runtime.toml',
+        home / '.config/noctalia/config.toml',
+        home / '.local/state/noctalia/settings.toml',
+    ]
     found = []
     for source in runtime:
         for key, value in _read(source).items():

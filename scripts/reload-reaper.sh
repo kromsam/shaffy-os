@@ -4,15 +4,15 @@
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 if pgrep -x reaper >/dev/null; then
-    reaper -nonewinst -close:exit
-    for _ in {1..20}; do
-        if ! pgrep -x reaper >/dev/null; then break; fi
-        sleep 0.5
-    done
+  reaper -nonewinst -close:exit
+  for _ in {1..20}; do
+    if ! pgrep -x reaper >/dev/null; then break; fi
+    sleep 0.5
+  done
 fi
 if pgrep -x reaper >/dev/null; then
-    echo 'REAPER is still open; complete its save/close dialog before applying configuration.' >&2
-    exit 1
+  echo 'REAPER is still open; complete its save/close dialog before applying configuration.' >&2
+  exit 1
 fi
 # Reopen REAPER whether or not the apply went through; its refusal says why.
 status=0

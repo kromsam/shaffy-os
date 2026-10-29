@@ -1,6 +1,7 @@
 """Invariants of the repository itself: the Git boundary of the private supplement,
 licences and attribution, no personal literals in the public tree, no unreferenced
 script or document, Markdown links that resolve, and one interpreter per language."""
+
 from pathlib import Path
 import re
 import shutil
@@ -11,7 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import literals  # noqa: E402
+from shaffy import literals
 
 ALLOW = 'tests/public-literals.allow'
 
@@ -20,8 +21,7 @@ def git(*args):
     return subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True, check=False)
 
 
-@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0,
-                     'needs a git checkout')
+@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
 class SupplementBoundaryTests(unittest.TestCase):
     def test_gitignore_ignores_the_supplement_directory_and_symlink(self):
         # No trailing slash: a trailing slash would miss a symlink named supplement.
@@ -45,14 +45,19 @@ class SupplementBoundaryTests(unittest.TestCase):
 
 
 def tracked():
-    return subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z'], capture_output=True, text=True,
-                          check=True).stdout.split('\0')[:-1]
+    return subprocess.run(
+        ['git', '-C', str(ROOT), 'ls-files', '-z'], capture_output=True, text=True, check=True
+    ).stdout.split('\0')[:-1]
 
 
 def exported(paths):
     """The paths the public export keeps: those not marked export-ignore in .gitattributes."""
-    result = subprocess.run(['git', '-C', str(ROOT), 'check-attr', '-z', 'export-ignore', '--', *paths],
-                            capture_output=True, text=True, check=True).stdout.split('\0')[:-1]
+    result = subprocess.run(
+        ['git', '-C', str(ROOT), 'check-attr', '-z', 'export-ignore', '--', *paths],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split('\0')[:-1]
     ignored = {result[i] for i in range(0, len(result), 3) if result[i + 2] == 'set'}
     return [path for path in paths if path not in ignored]
 
@@ -93,18 +98,22 @@ class LicenceTests(unittest.TestCase):
                     self.assertIn(path, public, f'REUSE.toml names {path}, which the export would not contain')
 
     def test_files_derived_from_cachyos_stay_gpl_with_their_notice(self):
-        gpl = {path for paths, a in self.annotations() if a['SPDX-License-Identifier'] == 'GPL-3.0-only'
-               for path in paths}
-        noticed = {path for path in self.files if path.startswith('home/')
-                   and 'Derived from CachyOS cachyos-niri-noctalia' in (ROOT / path).read_text(errors='replace')}
+        gpl = {
+            path for paths, a in self.annotations() if a['SPDX-License-Identifier'] == 'GPL-3.0-only' for path in paths
+        }
+        noticed = {
+            path
+            for path in self.files
+            if path.startswith('home/')
+            and 'Derived from CachyOS cachyos-niri-noctalia' in (ROOT / path).read_text(errors='replace')
+        }
         self.assertEqual(noticed, gpl)
         self.assertEqual(len(gpl), 7)
 
     def test_modified_apache_files_say_so(self):
         holder = (ROOT / 'LICENSE').read_text().splitlines()[2].removeprefix('Copyright (c) ')
         for paths, annotation in self.annotations():
-            if 'Apache-2.0' in annotation['SPDX-License-Identifier'] and holder in \
-                    annotation['SPDX-FileCopyrightText']:
+            if 'Apache-2.0' in annotation['SPDX-License-Identifier'] and holder in annotation['SPDX-FileCopyrightText']:
                 for path in paths:
                     self.assertIn('Modified for Shaffy OS', (ROOT / path).read_text(), path)
 
@@ -113,8 +122,7 @@ class LicenceTests(unittest.TestCase):
         self.assertFalse(any(p.endswith('ship-at-sea.jpg') for p in self.files))
 
 
-@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0,
-                     'needs a git checkout')
+@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
 class PublicLiteralTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -123,20 +131,25 @@ class PublicLiteralTests(unittest.TestCase):
         cls.static = literals.scan(ROOT, [f for f in cls.files if f != ALLOW], literals.static_rules())
 
     def report(self, hits):
-        return '\n'.join(f'{h.path}:{h.line}: {h.rule}: {h.text}' for h in hits[:100]) + \
-            (f'\n… and {len(hits) - 100} more' if len(hits) > 100 else '')
+        return '\n'.join(f'{h.path}:{h.line}: {h.rule}: {h.text}' for h in hits[:100]) + (
+            f'\n… and {len(hits) - 100} more' if len(hits) > 100 else ''
+        )
 
     def test_public_files_hold_no_personal_literals(self):
         hits = [h for h in self.static if not literals.allowed(h, self.allow)]
         if hits:
-            self.fail('personal-looking values in public files; make them synthetic, or list a required '
-                      f'one in {ALLOW}:\n' + self.report(hits))
+            self.fail(
+                'personal-looking values in public files; make them synthetic, or list a required '
+                f'one in {ALLOW}:\n' + self.report(hits)
+            )
 
     def test_public_files_hold_none_of_this_machine_identifiers(self):
         hits = literals.scan(ROOT, self.files, literals.environment_rules(ROOT))
         if hits:
-            self.fail("this machine's account, host name, machine-id or Git identity appear in public "
-                      'files:\n' + self.report(hits))
+            self.fail(
+                "this machine's account, host name, machine-id or Git identity appear in public "
+                'files:\n' + self.report(hits)
+            )
 
     def test_every_allowlist_entry_is_needed_and_explained(self):
         for entry in self.allow:
@@ -152,6 +165,7 @@ class PublicLiteralTests(unittest.TestCase):
 class LiteralScannerTests(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.repo = Path(self.temporary.name)
@@ -208,8 +222,7 @@ def heading_slugs(text):
     return slugs
 
 
-@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0,
-                     'needs a git checkout')
+@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
 class TidinessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -219,8 +232,11 @@ class TidinessTests(unittest.TestCase):
         # A test alone does not count: something a person or the code uses names the file.
         for path in sorted(p for p in self.files if p.startswith(('scripts/', 'docs/'))):
             name = Path(path).name
-            users = [other for other, text in self.files.items()
-                     if other != path and not other.startswith('tests/') and name in text]
+            users = [
+                other
+                for other, text in self.files.items()
+                if other != path and not other.startswith('tests/') and name in text
+            ]
             self.assertTrue(users, f'nothing outside the tests names {path}; document it or delete it')
 
     def test_relative_markdown_links_and_anchors_resolve(self):

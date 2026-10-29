@@ -1,4 +1,5 @@
 """Frozen supplement inputs and the operation marker."""
+
 import json
 import os
 from pathlib import Path
@@ -11,10 +12,10 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import capture as capture_module  # noqa: E402
-from shaffy.capture import CaptureError, capture, verify  # noqa: E402
-from shaffy.loader import load  # noqa: E402
-from shaffy.selection import SelectionError, resolve  # noqa: E402
+from shaffy import capture as capture_module
+from shaffy.capture import CaptureError, capture, verify
+from shaffy.loader import load
+from shaffy.selection import SelectionError, resolve
 
 
 class _Case(unittest.TestCase):
@@ -31,8 +32,9 @@ class CaptureTests(_Case):
     def test_capture_copies_privately_and_records_digests(self):
         manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-1', load)
         directory = Path(manifest['directory'])
-        self.assertEqual((directory / 'supplement/config.yaml').read_bytes(),
-                         (self.supplement / 'config.yaml').read_bytes())
+        self.assertEqual(
+            (directory / 'supplement/config.yaml').read_bytes(), (self.supplement / 'config.yaml').read_bytes()
+        )
         self.assertEqual(oct(directory.stat().st_mode & 0o777), '0o700')
         self.assertEqual(oct((directory / 'manifest.json').stat().st_mode & 0o777), '0o600')
         self.assertEqual(manifest['supplement_id'], 'synthetic-desktop')
@@ -45,6 +47,7 @@ class CaptureTests(_Case):
             result = original(source, destination)
             Path(source).write_text(Path(source).read_text() + '# edited meanwhile\n')
             return result
+
         with mock.patch.object(capture_module.shutil, 'copyfile', copy_then_edit):
             with self.assertRaisesRegex(CaptureError, 'changed while it was captured'):
                 capture(ROOT, self.selection, self.tmp / 'state', 'op-2', load)
@@ -62,8 +65,7 @@ class CaptureTests(_Case):
         self.assertIn('supplement/overrides/fish.fish', manifest['files'])
         (self.supplement / 'overrides/fish.fish').write_text('echo changed later\n')
         captured = load(ROOT, supplement=Path(manifest['directory']) / 'supplement')
-        self.assertIn('synthetic-supplement-greeting',
-                      Path(captured['shaffy']['overrides']['fish']).read_text())
+        self.assertIn('synthetic-supplement-greeting', Path(captured['shaffy']['overrides']['fish']).read_text())
 
     def test_references_through_symlinks_are_captured_under_their_written_paths(self):
         hosts = self.supplement / 'hosts'
@@ -119,9 +121,10 @@ class CaptureTests(_Case):
 
 class MarkerTests(_Case):
     def marker(self, mode, op, directory, command='diff'):
-        return mock.patch.dict(os.environ, {'SHAFFY_OP': op, 'SHAFFY_OP_MODE': mode,
-                                            'SHAFFY_OP_CAPTURE': str(directory),
-                                            'CHEZMOI_COMMAND': command})
+        return mock.patch.dict(
+            os.environ,
+            {'SHAFFY_OP': op, 'SHAFFY_OP_MODE': mode, 'SHAFFY_OP_CAPTURE': str(directory), 'CHEZMOI_COMMAND': command},
+        )
 
     def test_apply_marker_needs_the_matching_unfinished_operation(self):
         home = self.tmp / 'home'
@@ -130,8 +133,9 @@ class MarkerTests(_Case):
         with self.marker('apply', 'op-5', manifest['directory'], 'apply'):
             with self.assertRaisesRegex(SelectionError, 'not the unfinished operation'):
                 resolve(ROOT, home=home)
-            (state / 'binding.json').write_text(json.dumps({'record_version': 1, 'pending': {
-                'op': 'op-5', 'capture': manifest['directory']}}))
+            (state / 'binding.json').write_text(
+                json.dumps({'record_version': 1, 'pending': {'op': 'op-5', 'capture': manifest['directory']}})
+            )
             selection = resolve(ROOT, home=home)
         self.assertEqual(selection['source'], 'capture')
         self.assertEqual(selection['path'], str(Path(manifest['directory']) / 'supplement'))
@@ -153,9 +157,19 @@ class PreviewCommandTests(unittest.TestCase):
             home.mkdir()
             env = {'HOME': str(home), 'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'}
             result = subprocess.run(
-                [str(ROOT / 'bin/shaffy'), 'diff', '--supplement',
-                 str(ROOT / 'tests/fixtures/supplements/comprehensive'), str(home / '.codex/config.toml')],
-                capture_output=True, text=True, env=env, timeout=120, check=False)
+                [
+                    str(ROOT / 'bin/shaffy'),
+                    'diff',
+                    '--supplement',
+                    str(ROOT / 'tests/fixtures/supplements/comprehensive'),
+                    str(home / '.codex/config.toml'),
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120,
+                check=False,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('[mcp_servers.notes]', result.stdout)
             self.assertIn('from capture', result.stderr)

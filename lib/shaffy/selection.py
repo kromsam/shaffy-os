@@ -4,6 +4,7 @@ Checked in that order (docs/ARCHITECTURE.md, "Selection and binding"). Standard
 library only, because the cached settings path imports it on every chezmoi
 template execution.
 """
+
 import json
 import os
 from pathlib import Path
@@ -30,11 +31,10 @@ def _from_marker(mode, home):
     if mode == 'apply':
         try:
             pending = json.loads((state_dir(home) / 'binding.json').read_text())['pending']
-        except (OSError, ValueError, KeyError, TypeError):
+        except OSError, ValueError, KeyError, TypeError:
             pending = None
         if not pending or pending.get('op') != op or pending.get('capture') != str(capture):
-            raise SelectionError(f'operation {op} is not the unfinished operation on record; '
-                                 'run through ./bin/shaffy')
+            raise SelectionError(f'operation {op} is not the unfinished operation on record; run through ./bin/shaffy')
     elif os.environ.get('CHEZMOI_COMMAND', 'diff') not in READ_ONLY_COMMANDS:
         raise SelectionError('a Shaffy OS preview may only be read, never applied')
     try:
@@ -82,8 +82,7 @@ def bound_supplement(binding):
     try:
         return _supplement(Path(binding['path']), 'binding')
     except SelectionError as error:
-        raise SelectionError(f'{error}; if it moved, run ./bin/shaffy supplement rebind '
-                             '--path NEW_PATH') from error
+        raise SelectionError(f'{error}; if it moved, run ./bin/shaffy supplement rebind --path NEW_PATH') from error
 
 
 def _supplement(path, source):

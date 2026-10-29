@@ -4,6 +4,7 @@ A cache hit uses the standard library only: run as
 `/usr/bin/python3 -I -S lib/shaffy/fastload.py`, it prints the settings JSON in
 well under 25 ms. A miss enables site-packages and runs the full loader.
 """
+
 import hashlib
 import json
 import os
@@ -13,7 +14,7 @@ import sys
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from shaffy.selection import SelectionError, resolve  # noqa: E402
+from shaffy.selection import SelectionError, resolve
 
 CACHE_VERSION = '2'
 CACHE_KEEP = 32
@@ -60,6 +61,7 @@ def _still_resolves(shaffy):
 
 def _store(directory, entry, payload):
     import tempfile  # only a miss stores; the import costs a cache hit ~4 ms
+
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     handle, temporary = tempfile.mkstemp(dir=directory, prefix='.entry-')
     with os.fdopen(handle, 'w') as stream:
@@ -79,14 +81,19 @@ def load_data(checkout, supplement=None, without=False, home=None, directory=Non
     entry = directory / f'{key}.json'
     try:
         cached = json.loads(entry.read_text())
-        if _still_resolves(cached['data']['shaffy']) and _stamps(cached['data']['shaffy']['references']) == cached['stamps']:
+        if (
+            _still_resolves(cached['data']['shaffy'])
+            and _stamps(cached['data']['shaffy']['references']) == cached['stamps']
+        ):
             return cached['data']
-    except (OSError, ValueError, KeyError, TypeError):
+    except OSError, ValueError, KeyError, TypeError:
         pass
     if sys.flags.no_site:
         import site
+
         site.main()
     from shaffy.loader import load
+
     data = load(checkout, supplement, without, home)
     # An input edited during the load would store new settings under the old key.
     if _digest(checkout, selection) == key:

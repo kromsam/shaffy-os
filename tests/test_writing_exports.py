@@ -1,16 +1,16 @@
 """Integration check of managed presets, with synthetic content and bibliography."""
+
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from support import artifacts_dir, host_test  # noqa: E402
+from support import artifacts_dir, host_test
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'home/private_dot_local/private_share'
@@ -22,17 +22,24 @@ def rendered(preset, work):
     config = work / 'chezmoi.toml'
     config.write_text(f'persistentState = "{work / "state.boltdb"}"\n')
     template = (PRESETS / (preset + '.tmpl')).read_text()
-    result = subprocess.run(['chezmoi', '--config', str(config), '--source', str(ROOT / 'home'),
-                             'execute-template'], input=template, capture_output=True, text=True,
-                            env={'PATH': os.environ['PATH'], 'HOME': str(work), 'LANG': 'C.UTF-8'}, check=True)
+    result = subprocess.run(
+        ['chezmoi', '--config', str(config), '--source', str(ROOT / 'home'), 'execute-template'],
+        input=template,
+        capture_output=True,
+        text=True,
+        env={'PATH': os.environ['PATH'], 'HOME': str(work), 'LANG': 'C.UTF-8'},
+        check=True,
+    )
     path = work / preset
     path.write_text(result.stdout)
     return path
 
 
-@host_test('real Pandoc, LuaLaTeX and PDF tools',
-           tools=('pandoc', 'lualatex', 'pdftotext', 'pdffonts', 'chezmoi'),
-           paths=('/usr/share/texmf-dist/fonts/opentype/public/ebgaramond',))
+@host_test(
+    'real Pandoc, LuaLaTeX and PDF tools',
+    tools=('pandoc', 'lualatex', 'pdftotext', 'pdffonts', 'chezmoi'),
+    paths=('/usr/share/texmf-dist/fonts/opentype/public/ebgaramond',),
+)
 class ExportTests(unittest.TestCase):
     def test_docx_and_pdf_preserve_text_citations_and_format_specific_filters(self):
         with tempfile.TemporaryDirectory(dir=artifacts_dir()) as temporary:
@@ -45,13 +52,20 @@ class ExportTests(unittest.TestCase):
                 (share / 'pandoc' / part).symlink_to(DATA / 'pandoc' / part)
             (share / 'pandoc/csl').symlink_to(DATA / 'zotero-data/styles', target_is_directory=True)
             config = work / 'fonts.conf'
-            config.write_text('<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">'
-                              '<fontconfig><include>/etc/fonts/fonts.conf</include>'
-                              '<dir>/usr/share/texmf-dist/fonts/opentype/public/ebgaramond</dir></fontconfig>')
-            env = dict(os.environ, HOME=str(work), FONTCONFIG_FILE=str(config),
-                       XDG_CACHE_HOME=str(work / '.cache'), TEXMFVAR=str(work / 'texmf-var'))
+            config.write_text(
+                '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">'
+                '<fontconfig><include>/etc/fonts/fonts.conf</include>'
+                '<dir>/usr/share/texmf-dist/fonts/opentype/public/ebgaramond</dir></fontconfig>'
+            )
+            env = dict(
+                os.environ,
+                HOME=str(work),
+                FONTCONFIG_FILE=str(config),
+                XDG_CACHE_HOME=str(work / '.cache'),
+                TEXMFVAR=str(work / 'texmf-var'),
+            )
             source = work / 'example.md'
-            source.write_text('''---
+            source.write_text("""---
 title: Schrijfworkflow
 ---
 
@@ -72,17 +86,42 @@ DOCXONLYMARKER
 \\newpage
 
 AFTERBREAKMARKER
-''')
+""")
             refs = work / 'example.json'
-            refs.write_text(json.dumps([{'id': 'example', 'type': 'book', 'title': 'CitationTestTitle',
-                                        'author': [{'family': 'Voorbeeld', 'given': 'Anna'}],
-                                        'issued': {'date-parts': [[2024]]}}]))
-            for kind, preset in [('docx', 'Custom - DOCX - standard.yaml'),
-                                 ('pdf', 'Custom - PDF (LuaLaTeX) - standard.yaml')]:
+            refs.write_text(
+                json.dumps(
+                    [
+                        {
+                            'id': 'example',
+                            'type': 'book',
+                            'title': 'CitationTestTitle',
+                            'author': [{'family': 'Voorbeeld', 'given': 'Anna'}],
+                            'issued': {'date-parts': [[2024]]},
+                        }
+                    ]
+                )
+            )
+            for kind, preset in [
+                ('docx', 'Custom - DOCX - standard.yaml'),
+                ('pdf', 'Custom - PDF (LuaLaTeX) - standard.yaml'),
+            ]:
                 output = work / ('example.' + kind)
-                result = subprocess.run(['pandoc', '--defaults', str(rendered(preset, work)),
-                                         '--bibliography', str(refs), str(source), '-o', str(output)],
-                                        env=env, capture_output=True, text=True, timeout=240)
+                result = subprocess.run(
+                    [
+                        'pandoc',
+                        '--defaults',
+                        str(rendered(preset, work)),
+                        '--bibliography',
+                        str(refs),
+                        str(source),
+                        '-o',
+                        str(output),
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=240,
+                )
                 self.assertEqual(result.returncode, 0, result.stderr[-6000:])
                 if kind == 'docx':
                     with zipfile.ZipFile(output) as archive:

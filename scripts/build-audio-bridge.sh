@@ -2,7 +2,10 @@
 # Build the official Wine 10+ branch of yabridge for 64-bit VST2 plugins.
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-[[ $(id -u) != 0 ]] || { echo 'build-audio-bridge: run as the desktop user, not root' >&2; exit 1; }
+[[ $(id -u) != 0 ]] || {
+  echo 'build-audio-bridge: run as the desktop user, not root' >&2
+  exit 1
+}
 revision=ba7022df0aee1e91cde62d7f0e940d3bc43a82b0
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/shaffy/build/audio-bridge"
 mkdir -p "$cache"

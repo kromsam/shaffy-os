@@ -6,6 +6,7 @@ changes while it is copied, and records per-file SHA-256 digests plus a digest
 of the normalized settings. chezmoi then reads the capture through the loader
 marker, so an edit made during an apply cannot mix old and new settings.
 """
+
 import hashlib
 import json
 import os
@@ -59,16 +60,20 @@ def capture(checkout, selection, state, op, load):
                 (directory / 'supplement' / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source / name, directory / 'supplement' / name)
             if _manifest(source, files) != before or _manifest(directory / 'supplement', files) != before:
-                raise CaptureError(f'the supplement at {source} changed while it was captured; '
-                                   'finish editing and run the command again')
-        data = load(checkout, supplement=directory / 'supplement' if files else None,
-                    without=not files)
+                raise CaptureError(
+                    f'the supplement at {source} changed while it was captured; '
+                    'finish editing and run the command again'
+                )
+        data = load(checkout, supplement=directory / 'supplement' if files else None, without=not files)
         # The loaded settings, which a system operation's root copy verifies and its play reads.
         (directory / 'settings.json').write_text(json.dumps(data, sort_keys=True) + '\n')
         captured = ['selection.json', 'settings.json'] + [f'supplement/{name}' for name in files]
-        manifest = {'op': op, 'files': _manifest(directory, captured),
-                    'settings_sha256': settings_digest(data['shaffy']['settings']),
-                    'supplement_id': data['shaffy']['selection']['supplement_id']}
+        manifest = {
+            'op': op,
+            'files': _manifest(directory, captured),
+            'settings_sha256': settings_digest(data['shaffy']['settings']),
+            'supplement_id': data['shaffy']['selection']['supplement_id'],
+        }
         (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         return {**manifest, 'directory': str(directory)}
     except BaseException:
@@ -86,8 +91,11 @@ def verify(directory):
     directory = Path(directory)
     try:
         manifest = json.loads((directory / 'manifest.json').read_text())
-        present = sorted(str(p.relative_to(directory)) for p in directory.rglob('*')
-                         if not p.is_dir() and p.relative_to(directory) != Path('manifest.json'))
+        present = sorted(
+            str(p.relative_to(directory))
+            for p in directory.rglob('*')
+            if not p.is_dir() and p.relative_to(directory) != Path('manifest.json')
+        )
         if present != sorted(manifest['files']):
             raise CaptureError(f'the capture in {directory} holds other files than its manifest lists')
         actual = _manifest(directory, present)

@@ -4,12 +4,15 @@
 Before Zettlr has written its configuration there is nothing to change, and the
 empty output leaves the file for Zettlr to create; the next apply sets the keys.
 """
+
 import json
 import sys
 
-SETTINGS = {('export', 'useBundledPandoc'): False,
-            # Invalid old custom CSS used JS to hide controls; keep the native setting instead.
-            ('display', 'hideToolbarInDistractionFree'): True}
+SETTINGS = {
+    ('export', 'useBundledPandoc'): False,
+    # Invalid old custom CSS used JS to hide controls; keep the native setting instead.
+    ('display', 'hideToolbarInDistractionFree'): True,
+}
 
 
 def main():

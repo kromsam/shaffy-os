@@ -1,7 +1,7 @@
 """Behavioral tests for cancellation, file safety and reversible desktop actions."""
+
 import importlib.machinery
 import importlib.util
-import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -28,16 +28,20 @@ class DesktopControlsTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
 
     def test_unrecognized_menu_output_is_not_executed(self):
-        with patch.object(desktop, 'choose', return_value='$(touch /tmp/unwanted)'), patch.object(desktop, 'run') as run:
+        with (
+            patch.object(desktop, 'choose', return_value='$(touch /tmp/unwanted)'),
+            patch.object(desktop, 'run') as run,
+        ):
             desktop.menu()
         run.assert_not_called()
 
     def test_music_focuses_an_existing_spotify_window_without_launching(self):
-        windows = [{'id': 2, 'app_id': None}, {'id': 7, 'app_id': 'Spotify'},
-                   {'id': 8, 'app_id': 'spotify'}]
-        with patch.object(desktop, 'query', return_value=windows) as query, \
-                patch.object(desktop, 'action') as action, \
-                patch.object(desktop.subprocess, 'Popen') as launch:
+        windows = [{'id': 2, 'app_id': None}, {'id': 7, 'app_id': 'Spotify'}, {'id': 8, 'app_id': 'spotify'}]
+        with (
+            patch.object(desktop, 'query', return_value=windows) as query,
+            patch.object(desktop, 'action') as action,
+            patch.object(desktop.subprocess, 'Popen') as launch,
+        ):
             desktop.main(['music'])
         query.assert_called_once_with('windows')
         action.assert_called_once_with('focus-window', '--id', 7)
@@ -45,10 +49,12 @@ class DesktopControlsTests(unittest.TestCase):
 
     def test_music_launches_spotify_without_matching_a_browser_tab_title(self):
         for windows in ([], [{'id': 2, 'app_id': 'zen', 'title': 'Spotify - Web Player'}]):
-            with self.subTest(windows=windows), \
-                    patch.object(desktop, 'query', return_value=windows), \
-                    patch.object(desktop, 'action') as action, \
-                    patch.object(desktop.subprocess, 'Popen') as launch:
+            with (
+                self.subTest(windows=windows),
+                patch.object(desktop, 'query', return_value=windows),
+                patch.object(desktop, 'action') as action,
+                patch.object(desktop.subprocess, 'Popen') as launch,
+            ):
                 desktop.main(['music'])
             action.assert_not_called()
             launch.assert_called_once_with(['spotify-launcher'], start_new_session=True)
@@ -60,11 +66,13 @@ class DesktopControlsTests(unittest.TestCase):
 
     def test_ocr_copies_text_literally_without_shell_evaluation(self):
         calls = []
-        text = "Private text; $(never execute)\n"
+        text = 'Private text; $(never execute)\n'
+
         def fake_run(args, **kwargs):
             calls.append((args, kwargs))
             output = '10,20 30x40\n' if args[0] == 'slurp' else text if args[0] == 'tesseract' else ''
             return subprocess.CompletedProcess(args, 0, output, '')
+
         with patch.object(desktop.subprocess, 'run', side_effect=fake_run), patch.object(desktop, 'notify') as notify:
             desktop.capture_text('ocr')
         copied = next(kwargs['input'] for args, kwargs in calls if args[0] == 'wl-copy')
@@ -76,6 +84,7 @@ class DesktopControlsTests(unittest.TestCase):
         def listing(*names):
             output = 'List of available languages in "/usr/share/tessdata/" (%d):\n' % len(names) + '\n'.join(names)
             return subprocess.CompletedProcess([], 0, output + '\n', '')
+
         for names, expected in ((('deu', 'eng', 'osd'), 'eng+deu'), (('nld', 'osd'), 'nld'), (('osd',), 'eng')):
             with patch.object(desktop.subprocess, 'run', return_value=listing(*names)):
                 self.assertEqual(desktop.ocr_languages(), expected)
@@ -85,9 +94,15 @@ class DesktopControlsTests(unittest.TestCase):
         with patch.object(desktop, 'query', return_value=window), patch.object(desktop, 'action') as action:
             desktop.square()
             desktop.square()
-        self.assertEqual([c.args for c in action.call_args_list], [
-            ('set-window-width', '--id', '7', '600'), ('set-window-height', '--id', '7', '600'),
-            ('set-window-width', '--id', '7', '800'), ('set-window-height', '--id', '7', '600')])
+        self.assertEqual(
+            [c.args for c in action.call_args_list],
+            [
+                ('set-window-width', '--id', '7', '600'),
+                ('set-window-height', '--id', '7', '600'),
+                ('set-window-width', '--id', '7', '800'),
+                ('set-window-height', '--id', '7', '600'),
+            ],
+        )
 
     def test_gaps_toggle_keeps_generated_palette_separate(self):
         palette = desktop.CONFIG / 'niri/noctalia.kdl'
@@ -115,7 +130,11 @@ class DesktopControlsTests(unittest.TestCase):
         destination = source.with_name(source.stem + '.converted.jpg')
         destination.write_bytes(b'previous conversion')
         selected = subprocess.CompletedProcess([], 0, str(source) + '\n', '')
-        with patch.object(desktop.subprocess, 'run', return_value=selected) as run, patch.object(desktop, 'choose', return_value='JPEG image'), patch.object(desktop, 'notify'):
+        with (
+            patch.object(desktop.subprocess, 'run', return_value=selected) as run,
+            patch.object(desktop, 'choose', return_value='JPEG image'),
+            patch.object(desktop, 'notify'),
+        ):
             desktop.transcode()
         self.assertEqual(run.call_count, 1)
         self.assertEqual(source.read_bytes(), b'original')
@@ -125,7 +144,13 @@ class DesktopControlsTests(unittest.TestCase):
         source = self.root / 'source.png'
         source.write_bytes(b'original')
         selected = subprocess.CompletedProcess([], 0, str(source) + '\n', '')
-        with patch.object(desktop.subprocess, 'run', side_effect=[selected, subprocess.CalledProcessError(1, ['ffmpeg'])]), patch.object(desktop, 'choose', return_value='JPEG image'), patch.object(desktop, 'notify'):
+        with (
+            patch.object(
+                desktop.subprocess, 'run', side_effect=[selected, subprocess.CalledProcessError(1, ['ffmpeg'])]
+            ),
+            patch.object(desktop, 'choose', return_value='JPEG image'),
+            patch.object(desktop, 'notify'),
+        ):
             with self.assertRaises(subprocess.CalledProcessError):
                 desktop.transcode()
         self.assertEqual(source.read_bytes(), b'original')

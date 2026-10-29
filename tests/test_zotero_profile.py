@@ -1,4 +1,5 @@
 """Moving an existing Zotero profile to the managed name before the integration adopts it."""
+
 import fcntl
 import json
 from pathlib import Path
@@ -9,7 +10,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy.ledger import adoptable  # noqa: E402
+from shaffy.ledger import adoptable
 
 SCRIPT = ROOT / 'scripts/move-zotero-profile.py'
 INI = '[Profile0]\nName=default\nIsRelative=1\nPath=abcd1234.default\nDefault=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n\n'
@@ -27,10 +28,13 @@ class MoveProfileTests(unittest.TestCase):
         (self.root / 'profiles.ini').write_text(INI)
 
     def move(self, *arguments):
-        return subprocess.run([sys.executable, str(SCRIPT), '--home', str(self.home), *arguments],
-                              capture_output=True, text=True, check=False,
-                              env={'PATH': '/usr/bin:/bin', 'HOME': str(self.home),
-                                   'SHAFFY_TEST_PREREQUISITES': 'fake'})
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), '--home', str(self.home), *arguments],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={'PATH': '/usr/bin:/bin', 'HOME': str(self.home), 'SHAFFY_TEST_PREREQUISITES': 'fake'},
+        )
 
     def test_without_apply_it_only_prints_the_plan(self):
         result = self.move()
@@ -81,9 +85,13 @@ class MoveProfileTests(unittest.TestCase):
     def test_without_a_snapshot_nothing_moves(self):
         # The test adapter refuses the account's real home, so no snapshot is possible here;
         # the real snapper is never used by a test.
-        result = subprocess.run([sys.executable, str(SCRIPT), '--home', str(self.home), '--apply'],
-                                capture_output=True, text=True, check=False,
-                                env={'PATH': '/usr/bin:/bin', 'SHAFFY_TEST_PREREQUISITES': 'fake'})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), '--home', str(self.home), '--apply'],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={'PATH': '/usr/bin:/bin', 'SHAFFY_TEST_PREREQUISITES': 'fake'},
+        )
         self.assertEqual(result.returncode, 1)
         self.assertIn('no snapshot can be taken first, so nothing was changed', result.stderr)
         self.assertTrue((self.root / 'abcd1234.default').is_dir())
@@ -92,6 +100,7 @@ class MoveProfileTests(unittest.TestCase):
     def test_adopting_requires_the_managed_profile(self):
         from shaffy.integrations import load_catalogue
         from shaffy.loader import parse
+
         zotero = load_catalogue(ROOT, parse)[0]['zotero']
         self.assertIn('scripts/move-zotero-profile.py --apply', adoptable(zotero, self.home))
         self.assertEqual(self.move('--apply').returncode, 0)

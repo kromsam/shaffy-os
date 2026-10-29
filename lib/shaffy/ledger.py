@@ -6,6 +6,7 @@ transition first writes its intent (`transition`), then the home operation acts,
 then the final state is written; an entry left with a transition belongs to the
 unfinished operation.
 """
+
 import json
 import os
 from pathlib import Path
@@ -86,21 +87,24 @@ def adoptable(integration, home, key='adopt_requires'):
     if 'json' in required:
         try:
             data = json.loads(path.read_text())
-        except (OSError, ValueError):
+        except OSError, ValueError:
             data = None
         wanted = required['json']
-        if not isinstance(data, dict) or any(value is None or data.get(field) != value
-                                             for field, value in wanted.items()):
-            return (f"{required['file']} does not record "
-                    + ', '.join(f'{field} {value!r}' for field, value in wanted.items())
-                    + f" yet; {required['hint']}")
+        if not isinstance(data, dict) or any(
+            value is None or data.get(field) != value for field, value in wanted.items()
+        ):
+            return (
+                f'{required["file"]} does not record '
+                + ', '.join(f'{field} {value!r}' for field, value in wanted.items())
+                + f' yet; {required["hint"]}'
+            )
         return None
     try:
         lines = path.read_text().splitlines()
     except OSError:
         lines = []
     if required['line'] not in (line.strip() for line in lines):
-        return f"{required['file']} does not hold {required['line']!r} yet; {required['hint']}"
+        return f'{required["file"]} does not hold {required["line"]!r} yet; {required["hint"]}'
     return None
 
 
@@ -122,31 +126,39 @@ def plan(integrations, ledger, home, op):
         if (integration or entry)['scope'] != 'home':
             continue
         if integration is None:
-            problems.append(f'integration {name} is in the ownership ledger but no longer in '
-                            f'defaults/integrations.yml; run ./bin/shaffy integration {name} release')
+            problems.append(
+                f'integration {name} is in the ownership ledger but no longer in '
+                f'defaults/integrations.yml; run ./bin/shaffy integration {name} release'
+            )
             continue
         state = integration['state']
         if entry and entry.get('transition') and entry['transition']['op'] != op:
-            problems.append(f"integration {name} was left changing by abandoned operation "
-                            f"{entry['transition']['op']}; review it, then run ./bin/shaffy integration "
-                            f'{name} adopt or release')
+            problems.append(
+                f'integration {name} was left changing by abandoned operation '
+                f'{entry["transition"]["op"]}; review it, then run ./bin/shaffy integration '
+                f'{name} adopt or release'
+            )
             continue
         if state is None:
             if entry and entry['state'] == 'managed':
-                problems.append(f'integration {name} is managed on this installation but the settings no '
-                                f'longer name it; set integrations.{name} to disabled or released')
+                problems.append(
+                    f'integration {name} is managed on this installation but the settings no '
+                    f'longer name it; set integrations.{name} to disabled or released'
+                )
             continue
         current = entry['state'] if entry else None
         change = {'name': name, 'scope': 'home', 'to': state}
         if state == 'managed' and current != 'managed':
             if entry is None and any(present(r, home) for r in integration['activation']):
                 blocked = adoptable(integration, home)
-                problems.append(f'integration {name} is already active on this machine but not in the '
-                                f'ownership ledger; ' + (f'{blocked}, then' if blocked else 'review it, then run')
-                                + f' ./bin/shaffy integration {name} adopt')
+                problems.append(
+                    f'integration {name} is already active on this machine but not in the '
+                    f'ownership ledger; '
+                    + (f'{blocked}, then' if blocked else 'review it, then run')
+                    + f' ./bin/shaffy integration {name} adopt'
+                )
                 continue
-            blocked = None if entry and entry.get('transition') else \
-                adoptable(integration, home, 'activate_requires')
+            blocked = None if entry and entry.get('transition') else adoptable(integration, home, 'activate_requires')
             if blocked:
                 deferred[name] = blocked
                 continue
@@ -163,14 +175,24 @@ def plan(integrations, ledger, home, op):
 
 def units_to_start(ledger, settled):
     """The units behind the wants links of integrations that just became managed."""
-    return [record['unit'] for name, to in settled if to == 'managed'
-            for record in ledger['integrations'][name]['activation'] if record['kind'] == 'wants-link']
+    return [
+        record['unit']
+        for name, to in settled
+        if to == 'managed'
+        for record in ledger['integrations'][name]['activation']
+        if record['kind'] == 'wants-link'
+    ]
 
 
 def removals(transitions, home):
     """Home-relative paths that disabling removes, for the operation's copies."""
-    return [str(_path(r, home).relative_to(home)) for t in transitions if t['to'] == 'disabled'
-            for r in t['activation'] if r['kind'] in REVERSIBLE and os.path.lexists(_path(r, home))]
+    return [
+        str(_path(r, home).relative_to(home))
+        for t in transitions
+        if t['to'] == 'disabled'
+        for r in t['activation']
+        if r['kind'] in REVERSIBLE and os.path.lexists(_path(r, home))
+    ]
 
 
 def begin(ledger, transitions, op):
@@ -180,14 +202,26 @@ def begin(ledger, transitions, op):
     `remaining` records for the wrapper to reverse.
     """
     for change in transitions:
-        entry = ledger['integrations'].setdefault(change['name'], {
-            'class': 'integration', 'scope': change['scope'], 'state': None, 'adopted': False,
-            'activation': change['activation'], 'created_by': op})
+        entry = ledger['integrations'].setdefault(
+            change['name'],
+            {
+                'class': 'integration',
+                'scope': change['scope'],
+                'state': None,
+                'adopted': False,
+                'activation': change['activation'],
+                'created_by': op,
+            },
+        )
         if change['to'] == 'managed':
             entry['activation'] = change['activation']
-        entry['transition'] = {'op': op, 'to': change['to'],
-                               'remaining': [r for r in change['activation'] if r['kind'] in REVERSIBLE]
-                               if change['to'] == 'disabled' else []}
+        entry['transition'] = {
+            'op': op,
+            'to': change['to'],
+            'remaining': [r for r in change['activation'] if r['kind'] in REVERSIBLE]
+            if change['to'] == 'disabled'
+            else [],
+        }
         entry.update(changed_by=op, changed_at=now())
     return ledger
 
@@ -220,7 +254,14 @@ def finish(ledger, op, home, write):
 
 def adopt(ledger, name, integration, op):
     ledger['integrations'][name] = {
-        'class': 'integration', 'scope': integration['scope'], 'state': 'managed', 'adopted': True,
-        'activation': integration['activation'], 'created_by': op, 'changed_by': op,
-        'changed_at': now(), 'transition': None}
+        'class': 'integration',
+        'scope': integration['scope'],
+        'state': 'managed',
+        'adopted': True,
+        'activation': integration['activation'],
+        'created_by': op,
+        'changed_by': op,
+        'changed_at': now(),
+        'transition': None,
+    }
     return ledger

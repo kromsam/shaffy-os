@@ -1,4 +1,5 @@
 """Verify private-setting preservation and the workmux/tmux workspace sources."""
+
 import json
 import os
 from pathlib import Path
@@ -17,14 +18,15 @@ merge = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
 
 class WorkspaceToolsTests(unittest.TestCase):
     def test_multiple_existing_servers_preserve_formatting_without_blank_line_growth(self):
-        servers = {'gbrain': {'command': '/gbrain', 'args': []},
-                   'zotero': {'command': '/zotero', 'args': ['serve']}}
+        servers = {'gbrain': {'command': '/gbrain', 'args': []}, 'zotero': {'command': '/zotero', 'args': ['serve']}}
         original = 'model = "kept"\n\n[mcp_servers.gbrain]\ncommand="/gbrain"\nargs=[]\n\n[mcp_servers.zotero]\ncommand="/zotero"\nargs=["serve"]\n'
         self.assertEqual(merge['merge_codex'](original, servers), original)
 
     def test_codex_preserves_unrelated_settings_and_is_idempotent(self):
         source = '# existing preference\nmodel="kept"\n[mcp_servers.other]\nurl="http://localhost:1234"\n[mcp_servers.zotero]\ncommand="old"\n[mcp_servers.zotero.env]\nOLD="old"\n[projects."/some project"]\ntrust_level="trusted"\n'
-        servers = {'zotero': {'command': '/path with spaces/server', 'args': ['serve'], 'env': {'ZOTERO_LOCAL': 'true'}}}
+        servers = {
+            'zotero': {'command': '/path with spaces/server', 'args': ['serve'], 'env': {'ZOTERO_LOCAL': 'true'}}
+        }
         output = merge['merge_codex'](source, servers)
         self.assertEqual(merge['merge_codex'](output, servers), output)
         expected = tomllib.loads(source)
@@ -39,11 +41,13 @@ class WorkspaceToolsTests(unittest.TestCase):
     def test_disabling_a_codex_server_removes_only_its_tables_and_converges(self):
         for header in ('zotero', '"zotero"', "'zotero'"):
             with self.subTest(header=header):
-                source = ('# preference\nmodel="kept"\n'
-                          f'[mcp_servers.{header}]\ncommand="old"\n'
-                          f'[mcp_servers.{header}.env]\nWRITE="false"\n'
-                          '[mcp_servers.other]\nurl="http://localhost:1234"\n'
-                          '[projects."/some project"]\ntrust_level="trusted"\n')
+                source = (
+                    '# preference\nmodel="kept"\n'
+                    f'[mcp_servers.{header}]\ncommand="old"\n'
+                    f'[mcp_servers.{header}.env]\nWRITE="false"\n'
+                    '[mcp_servers.other]\nurl="http://localhost:1234"\n'
+                    '[projects."/some project"]\ntrust_level="trusted"\n'
+                )
                 expected = tomllib.loads(source)
                 del expected['mcp_servers']['zotero']
                 output = merge['merge_codex'](source, {'zotero': None})
@@ -53,8 +57,9 @@ class WorkspaceToolsTests(unittest.TestCase):
 
     def test_disabling_the_last_codex_server_handles_an_implicit_or_explicit_parent(self):
         for source, expected in (
-                ('[mcp_servers.zotero]\ncommand="old"', {}),
-                ('[mcp_servers]\n  [mcp_servers.zotero]\ncommand="old"', {'mcp_servers': {}})):
+            ('[mcp_servers.zotero]\ncommand="old"', {}),
+            ('[mcp_servers]\n  [mcp_servers.zotero]\ncommand="old"', {'mcp_servers': {}}),
+        ):
             with self.subTest(source=source):
                 output = merge['merge_codex'](source, {'zotero': None})
                 self.assertEqual(tomllib.loads(output), expected)
@@ -65,8 +70,10 @@ class WorkspaceToolsTests(unittest.TestCase):
             merge['merge_codex']('[mcp_servers]\nzotero={command="old"}\n', {'zotero': None})
 
     def test_disabling_an_absent_server_changes_neither_clients_configuration(self):
-        for client, sources in (('codex', ['', '# preference\nmodel="kept"\n']),
-                                ('claude', ['{}', '{"account":{"id":"private"}}'])):
+        for client, sources in (
+            ('codex', ['', '# preference\nmodel="kept"\n']),
+            ('claude', ['{}', '{"account":{"id":"private"}}']),
+        ):
             for source in sources:
                 with self.subTest(client=client, source=source):
                     self.assertEqual(merge[f'merge_{client}'](source, {'zotero': None}), source)
@@ -77,8 +84,10 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertEqual(merge['merge_claude'](output, {'zotero': None}), output)
 
     def test_disabling_a_claude_server_preserves_accounts_and_other_servers(self):
-        original = {'account': {'id': 'private'},
-                    'mcpServers': {'other': {'command': 'kept'}, 'zotero': {'command': 'old'}}}
+        original = {
+            'account': {'id': 'private'},
+            'mcpServers': {'other': {'command': 'kept'}, 'zotero': {'command': 'old'}},
+        }
         output = merge['merge_claude'](json.dumps(original), {'zotero': None})
         del original['mcpServers']['zotero']
         self.assertEqual(json.loads(output), original)
@@ -99,8 +108,9 @@ class WorkspaceToolsTests(unittest.TestCase):
         editor, shell, agent = config['panes']
         self.assertEqual((editor['command'], editor['focus']), ('nvim .', True))
         self.assertEqual((shell['split'], shell['percentage']), ('vertical', 15))
-        self.assertEqual((agent['command'], agent['split'], agent['percentage'], agent['target']),
-                         ('<agent>', 'horizontal', 30, 0))
+        self.assertEqual(
+            (agent['command'], agent['split'], agent['percentage'], agent['target']), ('<agent>', 'horizontal', 30, 0)
+        )
 
     def test_workmux_layouts_offer_codex_and_both_agents(self):
         config = yaml.safe_load((HOME / 'dot_config/workmux/config.yaml').read_text())
@@ -116,8 +126,9 @@ class WorkspaceToolsTests(unittest.TestCase):
         config = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())
         tools = config['tools']
         # A tool with options is a table; its version follows latest as well.
-        self.assertTrue(all((tool['version'] if isinstance(tool, dict) else tool) == 'latest'
-                            for tool in tools.values()))
+        self.assertTrue(
+            all((tool['version'] if isinstance(tool, dict) else tool) == 'latest' for tool in tools.values())
+        )
         # `latest` waits for releases to age, so a withdrawn release is not installed.
         self.assertRegex(config['settings']['minimum_release_age'], r'^[1-9][0-9]*d$')
         self.assertIn('github:raine/workmux', tools)
@@ -143,10 +154,17 @@ class WorkspaceToolsTests(unittest.TestCase):
                 (root / 'bin' / name).chmod(0o755)
             (root / 'config/mise').mkdir(parents=True)
             (root / 'config/mise/config.toml').write_text('[tools]\nclaude = "latest"\n')
-            result = subprocess.run(['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
-                                    env={**os.environ, 'XDG_CONFIG_HOME': str(root / 'config'),
-                                         'PATH': f"{root / 'bin'}:{os.environ['PATH']}"},
-                                    capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                ['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
+                env={
+                    **os.environ,
+                    'XDG_CONFIG_HOME': str(root / 'config'),
+                    'PATH': f'{root / "bin"}:{os.environ["PATH"]}',
+                },
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertIn('run ./bin/shaffy apply --home first', result.stderr)
             self.assertFalse((root / 'calls').exists())
@@ -154,8 +172,10 @@ class WorkspaceToolsTests(unittest.TestCase):
     def test_launchers_run_installed_tools_without_version_lookups(self):
         # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,
         # with mise's default exec_auto_install, installs whatever is newer first.
-        sources = [*sorted((HOME / 'private_dot_local/bin').glob('executable_*')),
-                   REPO / 'scripts/install-workspace-tools.sh']
+        sources = [
+            *sorted((HOME / 'private_dot_local/bin').glob('executable_*')),
+            REPO / 'scripts/install-workspace-tools.sh',
+        ]
         for path in sources:
             for line in path.read_text().splitlines():
                 if 'mise exec ' in line:

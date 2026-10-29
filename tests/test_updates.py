@@ -1,4 +1,5 @@
 """The update report, the update routine and the pin refresh, against fake upstreams and commands."""
+
 import datetime
 import hashlib
 import io
@@ -14,12 +15,19 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import pins, updates  # noqa: E402
+from shaffy import pins, updates
 
-NOW = datetime.datetime(2026, 10, 28, tzinfo=datetime.timezone.utc)
+NOW = datetime.datetime(2026, 10, 28, tzinfo=datetime.UTC)
 OLD, NEW = '2026-10-01T00:00:00Z', '2026-10-27T00:00:00Z'  # NEW is younger than three days
-PINNED = ('requirements.yml', 'scripts/install-yaru-icons.py', 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md',
-          'scripts/build-audio-bridge.sh', '.github/workflows/selftest.yml', 'tests/tool-versions.json')
+PINNED = (
+    'requirements.yml',
+    'scripts/install-yaru-icons.py',
+    'README.md',
+    'docs/OMARCHY-IMPLEMENTATION.md',
+    'scripts/build-audio-bridge.sh',
+    '.github/workflows/selftest.yml',
+    'tests/tool-versions.json',
+)
 DIGEST = 'sha256:' + 'ab' * 32
 YARU = b'yaru archive'
 
@@ -30,8 +38,13 @@ class FakeUpstream(pins.Upstream):
 
     def json(self, url):
         if url.startswith(pins.GALAXY):
-            return {'data': [{'version': '99.0.0', 'created_at': NEW}, {'version': '98.0.0-rc1', 'created_at': OLD},
-                             {'version': '97.1.0', 'created_at': OLD}]}
+            return {
+                'data': [
+                    {'version': '99.0.0', 'created_at': NEW},
+                    {'version': '98.0.0-rc1', 'created_at': OLD},
+                    {'version': '97.1.0', 'created_at': OLD},
+                ]
+            }
         if url.startswith('https://hub.docker.com/'):
             return {'digest': DIGEST}
         raise AssertionError(url)
@@ -90,8 +103,7 @@ class PinTests(unittest.TestCase):
         self.assertEqual(text['scripts/build-audio-bridge.sh'], old['scripts/build-audio-bridge.sh'])
         self.assertTrue(self.found()['yabridge (new-wine10-embedding)'].behind)
         self.assertIsNone(self.found()['yabridge (new-wine10-embedding)'].raise_to)
-        self.assertFalse(any(p.behind for p in self.found().values()
-                             if p.raise_to and p.name != 'LazyVim plugin lock'))
+        self.assertFalse(any(p.behind for p in self.found().values() if p.raise_to and p.name != 'LazyVim plugin lock'))
 
     def test_an_unreachable_upstream_is_reported_and_hides_nothing_else(self):
         upstream = FakeUpstream()
@@ -112,11 +124,13 @@ class PinTests(unittest.TestCase):
             self.assertNotIn(str(Path.home()), env['XDG_DATA_HOME'])
             (config / 'lazy-lock.json').write_text(json.dumps(moved, indent=2) + '\n')
             return subprocess.CompletedProcess(command, 0, '', '')
+
         changed = pins.refresh_lazyvim(self.root, nvim)
         self.assertEqual(changed, ['home/dot_config/nvim/lazy-lock.json', '1 plugin(s) moved'])
         self.assertEqual(json.loads(lock.read_text())['lazy.nvim']['commit'], 'f' * 40)
-        self.assertIn('if not vim.env.SHAFFY_LAZY_REFRESH then',
-                      (ROOT / 'home/dot_config/nvim/lua/config/lazy.lua').read_text())
+        self.assertIn(
+            'if not vim.env.SHAFFY_LAZY_REFRESH then', (ROOT / 'home/dot_config/nvim/lua/config/lazy.lua').read_text()
+        )
 
 
 class Result:
@@ -132,12 +146,18 @@ class ReportTests(unittest.TestCase):
 
     def test_package_checks_read_the_exit_status_their_tools_use(self):
         with mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/x'):
-            for result, summary in ((Result(2), 'up to date'), (Result(0, 'a 1 -> 2\nb 1 -> 2\n'), '2 upgrade(s)'),
-                                    (Result(1, stderr='no network'), 'not checked: no network')):
+            for result, summary in (
+                (Result(2), 'up to date'),
+                (Result(0, 'a 1 -> 2\nb 1 -> 2\n'), '2 upgrade(s)'),
+                (Result(1, stderr='no network'), 'not checked: no network'),
+            ):
                 with self.subTest(summary=summary), mock.patch.object(updates, '_run', return_value=result):
                     self.assertEqual(updates.pacman().summary, summary)
-            for result, summary in ((Result(1), 'up to date'), (Result(0, 'beeper 1 -> 2\n'), '1 upgrade(s)'),
-                                    (Result(1, stderr=' -> error: AUR unreachable'), 'not checked')):
+            for result, summary in (
+                (Result(1), 'up to date'),
+                (Result(0, 'beeper 1 -> 2\n'), '1 upgrade(s)'),
+                (Result(1, stderr=' -> error: AUR unreachable'), 'not checked'),
+            ):
                 with self.subTest(summary=summary), mock.patch.object(updates, '_run', return_value=result):
                     self.assertTrue(updates.aur().summary.startswith(summary))
         with mock.patch.object(updates.shutil, 'which', return_value=None):
@@ -155,8 +175,9 @@ class ReportTests(unittest.TestCase):
 
     def test_plugins_are_compared_with_the_managed_lock(self):
         (self.home / '.config/nvim').mkdir(parents=True)
-        (self.home / '.config/nvim/lazy-lock.json').write_text(json.dumps(
-            {'a.nvim': {'commit': 'a' * 40}, 'b.nvim': {'commit': 'b' * 40}, 'c.nvim': {'commit': 'c' * 40}}))
+        (self.home / '.config/nvim/lazy-lock.json').write_text(
+            json.dumps({'a.nvim': {'commit': 'a' * 40}, 'b.nvim': {'commit': 'b' * 40}, 'c.nvim': {'commit': 'c' * 40}})
+        )
         for name in ('a.nvim', 'b.nvim'):
             (self.home / '.local/share/nvim/lazy' / name / '.git').mkdir(parents=True)
         heads = {'a.nvim': 'a' * 40, 'b.nvim': '9' * 40}
@@ -173,22 +194,33 @@ class RoutineTests(unittest.TestCase):
         self.assertTrue(steps[0].packages and steps[1].packages and not any(s.packages for s in steps[2:]))
         self.assertEqual(steps[-1].command, ['nvim', '--headless', '+Lazy! restore', '+qa'])
         ran, out = [], []
-        routine = [updates.Step('one', ['one']), updates.Step('two', ['two'], skip=lambda: 'not needed'),
-                   updates.Step('three', ['three']), updates.Step('four', ['four'])]
-        code = updates.run(routine, out=out.append,
-                           call=lambda command, cwd=None: ran.append(command[0]) or (3 if command == ['three'] else 0))
+        routine = [
+            updates.Step('one', ['one']),
+            updates.Step('two', ['two'], skip=lambda: 'not needed'),
+            updates.Step('three', ['three']),
+            updates.Step('four', ['four']),
+        ]
+        code = updates.run(
+            routine,
+            out=out.append,
+            call=lambda command, cwd=None: ran.append(command[0]) or (3 if command == ['three'] else 0),
+        )
         self.assertEqual((code, ran), (3, ['one', 'three']))
         self.assertIn('[2/4] two: skipped, not needed', out)
         self.assertTrue(out[-1].startswith('Stopped: "three" exited with 3.'))
 
     def test_update_needs_a_terminal_unless_the_packages_are_left_out(self):
         from shaffy import cli
+
         ran = []
-        with mock.patch('shaffy.records.Records.read', return_value=None), \
-                mock.patch.object(cli.os, 'geteuid', return_value=1000), \
-                mock.patch.object(cli.sys.stdin, 'isatty', return_value=False), \
-                mock.patch.object(updates, 'run', side_effect=lambda steps: ran.append(steps) or 0), \
-                mock.patch('sys.stdout', new_callable=io.StringIO), mock.patch('sys.stderr', new_callable=io.StringIO):
+        with (
+            mock.patch('shaffy.records.Records.read', return_value=None),
+            mock.patch.object(cli.os, 'geteuid', return_value=1000),
+            mock.patch.object(cli.sys.stdin, 'isatty', return_value=False),
+            mock.patch.object(updates, 'run', side_effect=lambda steps: ran.append(steps) or 0),
+            mock.patch('sys.stdout', new_callable=io.StringIO),
+            mock.patch('sys.stderr', new_callable=io.StringIO),
+        ):
             self.assertEqual(cli.main(['update']), 1)
             self.assertEqual(cli.main(['update', '--skip-packages']), 0)
         self.assertEqual(len(ran), 1)
@@ -196,9 +228,12 @@ class RoutineTests(unittest.TestCase):
 
     def test_update_waits_for_an_unfinished_operation(self):
         from shaffy import cli
-        with mock.patch('shaffy.records.Records.read', return_value={'pending': {'op': 'op-1'}}), \
-                mock.patch.object(cli.os, 'geteuid', return_value=1000), \
-                mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+
+        with (
+            mock.patch('shaffy.records.Records.read', return_value={'pending': {'op': 'op-1'}}),
+            mock.patch.object(cli.os, 'geteuid', return_value=1000),
+            mock.patch('sys.stderr', new_callable=io.StringIO) as err,
+        ):
             self.assertEqual(cli.main(['update', '--skip-packages']), 1)
         self.assertIn('operation op-1 is unfinished', err.getvalue())
 
@@ -208,14 +243,17 @@ class RefreshScriptTests(unittest.TestCase):
         self.script = runpy.run_path(str(ROOT / 'scripts/refresh-pins.py'))
 
     def branch(self, name):
-        return mock.patch.object(self.script['subprocess'], 'run',
-                                 return_value=subprocess.CompletedProcess([], 0, name + '\n', ''))
+        return mock.patch.object(
+            self.script['subprocess'], 'run', return_value=subprocess.CompletedProcess([], 0, name + '\n', '')
+        )
 
     def test_main_is_only_reported_on(self):
         raised = []
         pin = pins.Pin('probe', '1', '2', raise_to=lambda: raised.append(1) or ['probe.txt'])
-        with mock.patch.object(pins, 'check', return_value=[pin]), \
-                mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+        with (
+            mock.patch.object(pins, 'check', return_value=[pin]),
+            mock.patch('sys.stdout', new_callable=io.StringIO) as out,
+        ):
             with self.branch('main'), self.assertRaisesRegex(SystemExit, 'refresh the pins on dev'):
                 self.script['main']([])
             with self.branch('main'):
@@ -229,10 +267,17 @@ class RefreshScriptTests(unittest.TestCase):
     def test_a_pin_that_fails_to_rise_is_reported_and_fails_the_run(self):
         def fail():
             raise ValueError('no single entry')
-        found = [pins.Pin('broken', '1', '2', raise_to=fail), pins.Pin('fine', '1', '1'),
-                 pins.Pin('offline', '?', error='URLError: down')]
-        with mock.patch.object(pins, 'check', return_value=found), self.branch('dev'), \
-                mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+
+        found = [
+            pins.Pin('broken', '1', '2', raise_to=fail),
+            pins.Pin('fine', '1', '1'),
+            pins.Pin('offline', '?', error='URLError: down'),
+        ]
+        with (
+            mock.patch.object(pins, 'check', return_value=found),
+            self.branch('dev'),
+            mock.patch('sys.stdout', new_callable=io.StringIO) as out,
+        ):
             self.assertEqual(self.script['main']([]), 1)
         self.assertIn('broken: not raised: ValueError: no single entry', out.getvalue())
         self.assertIn('offline: not checked: URLError: down', out.getvalue())

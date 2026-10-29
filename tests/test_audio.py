@@ -1,4 +1,5 @@
 """The yabridgectl configuration modifier (REAPER's Windows plugin bridge)."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -17,10 +18,15 @@ class BridgeModifierTests(unittest.TestCase):
             home = Path(directory) / 'home tester'
             template = (ROOT / 'home/dot_config/yabridgectl/modify_config.toml.tmpl').read_text()
             modifier = Path(directory) / 'modifier.py'
-            modifier.write_text(template.replace('{{ printf "%s/.wine/drive_c/Program Files/VSTPlugins" .chezmoi.homeDir | toJson }}',
-                                                 json.dumps(f'{home}/.wine/drive_c/Program Files/VSTPlugins'))
-                                        .replace('{{ printf "%s/.local/share/yabridge" .chezmoi.homeDir | toJson }}',
-                                                 json.dumps(f'{home}/.local/share/yabridge')))
+            modifier.write_text(
+                template.replace(
+                    '{{ printf "%s/.wine/drive_c/Program Files/VSTPlugins" .chezmoi.homeDir | toJson }}',
+                    json.dumps(f'{home}/.wine/drive_c/Program Files/VSTPlugins'),
+                ).replace(
+                    '{{ printf "%s/.local/share/yabridge" .chezmoi.homeDir | toJson }}',
+                    json.dumps(f'{home}/.local/share/yabridge'),
+                )
+            )
             result = subprocess.check_output(['python3', str(modifier)], input=source, text=True)
             parsed = tomllib.loads(result)
             self.assertEqual(subprocess.check_output(['python3', str(modifier)], input=result, text=True), result)

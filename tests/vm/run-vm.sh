@@ -50,35 +50,78 @@ SSH_PORT=2222
 COMMAND=
 iso_given= sha_given=
 
-die() { printf 'run-vm: %s\n' "$*" >&2; exit 1; }
+die() {
+  printf 'run-vm: %s\n' "$*" >&2
+  exit 1
+}
 say() { printf 'run-vm: %s\n' "$*" >&2; }
 
 while (($#)); do
   case $1 in
     --dry-run) DRY_RUN=1 ;;
     --headless) HEADLESS=1 ;;
-    --iso) iso_given=${2:?--iso needs a path}; shift ;;
-    --sha256) sha_given=${2:?--sha256 needs a checksum}; shift ;;
-    --memory) MEMORY=${2:?--memory needs MiB}; shift ;;
-    --cpus) CPUS=${2:?--cpus needs a number}; shift ;;
-    --evidence) EVIDENCE=${2:?--evidence needs a folder}; shift ;;
-    --dir) VM_DIR=${2:?--dir needs a folder}; shift ;;
-    -h|--help) usage; exit 0 ;;
-    install|run|share)
-      [[ -z $COMMAND ]] || { usage >&2; exit 2; }
-      COMMAND=$1 ;;
-    *) usage >&2; exit 2 ;;
+    --iso)
+      iso_given=${2:?--iso needs a path}
+      shift
+      ;;
+    --sha256)
+      sha_given=${2:?--sha256 needs a checksum}
+      shift
+      ;;
+    --memory)
+      MEMORY=${2:?--memory needs MiB}
+      shift
+      ;;
+    --cpus)
+      CPUS=${2:?--cpus needs a number}
+      shift
+      ;;
+    --evidence)
+      EVIDENCE=${2:?--evidence needs a folder}
+      shift
+      ;;
+    --dir)
+      VM_DIR=${2:?--dir needs a folder}
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    install | run | share)
+      [[ -z $COMMAND ]] || {
+        usage >&2
+        exit 2
+      }
+      COMMAND=$1
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
   esac
   shift
 done
-[[ -n $COMMAND ]] || { usage >&2; exit 2; }
+[[ -n $COMMAND ]] || {
+  usage >&2
+  exit 2
+}
 if [[ -n $iso_given || -n $sha_given ]]; then
-  [[ -n $iso_given && -n $sha_given ]] || { printf 'run-vm: --iso and --sha256 go together\n' >&2; exit 2; }
-  [[ $sha_given =~ ^[0-9a-fA-F]{64}$ ]] || { printf 'run-vm: --sha256 takes 64 hexadecimal digits\n' >&2; exit 2; }
+  [[ -n $iso_given && -n $sha_given ]] || {
+    printf 'run-vm: --iso and --sha256 go together\n' >&2
+    exit 2
+  }
+  [[ $sha_given =~ ^[0-9a-fA-F]{64}$ ]] || {
+    printf 'run-vm: --sha256 takes 64 hexadecimal digits\n' >&2
+    exit 2
+  }
   ISO=$iso_given
   ISO_SHA256=${sha_given,,}
 fi
-[[ $MEMORY =~ ^[0-9]+$ ]] && ((MEMORY >= 2048)) || { printf 'run-vm: --memory takes MiB, at least 2048\n' >&2; exit 2; }
+[[ $MEMORY =~ ^[0-9]+$ ]] && ((MEMORY >= 2048)) || {
+  printf 'run-vm: --memory takes MiB, at least 2048\n' >&2
+  exit 2
+}
 HOST_CPUS=$(nproc)
 if [[ -z $CPUS ]]; then
   CPUS=$((HOST_CPUS / 2))
@@ -87,7 +130,9 @@ if [[ -z $CPUS ]]; then
   if ((CPUS > HOST_CPUS)); then CPUS=$HOST_CPUS; fi
 fi
 [[ $CPUS =~ ^[0-9]+$ ]] && ((CPUS >= 1 && CPUS <= HOST_CPUS)) || {
-  printf 'run-vm: --cpus takes 1 to %s\n' "$HOST_CPUS" >&2; exit 2; }
+  printf 'run-vm: --cpus takes 1 to %s\n' "$HOST_CPUS" >&2
+  exit 2
+}
 VM_DIR=${VM_DIR%/}
 EVIDENCE=${EVIDENCE:-$VM_DIR/evidence}
 SHARE=$VM_DIR/share
@@ -112,7 +157,8 @@ find_firmware() {
   done
   command -v python3 >/dev/null || return 1
   local found
-  found=$(python3 - <<'EOF'
+  found=$(
+    python3 - <<'EOF'
 import glob, json
 for path in sorted(glob.glob('/usr/share/qemu/firmware/*.json')):
     try:
@@ -128,7 +174,7 @@ for path in sorted(glob.glob('/usr/share/qemu/firmware/*.json')):
     except (OSError, ValueError, KeyError, TypeError):
         continue
 EOF
-)
+  )
   [[ -n $found ]] || return 1
   FIRMWARE_CODE=$(sed -n 1p <<<"$found")
   FIRMWARE_VARS=$(sed -n 2p <<<"$found")
@@ -164,18 +210,18 @@ host_problems() {
   fi
   if ! command -v git >/dev/null; then
     problem "git is missing; the share holds a Git bundle of the checkout"
-  elif [[ $COMMAND == share || ! -f $SHARE/SHARE-INFO ]] \
-      && ! git -C "$ROOT" cat-file -e HEAD:tests/vm/guest-validate.sh 2>/dev/null; then
+  elif [[ $COMMAND == share || ! -f $SHARE/SHARE-INFO ]] &&
+    ! git -C "$ROOT" cat-file -e HEAD:tests/vm/guest-validate.sh 2>/dev/null; then
     problem "HEAD has no tests/vm/guest-validate.sh; the share is built from commits only, so commit the kit first"
   fi
   ((${#problems[@]} == 0)) || printf '%s\n' "${problems[@]}"
 }
 
-option_path() {  # a path inside a QEMU option, whose commas QEMU reads doubled
+option_path() { # a path inside a QEMU option, whose commas QEMU reads doubled
   printf '%s' "${1//,/,,}"
 }
 
-show_command() {  # one line a shell can run, quoting only what needs it
+show_command() { # one line a shell can run, quoting only what needs it
   local argument words=()
   for argument; do
     if [[ $argument =~ ^[A-Za-z0-9_./,=:@%+-]+$ ]]; then
@@ -187,7 +233,7 @@ show_command() {  # one line a shell can run, quoting only what needs it
   printf '%s\n' "${words[*]}"
 }
 
-run_or_show() {  # run a preparation step, or show it in a dry run
+run_or_show() { # run a preparation step, or show it in a dry run
   if ((DRY_RUN)); then
     printf '# would run: %s\n' "$(show_command "$@")"
   else
@@ -206,7 +252,7 @@ build_share() {
   fi
   local installs=(install-headless.sh vm-install.json vm-post-install.sh)
   local sources=(tests/vm/guest-validate.sh "${installs[@]/#/tests/vm/}" supplement.example
-                 tests/fixtures/supplements/vm)
+    tests/fixtures/supplements/vm)
   if ((DRY_RUN)); then
     printf '# would build the share %s from commit %s: %s\n' "$SHARE" "$head" \
       'shaffy-os.bundle, guest-validate.sh, the headless install files, supplements/example and supplements/vm'
@@ -214,8 +260,8 @@ build_share() {
   fi
   local source
   for source in "${sources[@]}"; do
-    git -C "$ROOT" cat-file -e "$head:$source" 2>/dev/null \
-      || die "commit $head has no $source; the share is built from commits only, so commit the kit first"
+    git -C "$ROOT" cat-file -e "$head:$source" 2>/dev/null ||
+      die "commit $head has no $source; the share is built from commits only, so commit the kit first"
   done
   mkdir -p -m 0700 "$VM_DIR"
   mkdir -p "$SHARE"
@@ -260,7 +306,10 @@ if [[ $COMMAND == share ]]; then
   exit 0
 fi
 
-find_firmware || { FIRMWARE_CODE=${FIRMWARE_PAIRS[0]}; FIRMWARE_VARS=${FIRMWARE_PAIRS[1]}; }
+find_firmware || {
+  FIRMWARE_CODE=${FIRMWARE_PAIRS[0]}
+  FIRMWARE_VARS=${FIRMWARE_PAIRS[1]}
+}
 VARS_COPY=$VM_DIR/$(basename "$FIRMWARE_VARS")
 
 if [[ $COMMAND == install ]]; then
@@ -278,7 +327,7 @@ if ((available < MEMORY + 512)); then
   say "warning: $available MiB of memory is available and the guest takes $MEMORY MiB; close applications first or pass --memory"
 fi
 
-if ((!DRY_RUN)); then mkdir -p -m 0700 "$VM_DIR"; fi
+if ((! DRY_RUN)); then mkdir -p -m 0700 "$VM_DIR"; fi
 if [[ $COMMAND == install && ! -f $DISK ]]; then
   run_or_show qemu-img create -q -f qcow2 -o nocow=on "$DISK" "$DISK_SIZE"
 fi
@@ -317,16 +366,16 @@ if ((HEADLESS)); then
   # Niri still gets its GL device, and egl-headless copies each frame for the VNC socket,
   # which gives screenshots; QMP gives keys, SSH a shell. All of them are local only.
   qemu+=(-display egl-headless
-         -serial "file:$(option_path "$EVIDENCE/serial-$COMMAND-$STAMP.log")"
-         -qmp "unix:$(option_path "$VM_DIR/qmp.sock"),server=on,wait=off"
-         -vnc "unix:$(option_path "$VM_DIR/vnc.sock")"
-         -pidfile "$VM_DIR/qemu.pid"
-         -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22")
+    -serial "file:$(option_path "$EVIDENCE/serial-$COMMAND-$STAMP.log")"
+    -qmp "unix:$(option_path "$VM_DIR/qmp.sock"),server=on,wait=off"
+    -vnc "unix:$(option_path "$VM_DIR/vnc.sock")"
+    -pidfile "$VM_DIR/qemu.pid"
+    -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22")
 else
   qemu+=(-display gtk,gl=on -nic user,model=virtio-net-pci)
 fi
 if ((HEADLESS)); then
-  :  # no sound card without a listener
+  : # no sound card without a listener
 elif [[ -S ${XDG_RUNTIME_DIR:-/nonexistent}/pipewire-0 ]]; then
   qemu+=(-audiodev pipewire,id=audio -device ich9-intel-hda -device hda-duplex,audiodev=audio)
 else
@@ -335,7 +384,7 @@ fi
 if [[ $COMMAND == install ]]; then
   # The installer boots first; its restart ends QEMU, and `run` boots the installed disk.
   qemu+=(-drive "file=$(option_path "$ISO"),media=cdrom,readonly=on,if=none,id=installer" -no-reboot)
-  if ((!HEADLESS)); then
+  if ((! HEADLESS)); then
     qemu+=(-device ide-cd,drive=installer,bootindex=0)
   else
     # -kernel takes boot index 0 itself; the image is then only the live system's source.
@@ -359,8 +408,8 @@ if [[ $COMMAND == install ]]; then
     job="mkdir -p /run/shaffy-share && mount -t 9p -o trans=virtio,version=9p2000.L,ro shaffy-share /run/shaffy-share"
     job+=" && exec bash /run/shaffy-share/install-headless.sh --at-boot"
     qemu+=(-kernel "$VM_DIR/boot/arch/boot/x86_64/vmlinuz-linux-cachyos"
-           -initrd "$VM_DIR/boot/arch/boot/x86_64/initramfs-linux-cachyos.img"
-           -append "$live copytoram=n console=tty0 console=ttyS0,115200 systemd.run=\"/usr/bin/bash -c '$job'\" systemd.run_success_action=poweroff systemd.run_failure_action=poweroff systemd.unit=kernel-command-line.target")
+      -initrd "$VM_DIR/boot/arch/boot/x86_64/initramfs-linux-cachyos.img"
+      -append "$live copytoram=n console=tty0 console=ttyS0,115200 systemd.run=\"/usr/bin/bash -c '$job'\" systemd.run_success_action=poweroff systemd.run_failure_action=poweroff systemd.unit=kernel-command-line.target")
   fi
 fi
 

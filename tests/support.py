@@ -6,6 +6,7 @@ the tools the remaining tests need, including the declared Ansible controller
 and collections. Controller tests use synthetic settings and temporary files;
 they do not require this machine's configuration.
 """
+
 import os
 from pathlib import Path
 import shutil
@@ -28,8 +29,9 @@ def _reflink_supported(directory):
     with tempfile.TemporaryDirectory(dir=directory) as temporary:
         source = Path(temporary) / 'source'
         source.write_bytes(b'reflink probe')
-        result = subprocess.run(['cp', '--reflink=always', str(source), str(source) + '.copy'],
-                                capture_output=True, check=False)
+        result = subprocess.run(
+            ['cp', '--reflink=always', str(source), str(source) + '.copy'], capture_output=True, check=False
+        )
         return result.returncode == 0
 
 

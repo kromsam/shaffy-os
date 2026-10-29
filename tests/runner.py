@@ -7,6 +7,7 @@ so the long end-to-end classes spread over all workers. A test marked with `supp
 such as a latency measurement that a busy machine would skew, runs afterwards on its own.
 A passing test's output is discarded; a failing one's is shown with its traceback.
 """
+
 import argparse
 from collections import Counter
 import concurrent.futures
@@ -16,8 +17,7 @@ import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SYMBOLS = {'ok': '.', 'FAIL': 'F', 'ERROR': 'E', 'skipped': 's', 'expected failure': 'x',
-           'unexpected success': 'u'}
+SYMBOLS = {'ok': '.', 'FAIL': 'F', 'ERROR': 'E', 'skipped': 's', 'expected failure': 'x', 'unexpected success': 'u'}
 # This process's tests by id: the parent's discovery, or a worker's own.
 TESTS = {}
 
@@ -39,8 +39,10 @@ def _load():
 
 def _shares_fixtures(test):
     cls = type(test)
-    overridden = any(getattr(cls, name).__func__ is not getattr(unittest.TestCase, name).__func__
-                     for name in ('setUpClass', 'tearDownClass'))
+    overridden = any(
+        getattr(cls, name).__func__ is not getattr(unittest.TestCase, name).__func__
+        for name in ('setUpClass', 'tearDownClass')
+    )
     return overridden or hasattr(sys.modules.get(cls.__module__), 'setUpModule')
 
 
@@ -146,8 +148,10 @@ def main(argv=None):
             try:
                 report(*future.result())
             except Exception as error:  # a worker that died takes its unit with it
-                report(len(futures[future]), [(test_id, 'ERROR', f'the worker failed: {error!r}', 0.0)
-                                              for test_id in futures[future]])
+                report(
+                    len(futures[future]),
+                    [(test_id, 'ERROR', f'the worker failed: {error!r}', 0.0) for test_id in futures[future]],
+                )
     for unit in serial:
         report(*run_unit(unit))
     elapsed = time.monotonic() - started
@@ -164,8 +168,13 @@ def main(argv=None):
     print('-' * 70)
     print(f'Ran {count} tests in {elapsed:.3f}s with {args.jobs} workers\n')
     statuses = Counter(status for _, status, _, _ in outcomes)
-    labels = (('FAIL', 'failures'), ('ERROR', 'errors'), ('skipped', 'skipped'),
-              ('expected failure', 'expected failures'), ('unexpected success', 'unexpected successes'))
+    labels = (
+        ('FAIL', 'failures'),
+        ('ERROR', 'errors'),
+        ('skipped', 'skipped'),
+        ('expected failure', 'expected failures'),
+        ('unexpected success', 'unexpected successes'),
+    )
     details = ', '.join(f'{label}={statuses[status]}' for status, label in labels if statuses[status])
     failed = statuses['FAIL'] or statuses['ERROR'] or statuses['unexpected success']
     print(('FAILED' if failed else 'OK') + (f' ({details})' if details else ''))

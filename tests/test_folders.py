@@ -1,4 +1,5 @@
 """Installer-owned XDG directories, selective overrides and optional aliases."""
+
 import os
 from pathlib import Path
 import shutil
@@ -9,13 +10,15 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy.folders import folder_path, link_conflicts, merge_user_dirs  # noqa: E402
+from shaffy.folders import folder_path, link_conflicts, merge_user_dirs
 
 
 class OverrideTests(unittest.TestCase):
     def test_only_named_entries_change_and_other_bytes_survive(self):
-        original = ('# Created by the installation\nXDG_DOCUMENTS_DIR="$HOME/Dokumente"\n'
-                    'XDG_PICTURES_DIR="$HOME/Bilder"\n\n# Disabled\nXDG_MUSIC_DIR="$HOME/"\n')
+        original = (
+            '# Created by the installation\nXDG_DOCUMENTS_DIR="$HOME/Dokumente"\n'
+            'XDG_PICTURES_DIR="$HOME/Bilder"\n\n# Disabled\nXDG_MUSIC_DIR="$HOME/"\n'
+        )
         expected = original.replace('$HOME/Bilder', '$HOME/Photos')
         actual = merge_user_dirs(original, {'pictures': 'Photos', 'projects': 'Code'})
         self.assertEqual(actual, expected)
@@ -27,8 +30,9 @@ class OverrideTests(unittest.TestCase):
             self.assertEqual(merge_user_dirs(text, {'projects': 'Projects'}), text)
 
     def test_a_missing_entry_is_added_without_losing_the_last_line(self):
-        self.assertEqual(merge_user_dirs('# Keep this', {'pictures': 'Photos'}),
-                         '# Keep this\nXDG_PICTURES_DIR="$HOME/Photos"\n')
+        self.assertEqual(
+            merge_user_dirs('# Keep this', {'pictures': 'Photos'}), '# Keep this\nXDG_PICTURES_DIR="$HOME/Photos"\n'
+        )
 
     def test_an_already_correct_entry_keeps_its_spacing_and_comment(self):
         original = ' XDG_PICTURES_DIR = "$HOME/Photos"  # Keep this\n'
@@ -50,19 +54,24 @@ class PlatformDirectoryTests(unittest.TestCase):
         self.dirs = self.home / '.config/user-dirs.dirs'
 
     def test_native_lookup_handles_unicode_escaped_names_and_absolute_paths(self):
-        self.dirs.write_text('XDG_DOCUMENTS_DIR="$HOME/書類"\n'
-                             'XDG_PICTURES_DIR="$HOME/Photos \\"été\\" & 100%"\n'
-                             'XDG_VIDEOS_DIR="/srv/media/Films"\n'
-                             'XDG_MUSIC_DIR="$HOME/"\n')
-        expected = {'documents': self.home / '書類', 'pictures': self.home / 'Photos "été" & 100%',
-                    'videos': Path('/srv/media/Films'), 'music': self.home}
+        self.dirs.write_text(
+            'XDG_DOCUMENTS_DIR="$HOME/書類"\n'
+            'XDG_PICTURES_DIR="$HOME/Photos \\"été\\" & 100%"\n'
+            'XDG_VIDEOS_DIR="/srv/media/Films"\n'
+            'XDG_MUSIC_DIR="$HOME/"\n'
+        )
+        expected = {
+            'documents': self.home / '書類',
+            'pictures': self.home / 'Photos "été" & 100%',
+            'videos': Path('/srv/media/Films'),
+            'music': self.home,
+        }
         for role, path in expected.items():
             self.assertEqual(folder_path({}, self.home, role), path)
 
     def test_explicit_override_wins_before_the_platform_file_is_modified(self):
         self.dirs.write_text('XDG_PICTURES_DIR="$HOME/Bilder"\n')
-        self.assertEqual(folder_path({'folders': {'pictures': 'Photos'}}, self.home, 'pictures'),
-                         self.home / 'Photos')
+        self.assertEqual(folder_path({'folders': {'pictures': 'Photos'}}, self.home, 'pictures'), self.home / 'Photos')
         self.assertIn('$HOME/Bilder', self.dirs.read_text())
 
     def test_platform_changes_are_seen_without_changing_supplement_settings(self):
@@ -101,5 +110,4 @@ class PlatformDirectoryTests(unittest.TestCase):
     def test_projects_has_no_guessed_language_or_xdg_entry(self):
         with self.assertRaisesRegex(ValueError, 'not a standard XDG'):
             folder_path({}, self.home, 'projects')
-        self.assertEqual(folder_path({'folders': {'projects': 'Code'}}, self.home, 'projects'),
-                         self.home / 'Code')
+        self.assertEqual(folder_path({'folders': {'projects': 'Code'}}, self.home, 'projects'), self.home / 'Code')

@@ -1,11 +1,13 @@
 """Protect encrypted credentials from accidental replacement during promotion."""
+
 import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location(
-    'keyring', Path(__file__).resolve().parents[1] / 'roles/login_keyring_migration/files/prepare-login-keyring.py')
+    'keyring', Path(__file__).resolve().parents[1] / 'roles/login_keyring_migration/files/prepare-login-keyring.py'
+)
 keyring = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(keyring)
 

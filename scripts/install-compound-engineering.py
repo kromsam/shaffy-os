@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Materialize the CE plugin declared by the home sources in both native hosts."""
+
 import json
 import os
 from pathlib import Path
@@ -18,10 +19,9 @@ PLUGIN = MERGE['CE_PLUGIN']
 def declared(home, enabled):
     """Refuse installation until source-owned settings have been applied."""
     for path, merge, parse in (
-            (home / '.claude/settings.json',
-             lambda text: MERGE['merge_claude_settings'](text, enabled), json.loads),
-            (home / '.codex/config.toml',
-             lambda text: MERGE['merge_codex'](text, {}, enabled), tomllib.loads)):
+        (home / '.claude/settings.json', lambda text: MERGE['merge_claude_settings'](text, enabled), json.loads),
+        (home / '.codex/config.toml', lambda text: MERGE['merge_codex'](text, {}, enabled), tomllib.loads),
+    ):
         text = path.read_text() if path.exists() else ''
         existing = parse(text) if text.strip() else {}
         if existing != parse(merge(text)):
@@ -49,13 +49,15 @@ def reconcile_settings(home, enabled, original_settings):
     """Native installs enable the plugin; restore opt-in through the source apply."""
     current = settings_snapshot(home)
     if not enabled and (
-            current['claude'].get('enabledPlugins', {}).get(PLUGIN) is not False
-            or current['codex'].get('plugins', {}).get(PLUGIN, {}).get('enabled') is not False):
-        subprocess.run([str(REPO / 'bin/shaffy'), 'apply', '--home', '--checkout', str(REPO)],
-                       check=True, cwd=REPO)
+        current['claude'].get('enabledPlugins', {}).get(PLUGIN) is not False
+        or current['codex'].get('plugins', {}).get(PLUGIN, {}).get('enabled') is not False
+    ):
+        subprocess.run([str(REPO / 'bin/shaffy'), 'apply', '--home', '--checkout', str(REPO)], check=True, cwd=REPO)
     declared(home, enabled)
     if settings_snapshot(home) != original_settings:
-        raise ValueError('Native plugin refresh changed unrelated settings; review the source-owned diff before continuing.')
+        raise ValueError(
+            'Native plugin refresh changed unrelated settings; review the source-owned diff before continuing.'
+        )
 
 
 def refresh(home, enabled, original_settings, env):
@@ -63,8 +65,11 @@ def refresh(home, enabled, original_settings, env):
     known = json.loads(registry.read_text()) if registry.exists() else {}
     try:
         if MARKETPLACE not in known:
-            subprocess.run(['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'marketplace',
-                            'add', MERGE['CE_REPOSITORY']], check=True, env=env)
+            subprocess.run(
+                ['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'marketplace', 'add', MERGE['CE_REPOSITORY']],
+                check=True,
+                env=env,
+            )
         for command in commands():
             subprocess.run(['mise', 'exec', command[0], '--', *command], check=True, env=env)
     finally:
@@ -74,6 +79,7 @@ def refresh(home, enabled, original_settings, env):
 
 def main():
     from shaffy.loader import load
+
     enabled = load(REPO)['shaffy']['settings']['ai']['compound_engineering']['enabled']
     home = Path.home()
     if os.getuid() == 0:
@@ -86,16 +92,24 @@ def main():
     registry = home / '.claude/plugins/installed_plugins.json'
     if registry.exists():
         versions['claude'] = json.loads(registry.read_text()).get('plugins', {}).get(PLUGIN, [])
-    result = subprocess.run(['mise', 'exec', 'codex', '--', 'codex', 'plugin', 'list', '--json'],
-                            check=True, capture_output=True, text=True, env=env)
+    result = subprocess.run(
+        ['mise', 'exec', 'codex', '--', 'codex', 'plugin', 'list', '--json'],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     versions['codex'] = json.loads(result.stdout)
     target = home / '.local/state/shaffy/compound-engineering'
     target.mkdir(parents=True, exist_ok=True)
     path = target / 'installed.json'
     path.write_text(json.dumps(versions, indent=2) + '\n')
     path.chmod(0o600)
-    print('Compound Engineering refreshed in both hosts; global activation is '
-          + ('on' if enabled else 'off (project opt-in)') + '. Restart agent sessions.')
+    print(
+        'Compound Engineering refreshed in both hosts; global activation is '
+        + ('on' if enabled else 'off (project opt-in)')
+        + '. Restart agent sessions.'
+    )
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ scans every public path and line. It reports where a value matched, never the va
 Without a supplement it is skipped; SHAFFY_REQUIRE_DENYLIST=1 (the export) makes that
 a failure and also refuses transitional blocks.
 """
+
 import os
 from pathlib import Path
 import re
@@ -15,13 +16,22 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import literals  # noqa: E402
+from shaffy import literals
 
 REQUIRED = os.environ.get('SHAFFY_REQUIRE_DENYLIST') == '1'
 # Settings whose values identify the owner; paths and generic values match public conventions.
-FIELDS = ('supplement_id', 'identity.name', 'identity.email', 'backup.host', 'backup.repository.id',
-          'backup.repository.sftp.host', 'backup.repository.sftp.user', 'backup.repository.sftp.host_key',
-          'tailnet.login_server', 'tailnet.address')
+FIELDS = (
+    'supplement_id',
+    'identity.name',
+    'identity.email',
+    'backup.host',
+    'backup.repository.id',
+    'backup.repository.sftp.host',
+    'backup.repository.sftp.user',
+    'backup.repository.sftp.host_key',
+    'tailnet.login_server',
+    'tailnet.address',
+)
 
 
 def field(settings, dotted):
@@ -41,6 +51,7 @@ class ExportDenylistTests(unittest.TestCase):
         if os.environ.get('SHAFFY_SKIP_HOST_TESTS') == '1' and not REQUIRED:
             self.skipTest('needs the bound supplement of this machine')
         from shaffy.selection import resolve
+
         selection = resolve(ROOT)  # a broken binding fails here instead of skipping
         if selection['mode'] != 'supplement':
             self.unavailable('no supplement is bound')
@@ -64,22 +75,31 @@ class ExportDenylistTests(unittest.TestCase):
                 rules.append((f'denylist.txt line {number}', compiled))
         self.assertTrue(rules, 'denylist.txt holds no patterns')
         from shaffy.loader import load
+
         settings = load(ROOT, supplement=str(self.supplement))['shaffy']['settings']
         for name in FIELDS:
             value = field(settings, name)
             if value and len(value) >= 6:
-                rules.append((f'settings field {name}', re.compile(
-                    r'(?<![A-Za-z0-9])' + re.escape(value) + r'(?![A-Za-z0-9])', re.IGNORECASE)))
-        return [(rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)])
-                for rule, compiled in rules]
+                rules.append(
+                    (
+                        f'settings field {name}',
+                        re.compile(r'(?<![A-Za-z0-9])' + re.escape(value) + r'(?![A-Za-z0-9])', re.IGNORECASE),
+                    )
+                )
+        return [
+            (rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)])
+            for rule, compiled in rules
+        ]
 
     def test_public_files_hold_no_private_value(self):
         files = literals.public_files(ROOT)
         hits = literals.scan(ROOT, files, self.rules(), exempt_transitional=not REQUIRED)
         where = sorted({f'{h.path}:{h.line}: {h.rule}' for h in hits})
         if where:
-            self.fail(f'{len(where)} public line(s) or path(s) hold a private value (line 0 is the path):\n'
-                      + '\n'.join(where[:200]))
+            self.fail(
+                f'{len(where)} public line(s) or path(s) hold a private value (line 0 is the path):\n'
+                + '\n'.join(where[:200])
+            )
 
 
 if __name__ == '__main__':

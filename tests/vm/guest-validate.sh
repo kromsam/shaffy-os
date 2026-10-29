@@ -47,22 +47,34 @@ Mount the two shares first (they do not survive a reboot unless /etc/fstab lists
 EOF
 }
 
-die() { printf 'guest-validate: %s\n' "$*" >&2; exit 2; }
+die() {
+  printf 'guest-validate: %s\n' "$*" >&2
+  exit 2
+}
 
 # -- results and evidence ------------------------------------------------------
 
-report() {  # report KIND TEXT: one result line, on screen and in the evidence
+report() { # report KIND TEXT: one result line, on screen and in the evidence
   local line
   line=$(printf '%-4s %s: %s' "$1" "$STAGE" "$2")
   printf '%s\n' "$line"
   printf '%s\n' "$line" >>"$STAGE_DIR/results.txt"
   printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$line" >>"$EVIDENCE/results.txt"
 }
-pass() { PASSES=$((PASSES + 1)); report PASS "$*"; }
-fail() { FAILS=$((FAILS + 1)); report FAIL "$*"; }
-note() { NOTES=$((NOTES + 1)); report NOTE "$*"; }
+pass() {
+  PASSES=$((PASSES + 1))
+  report PASS "$*"
+}
+fail() {
+  FAILS=$((FAILS + 1))
+  report FAIL "$*"
+}
+note() {
+  NOTES=$((NOTES + 1))
+  report NOTE "$*"
+}
 
-check() {  # check DESCRIPTION COMMAND...: PASS when the command succeeds
+check() { # check DESCRIPTION COMMAND...: PASS when the command succeeds
   local description=$1
   shift
   if "$@"; then pass "$description"; else fail "$description"; fi
@@ -71,10 +83,13 @@ check() {  # check DESCRIPTION COMMAND...: PASS when the command succeeds
 evidence_file() {
   STEP=$((STEP + 1))
   LAST=$(printf '%s/%02d-%s.txt' "$STAGE_DIR" "$STEP" "$1")
-  { printf '$ %s\n' "${*:2}"; printf '# %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } >"$LAST"
+  {
+    printf '$ %s\n' "${*:2}"
+    printf '# %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } >"$LAST"
 }
 
-capture() {  # capture NAME COMMAND...: run it on screen and keep its output; its status
+capture() { # capture NAME COMMAND...: run it on screen and keep its output; its status
   evidence_file "$@"
   shift
   "$@" 2>&1 | tee -a "$LAST"
@@ -83,7 +98,7 @@ capture() {  # capture NAME COMMAND...: run it on screen and keep its output; it
   return "$status"
 }
 
-keep() {  # keep NAME COMMAND...: only keep its output; its status
+keep() { # keep NAME COMMAND...: only keep its output; its status
   evidence_file "$@"
   shift
   "$@" >>"$LAST" 2>&1
@@ -92,7 +107,7 @@ keep() {  # keep NAME COMMAND...: only keep its output; its status
   return "$status"
 }
 
-keep_output() {  # keep_output NAME COMMAND...: keep its output and leave it in OUTPUT; its status
+keep_output() { # keep_output NAME COMMAND...: keep its output and leave it in OUTPUT; its status
   evidence_file "$@"
   shift
   OUTPUT=$("$@" 2>&1)
@@ -101,23 +116,23 @@ keep_output() {  # keep_output NAME COMMAND...: keep its output and leave it in 
   return "$status"
 }
 
-shaffy() {  # the checkout's wrapper, run from the checkout
+shaffy() { # the checkout's wrapper, run from the checkout
   (cd "$CHECKOUT" && PYTHONUNBUFFERED=1 ./bin/shaffy "$@")
 }
 
-ask() {  # ask QUESTION: 0 for yes, 1 for no, 2 for skip
+ask() { # ask QUESTION: 0 for yes, 1 for no, 2 for skip
   local answer
   while read -r -p "$1 [y/n/s(kip)] " answer </dev/tty; do
     case $answer in
-      y|Y|yes) return 0 ;;
-      n|N|no) return 1 ;;
-      s|S|skip) return 2 ;;
+      y | Y | yes) return 0 ;;
+      n | N | no) return 1 ;;
+      s | S | skip) return 2 ;;
     esac
   done
   return 2
 }
 
-confirm() {  # confirm OBSERVATION: a manual check, recorded as such
+confirm() { # confirm OBSERVATION: a manual check, recorded as such
   ask "Manual check: $1?"
   case $? in
     0) pass "(manual) $1" ;;
@@ -371,7 +386,7 @@ else:
     sys.exit(f'unknown check {command}')
 PY
 
-py_report() {  # py_report NAME CHECK ARGS...: run a Python check and record its lines
+py_report() { # py_report NAME CHECK ARGS...: run a Python check and record its lines
   local name=$1 kind text
   shift
   evidence_file "$name" python3 check "$@"
@@ -388,7 +403,7 @@ py_report() {  # py_report NAME CHECK ARGS...: run a Python check and record its
 
 # -- helpers -------------------------------------------------------------------
 
-readme_bootstrap() {  # the commands of the sh block in README.md's Bootstrap section
+readme_bootstrap() { # the commands of the sh block in README.md's Bootstrap section
   awk '/^## / { inside = ($0 == "## Bootstrap") }
        inside && /^```sh$/ { block = 1; next }
        block && /^```$/ { exit }
@@ -399,15 +414,15 @@ require_checkout() {
   [[ -x $CHECKOUT/bin/shaffy ]] || die "no checkout at $CHECKOUT; run the bootstrap stage first"
 }
 
-require_no_unfinished() {  # a failed apply leaves its operation unfinished; every later apply refuses
+require_no_unfinished() { # a failed apply leaves its operation unfinished; every later apply refuses
   local line
   line=$(shaffy status --no-drift 2>&1 | grep '^Unfinished operation: ')
-  [[ -z $line || $line == 'Unfinished operation: none' ]] \
-    || die "operation ${line#Unfinished operation: } is unfinished. In $CHECKOUT, read ./bin/shaffy status," \
+  [[ -z $line || $line == 'Unfinished operation: none' ]] ||
+    die "operation ${line#Unfinished operation: } is unfinished. In $CHECKOUT, read ./bin/shaffy status," \
       "then run ./bin/shaffy apply --resume (or --abandon), and run this stage again"
 }
 
-bundle_valid() {  # bundle_valid BUNDLE: git verifies a bundle only inside a repository
+bundle_valid() { # bundle_valid BUNDLE: git verifies a bundle only inside a repository
   local scratch status
   scratch=$(mktemp -d) || return 1
   git init -q "$scratch" && git -C "$scratch" bundle verify "$1"
@@ -416,13 +431,13 @@ bundle_valid() {  # bundle_valid BUNDLE: git verifies a bundle only inside a rep
   return "$status"
 }
 
-operation_of() {  # the operation an apply's output names, recorded for the pair check
+operation_of() { # the operation an apply's output names, recorded for the pair check
   local op
   op=$(sed -nE 's/.*Applied the (home|system) .*as operation ([^;]+);.*/\2/p' "$LAST" | tail -1)
   [[ -z $op ]] || OPS+=("$op")
 }
 
-apply_system() {  # apply_system NAME DESCRIPTION [converged]
+apply_system() { # apply_system NAME DESCRIPTION [converged]
   if capture "$1" shaffy apply --system; then
     pass "$2"
     operation_of
@@ -438,7 +453,7 @@ apply_system() {  # apply_system NAME DESCRIPTION [converged]
   fi
 }
 
-apply_home() {  # apply_home NAME DESCRIPTION [converged]
+apply_home() { # apply_home NAME DESCRIPTION [converged]
   if capture "$1" shaffy apply --home; then
     pass "$2"
     operation_of
@@ -450,7 +465,7 @@ apply_home() {  # apply_home NAME DESCRIPTION [converged]
   fi
 }
 
-status_is() {  # status_is BINDING-LINE: status names the binding, nothing unfinished, no drift
+status_is() { # status_is BINDING-LINE: status names the binding, nothing unfinished, no drift
   capture status shaffy status
   check "status reports: $1" grep -qxF "$1" "$LAST"
   check "status reports no unfinished operation" grep -qx 'Unfinished operation: none' "$LAST"
@@ -467,7 +482,7 @@ snapshot_evidence() {
   fi
 }
 
-copy_supplement() {  # copy_supplement FROM TO: as README's Supplement section starts one
+copy_supplement() { # copy_supplement FROM TO: as README's Supplement section starts one
   mkdir -p "$2" && cp -rT "$1" "$2" && { [[ -d $2/.git ]] || git -C "$2" init -q; }
 }
 
@@ -574,7 +589,10 @@ stage_defaults() {
   case $binding in
     'not bound'*) check "bound the installation to the public defaults" capture attach shaffy supplement attach --none ;;
     'public defaults only') note "the installation is already bound to the public defaults" ;;
-    *) fail "the installation is bound to something else: $binding"; return ;;
+    *)
+      fail "the installation is bound to something else: $binding"
+      return
+      ;;
   esac
   check "check validates the public defaults and renders the home" capture check shaffy check
   keep diff shaffy diff
@@ -612,7 +630,7 @@ stage_after_reboot() {
   while IFS= read -r target; do
     [[ -x $HOME/$target ]] || missing+=("$target")
   done < <(chezmoi --config "$CHECKOUT/chezmoi.toml" --source "$CHECKOUT/home" managed --include files \
-             --path-style relative 2>/dev/null | grep '^\.local/bin/')
+    --path-style relative 2>/dev/null | grep '^\.local/bin/')
   [[ -x $HOME/.local/bin/shaffy-desktop-key ]] || missing+=(.local/bin/shaffy-desktop-key)
   keep helpers ls -l "$HOME/.local/bin"
   check "every managed helper in ~/.local/bin and shaffy-desktop-key is installed and executable${missing:+; missing: ${missing[*]}}" \
@@ -716,14 +734,17 @@ begin() {
   STAGE=$1
   ((EUID != 0)) || die "run this as the installed user, not as root"
   case $(systemd-detect-virt --vm 2>/dev/null) in
-    kvm|qemu) ;;
+    kvm | qemu) ;;
     *) die "this is not a QEMU or KVM guest, and the stages change the system they run on" ;;
   esac
   if [[ ! -d $EVIDENCE || ! -w $EVIDENCE ]]; then
     mount_help >&2
     die "the evidence share is not mounted and writable at $EVIDENCE"
   fi
-  [[ -f $SHARE/SHARE-INFO ]] || { mount_help >&2; die "no share at $SHARE (run this script from the mounted share)"; }
+  [[ -f $SHARE/SHARE-INFO ]] || {
+    mount_help >&2
+    die "no share at $SHARE (run this script from the mounted share)"
+  }
   STAGE_DIR=$EVIDENCE/$STAGE-$(date -u +%Y%m%dT%H%M%SZ)
   mkdir -p "$STAGE_DIR" || die "cannot write $STAGE_DIR"
   printf 'Stage %s; evidence in %s\n\n' "$STAGE" "$STAGE_DIR"
@@ -740,12 +761,15 @@ finish() {
 }
 
 case ${1:-} in
-  prerequisites|bootstrap|defaults|after-reboot|supplement)
+  prerequisites | bootstrap | defaults | after-reboot | supplement)
     begin "$1"
     "stage_${1//-/_}"
     finish
     ;;
   --show-bootstrap) readme_bootstrap "$CHECKOUT/README.md" ;;
-  -h|--help) usage ;;
-  *) usage >&2; exit 2 ;;
+  -h | --help) usage ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
 esac

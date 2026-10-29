@@ -4,6 +4,7 @@
 The login server is tailnet.login_server from the bound settings; sudo asks for the
 password in this terminal.
 """
+
 import json
 import os
 from pathlib import Path
@@ -14,7 +15,7 @@ import sys
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'lib'))
-from shaffy.fastload import load_data  # noqa: E402
+from shaffy.fastload import load_data
 
 account = pwd.getpwuid(os.getuid())
 if os.getuid() == 0 or str(Path.home()) != account.pw_dir:
@@ -29,9 +30,21 @@ if status.get('BackendState') == 'Running':
     raise SystemExit(0)
 # First restore only the mesh connection. The exit node can be chosen in Tailnet
 # after sign-in and reachability checks; do not disrupt the current LAN/DNS.
-p = subprocess.Popen(['sudo', '/usr/bin/tailscale', 'up', f'--login-server={server}',
-                      f'--operator={account.pw_name}', '--accept-dns=false', '--accept-routes=false',
-                      '--timeout=5m'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+p = subprocess.Popen(
+    [
+        'sudo',
+        '/usr/bin/tailscale',
+        'up',
+        f'--login-server={server}',
+        f'--operator={account.pw_name}',
+        '--accept-dns=false',
+        '--accept-routes=false',
+        '--timeout=5m',
+    ],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    text=True,
+)
 opened = False
 messages = []
 for line in p.stdout:
@@ -44,5 +57,9 @@ for line in p.stdout:
 code = p.wait()
 if code:
     print(''.join(messages).strip())
-print('Tailnet authentication completed.' if code == 0 else 'Tailnet sign-in still needs completion; use this helper again.')
+print(
+    'Tailnet authentication completed.'
+    if code == 0
+    else 'Tailnet sign-in still needs completion; use this helper again.'
+)
 raise SystemExit(code)

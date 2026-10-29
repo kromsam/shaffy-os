@@ -1,4 +1,5 @@
 """Retirements and one-off migrations carry a removal date (lib/shaffy/sunset.py)."""
+
 import datetime
 from pathlib import Path
 import subprocess
@@ -11,8 +12,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 
-from shaffy import sunset  # noqa: E402
-from shaffy.updates import removal_section  # noqa: E402
+from shaffy import sunset
+from shaffy.updates import removal_section
 
 
 def blocks(lines):
@@ -41,8 +42,10 @@ class ScannerTests(unittest.TestCase):
         (self.repo / 'tests/test_old.py').write_text("MARKER = '# Remove after 2000-01-01'\n")
 
     def test_markers_are_found_outside_the_tests_and_due_after_their_date(self):
-        self.assertEqual([(path, number, str(date)) for path, number, date, _ in sunset.markers(self.repo)],
-                         [('new.md', 1, '2027-03-01'), ('old.py', 3, '2027-01-16')])
+        self.assertEqual(
+            [(path, number, str(date)) for path, number, date, _ in sunset.markers(self.repo)],
+            [('new.md', 1, '2027-03-01'), ('old.py', 3, '2027-01-16')],
+        )
         self.assertEqual(sunset.due(self.repo, datetime.date(2027, 1, 16)), [])
         self.assertEqual([path for path, *_ in sunset.due(self.repo, datetime.date(2027, 2, 1))], ['old.py'])
 
@@ -65,7 +68,7 @@ class RetirementsCarryADateTests(unittest.TestCase):
     def test_every_retired_package(self):
         path = 'defaults/packages/retired.yml'
         lines = (ROOT / path).read_text().splitlines()
-        self.assert_marked(path, lines[lines.index('retired:') + 1:])
+        self.assert_marked(path, lines[lines.index('retired:') + 1 :])
 
     def test_every_public_mcp_server_retirement(self):
         path = 'defaults/config.yaml'
@@ -73,7 +76,7 @@ class RetirementsCarryADateTests(unittest.TestCase):
         servers = yaml.safe_load(text)['ai']['mcp_servers']
         lines = text.splitlines()
         for name in [name for name, server in servers.items() if server.get('enabled') is False]:
-            above = lines[:lines.index(f'    {name}:')]
+            above = lines[: lines.index(f'    {name}:')]
             comments = []
             while above and above[-1].lstrip().startswith('#'):
                 comments.append(above.pop())

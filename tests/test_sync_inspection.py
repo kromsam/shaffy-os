@@ -1,11 +1,12 @@
 """The sync inspectors report the clients' own state and resume only what is named."""
+
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
 import io
 import os
 from pathlib import Path
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,8 +38,13 @@ class NextcloudInspectionTests(unittest.TestCase):
     def test_saved_accounts_folders_and_pauses_are_read_as_the_client_wrote_them(self):
         urls, folders = nextcloud.saved_folders(self.home / '.config/Nextcloud/nextcloud.cfg')
         self.assertEqual(urls, ['https://cloud.example.invalid'])
-        self.assertEqual(folders, {'/home/tester/Documenten': {'remote': '/documents', 'paused': True},
-                                   '/home/tester/Sjablonen': {'remote': '/templates', 'paused': False}})
+        self.assertEqual(
+            folders,
+            {
+                '/home/tester/Documenten': {'remote': '/documents', 'paused': True},
+                '/home/tester/Sjablonen': {'remote': '/templates', 'paused': False},
+            },
+        )
         self.assertEqual(nextcloud.saved_folders(self.home / 'missing.cfg'), ([], {}))
 
     def test_a_folder_the_configuration_shows_running_is_not_resumed(self):
@@ -52,29 +58,38 @@ class NextcloudInspectionTests(unittest.TestCase):
             if args[0] == 'call' and args[4] == 'Describe':
                 return [[True, '', [{'type': 'b', 'data': True}]]]  # the unreliable checkbox says paused
             return 'Idle'
+
         errors = io.StringIO()
-        with mock.patch.object(Path, 'home', return_value=self.home), mock.patch.object(nextcloud, 'bus', bus), \
-                mock.patch.object(nextcloud, 'home_pair', side_effect=AssertionError('no snapshot expected')), \
-                redirect_stdout(io.StringIO()), redirect_stderr(errors), \
-                mock.patch.dict(os.environ, {'XDG_STATE_HOME': str(self.home / 'state')}):
+        with (
+            mock.patch.object(Path, 'home', return_value=self.home),
+            mock.patch.object(nextcloud, 'bus', bus),
+            mock.patch.object(nextcloud, 'home_pair', side_effect=AssertionError('no snapshot expected')),
+            redirect_stdout(io.StringIO()),
+            redirect_stderr(errors),
+            mock.patch.dict(os.environ, {'XDG_STATE_HOME': str(self.home / 'state')}),
+        ):
             self.assertEqual(nextcloud.main(['--resume', '/home/tester/Sjablonen']), 0)
         self.assertIn('is not paused in the saved configuration', errors.getvalue())
         self.assertFalse([c for c in calls if 'Activate' in c])
 
     def test_resuming_a_folder_that_is_not_configured_touches_nothing(self):
         errors = io.StringIO()
-        with mock.patch.object(Path, 'home', return_value=self.home), \
-                mock.patch.object(nextcloud, 'bus', side_effect=AssertionError('no D-Bus call expected')), \
-                redirect_stderr(errors):
+        with (
+            mock.patch.object(Path, 'home', return_value=self.home),
+            mock.patch.object(nextcloud, 'bus', side_effect=AssertionError('no D-Bus call expected')),
+            redirect_stderr(errors),
+        ):
             self.assertEqual(nextcloud.main(['--resume', '/home/tester/Muziek']), 1)
         self.assertIn('is not a configured Nextcloud folder', errors.getvalue())
 
     def test_an_unconfigured_client_is_reported_without_d_bus(self):
         (self.home / '.config/Nextcloud/nextcloud.cfg').write_text('[General]\n')
         output = io.StringIO()
-        with mock.patch.object(Path, 'home', return_value=self.home), \
-                mock.patch.object(nextcloud, 'bus', side_effect=AssertionError('no D-Bus call expected')), \
-                redirect_stdout(output):
+        with (
+            mock.patch.object(Path, 'home', return_value=self.home),
+            mock.patch.object(nextcloud, 'bus', side_effect=AssertionError('no D-Bus call expected')),
+            redirect_stdout(output),
+        ):
             self.assertEqual(nextcloud.main([]), 0)
         self.assertIn('no folders configured', output.getvalue())
 

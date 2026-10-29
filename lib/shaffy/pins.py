@@ -6,6 +6,8 @@ three days old where the upstream records a date, as Galaxy does; git tags and t
 image's tag carry none. yabridge is a reviewed source: it is reported, and its revision
 changes by hand. Tools mise installs follow `latest` and have no pin here.
 """
+
+from collections.abc import Callable
 from dataclasses import dataclass
 import datetime
 import hashlib
@@ -16,7 +18,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Callable, Optional
 import urllib.request
 
 MINIMUM_AGE = datetime.timedelta(days=3)
@@ -30,9 +31,9 @@ STABLE = re.compile(r'[0-9]+(?:\.[0-9]+)*')
 class Pin:
     name: str
     current: str
-    latest: Optional[str] = None
+    latest: str | None = None
     # Rewrites the files for `latest` and returns their paths; None: changed by hand.
-    raise_to: Optional[Callable[[], list]] = None
+    raise_to: Callable[[], list] | None = None
     note: str = ''
     error: str = ''
 
@@ -45,7 +46,7 @@ class Upstream:
     """The network reads, in one place so the tests can replace them."""
 
     def __init__(self, now=None):
-        self.now = now or datetime.datetime.now(datetime.timezone.utc)
+        self.now = now or datetime.datetime.now(datetime.UTC)
 
     def read(self, url):
         request = urllib.request.Request(url, headers={'User-Agent': 'shaffy-os-pins'})
@@ -57,8 +58,9 @@ class Upstream:
 
     def refs(self, url, *patterns):
         """{ref: commit} from `git ls-remote`, with annotated tags peeled."""
-        result = subprocess.run(['git', 'ls-remote', url, *patterns], capture_output=True, text=True,
-                                timeout=60, check=True)
+        result = subprocess.run(
+            ['git', 'ls-remote', url, *patterns], capture_output=True, text=True, timeout=60, check=True
+        )
         refs = {}
         for line in result.stdout.splitlines():
             commit, ref = line.split('\t')
@@ -95,8 +97,11 @@ def collections(root, upstream):
         pin = Pin(f'Ansible collection {name}', version)
         namespace, collection = name.split('.')
         data = upstream.json(f'{GALAXY}/{namespace}/{collection}/versions/?limit=100&ordering=-version')
-        versions = [v['version'] for v in data['data']
-                    if STABLE.fullmatch(v['version']) and upstream.old_enough(v['created_at'])]
+        versions = [
+            v['version']
+            for v in data['data']
+            if STABLE.fullmatch(v['version']) and upstream.old_enough(v['created_at'])
+        ]
         pin.latest = max(versions, key=numeric, default=version)
 
         def raise_to(name=name, old=version, pin=pin):
@@ -107,6 +112,7 @@ def collections(root, upstream):
                 raise ValueError(f'requirements.yml: no single entry for {name} {old}')
             path.write_text(updated)
             return ['requirements.yml']
+
         pin.raise_to = raise_to
         pins.append(pin)
     return pins
@@ -120,17 +126,21 @@ def yaru(root, upstream):
     pin = Pin('Yaru icons', current)
     # Keep the release line in use: Ubuntu's `…ubuntu` tags or upstream's plain ones.
     flavour = re.compile(r'[0-9]+(?:\.[0-9]+)+' + re.escape(re.sub(r'^[0-9.]+', '', current)))
-    tags = [ref.removeprefix('refs/tags/') for ref in upstream.refs('https://github.com/ubuntu/yaru.git', 'refs/tags/*')]
+    tags = [
+        ref.removeprefix('refs/tags/') for ref in upstream.refs('https://github.com/ubuntu/yaru.git', 'refs/tags/*')
+    ]
     pin.latest = max((t for t in tags if flavour.fullmatch(t)), key=numeric, default=current)
 
     def raise_to():
         archive = upstream.read(f'https://github.com/ubuntu/yaru/archive/refs/tags/{pin.latest}.tar.gz')
         sha256 = hashlib.sha256(archive).hexdigest()
-        changed = [_edit(root, path, current, pin.latest)
-                   for path in (script, 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md')]
+        changed = [
+            _edit(root, path, current, pin.latest) for path in (script, 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md')
+        ]
         _edit(root, script, digest, sha256, 1)
         _edit(root, 'docs/OMARCHY-IMPLEMENTATION.md', digest, sha256, 1)
         return changed
+
     pin.raise_to = raise_to
     return [pin]
 
@@ -141,9 +151,15 @@ def yabridge(root, upstream):
     branch = re.search(r'--branch (\S+)', text).group(1)
     head = upstream.refs('https://github.com/robbert-vdh/yabridge.git', f'refs/heads/{branch}')
     latest = head.get(f'refs/heads/{branch}', current)
-    return [Pin(f'yabridge ({branch})', current[:12], latest[:12],
-                note='a reviewed source: read the upstream changes, then set the revision in '
-                     'scripts/build-audio-bridge.sh and docs/MAINTENANCE.md by hand')]
+    return [
+        Pin(
+            f'yabridge ({branch})',
+            current[:12],
+            latest[:12],
+            note='a reviewed source: read the upstream changes, then set the revision in '
+            'scripts/build-audio-bridge.sh and docs/MAINTENANCE.md by hand',
+        )
+    ]
 
 
 def ci_container(root, upstream):
@@ -151,8 +167,10 @@ def ci_container(root, upstream):
     current = re.search(r'cachyos/cachyos@(sha256:[0-9a-f]{64})', (root / workflow).read_text()).group(1)
     tag = upstream.json('https://hub.docker.com/v2/repositories/cachyos/cachyos/tags/latest')
     pin = Pin('CI container cachyos/cachyos:latest', current[7:19], tag['digest'][7:19])
-    pin.raise_to = lambda: [_edit(root, workflow, current, tag['digest'], 1),
-                            _edit(root, 'tests/tool-versions.json', current, tag['digest'], 1)]
+    pin.raise_to = lambda: [
+        _edit(root, workflow, current, tag['digest'], 1),
+        _edit(root, 'tests/tool-versions.json', current, tag['digest'], 1),
+    ]
     return [pin]
 
 
@@ -160,21 +178,34 @@ def actions_checkout(root, upstream):
     workflow = '.github/workflows/selftest.yml'
     commit, current = re.search(r'actions/checkout@([0-9a-f]{40}) # (v[0-9.]+)', (root / workflow).read_text()).groups()
     refs = upstream.refs('https://github.com/actions/checkout.git', 'refs/tags/v*')
-    releases = {ref.removeprefix('refs/tags/'): sha for ref, sha in refs.items()
-                if re.fullmatch(r'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+', ref)}
+    releases = {
+        ref.removeprefix('refs/tags/'): sha
+        for ref, sha in refs.items()
+        if re.fullmatch(r'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+', ref)
+    }
     pin = Pin('GitHub action actions/checkout', current, max(releases, key=numeric, default=current))
-    pin.raise_to = lambda: [_edit(root, workflow, f'actions/checkout@{commit} # {current}',
-                                  f'actions/checkout@{releases[pin.latest]} # {pin.latest}')]
+    pin.raise_to = lambda: [
+        _edit(
+            root,
+            workflow,
+            f'actions/checkout@{commit} # {current}',
+            f'actions/checkout@{releases[pin.latest]} # {pin.latest}',
+        )
+    ]
     return [pin]
 
 
 def lazyvim(root, upstream, run=subprocess.run):
     lock = 'home/dot_config/nvim/lazy-lock.json'
-    stamp = subprocess.run(['git', '-C', str(root), 'log', '-1', '--format=%cI', '--', lock],
-                           capture_output=True, text=True, check=False).stdout.strip()
+    stamp = subprocess.run(
+        ['git', '-C', str(root), 'log', '-1', '--format=%cI', '--', lock], capture_output=True, text=True, check=False
+    ).stdout.strip()
     refreshed = datetime.datetime.fromisoformat(stamp) if stamp else upstream.now
-    pin = Pin('LazyVim plugin lock', f'refreshed {refreshed.date()}',
-              note='plugins move continuously; refresh-pins updates them in a sandbox')
+    pin = Pin(
+        'LazyVim plugin lock',
+        f'refreshed {refreshed.date()}',
+        note='plugins move continuously; refresh-pins updates them in a sandbox',
+    )
     pin.latest = 'due for a refresh' if upstream.now - refreshed > LOCK_AGE else pin.current
     pin.raise_to = lambda: refresh_lazyvim(root, run)
     return [pin]
@@ -188,17 +219,30 @@ def refresh_lazyvim(root, run=subprocess.run):
         config = sandbox / 'config/nvim'
         for source in (root / 'home/dot_config/nvim').rglob('*'):
             if source.is_file():
-                relative = Path(*(part.replace('dot_', '.', 1) if part.startswith('dot_') else part
-                                  for part in source.relative_to(root / 'home/dot_config/nvim').parts))
+                relative = Path(
+                    *(
+                        part.replace('dot_', '.', 1) if part.startswith('dot_') else part
+                        for part in source.relative_to(root / 'home/dot_config/nvim').parts
+                    )
+                )
                 (config / relative).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, config / relative)
         # lazy.lua holds every plugin to the lock unless SHAFFY_LAZY_REFRESH is set.
-        env = {**os.environ, 'SHAFFY_LAZY_REFRESH': '1',
-               **{f'XDG_{kind}_HOME': str(sandbox / kind.lower()) for kind in ('CONFIG', 'DATA', 'STATE', 'CACHE')}}
+        env = {
+            **os.environ,
+            'SHAFFY_LAZY_REFRESH': '1',
+            **{f'XDG_{kind}_HOME': str(sandbox / kind.lower()) for kind in ('CONFIG', 'DATA', 'STATE', 'CACHE')},
+        }
         # LazyVim discovers some plugins only once it is installed, so a second round completes the lock.
         for _ in range(2):
-            result = run(['nvim', '--headless', '+Lazy! sync', '+qa'], env=env, capture_output=True, text=True,
-                         timeout=900, check=False)
+            result = run(
+                ['nvim', '--headless', '+Lazy! sync', '+qa'],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=900,
+                check=False,
+            )
             if result.returncode:
                 raise RuntimeError(f'nvim exited with {result.returncode}: {result.stderr.strip()[-400:]}')
         written = (config / 'lazy-lock.json').read_text()
@@ -207,8 +251,11 @@ def refresh_lazyvim(root, run=subprocess.run):
             return []
         lock.write_text(written)
     changes = [f'{len([n for n in new if n in old and new[n] != old[n]])} plugin(s) moved']
-    changes += [f'{label}: {", ".join(names)}' for label, names in
-                (('added', sorted(set(new) - set(old))), ('removed', sorted(set(old) - set(new)))) if names]
+    changes += [
+        f'{label}: {", ".join(names)}'
+        for label, names in (('added', sorted(set(new) - set(old))), ('removed', sorted(set(old) - set(new))))
+        if names
+    ]
     return ['home/dot_config/nvim/lazy-lock.json', *changes]
 
 

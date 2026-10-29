@@ -27,6 +27,7 @@ Only the template layer honours the render sandbox, and only while the
 sandbox's token file named by SHAFFY_SANDBOX_TOKEN exists, so an exported
 SHAFFY_OP_MODE=sandbox alone lets nothing through.
 """
+
 import re
 
 FALSE = '(0|f|F|false|FALSE|False)'
@@ -57,5 +58,7 @@ def refusal(command, arguments, mode=None, edit_apply=False, edit_watch=False):
         mutating = True
     if not mutating:
         return None
-    return (f'Shaffy OS: run ./bin/shaffy apply instead of chezmoi {command}; direct changes '
-            'bypass its snapshots and records.')
+    return (
+        f'Shaffy OS: run ./bin/shaffy apply instead of chezmoi {command}; direct changes '
+        'bypass its snapshots and records.'
+    )

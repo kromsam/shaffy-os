@@ -1,4 +1,5 @@
 """Binding record, journal, lock and the supplement commands."""
+
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy.records import LockedError, RecordError, Records, new_record  # noqa: E402
+from shaffy.records import LockedError, RecordError, Records, new_record
 
 BINDING = {'mode': 'supplement', 'path': '/somewhere', 'supplement_id': 'demo'}
 
@@ -67,9 +68,13 @@ class RecordsTests(unittest.TestCase):
 
     def test_an_unreadable_root_state_names_the_fix(self):
         from unittest import mock
+
         from shaffy.records import read_root_record
-        with tempfile.TemporaryDirectory() as root, mock.patch.dict(os.environ, {
-                'SHAFFY_TEST_PREREQUISITES': 'fake', 'SHAFFY_TEST_ROOT_STATE': root}):
+
+        with (
+            tempfile.TemporaryDirectory() as root,
+            mock.patch.dict(os.environ, {'SHAFFY_TEST_PREREQUISITES': 'fake', 'SHAFFY_TEST_ROOT_STATE': root}),
+        ):
             (Path(root) / 'targets').mkdir()
             (Path(root) / 'targets/4242.json').write_text('{}')
             os.chmod(root, 0o600)  # not searchable, as /var/lib/shaffy at 0700 is for a user
@@ -80,11 +85,13 @@ class RecordsTests(unittest.TestCase):
                 os.chmod(root, 0o700)
 
     def kill_during_write(self, point):
-        script = (f'import os, signal, sys; sys.path.insert(0, {str(ROOT / "lib")!r})\n'
-                  'from shaffy.records import Records, new_record\n'
-                  f'r = Records({str(self.dir)!r}, fault=lambda p: os.kill(os.getpid(), '
-                  f'signal.SIGKILL) if p == {point!r} else None)\n'
-                  "r.write(new_record({'mode': 'none', 'path': None, 'supplement_id': None}, '/x'))\n")
+        script = (
+            f'import os, signal, sys; sys.path.insert(0, {str(ROOT / "lib")!r})\n'
+            'from shaffy.records import Records, new_record\n'
+            f'r = Records({str(self.dir)!r}, fault=lambda p: os.kill(os.getpid(), '
+            f'signal.SIGKILL) if p == {point!r} else None)\n'
+            "r.write(new_record({'mode': 'none', 'path': None, 'supplement_id': None}, '/x'))\n"
+        )
         result = subprocess.run([sys.executable, '-c', script], capture_output=True, check=False)
         self.assertEqual(result.returncode, -signal.SIGKILL)
 
@@ -108,24 +115,39 @@ class SupplementCommandTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.state = Path(self.temporary.name) / 'state'
         # Never the machine's own root records: those belong to its real installation.
-        self.env = {**os.environ, 'XDG_STATE_HOME': str(self.state), 'PATH': '/usr/bin:/bin',
-                    'SHAFFY_TEST_PREREQUISITES': 'fake',
-                    'SHAFFY_TEST_ROOT_STATE': str(Path(self.temporary.name) / 'root')}
+        self.env = {
+            **os.environ,
+            'XDG_STATE_HOME': str(self.state),
+            'PATH': '/usr/bin:/bin',
+            'SHAFFY_TEST_PREREQUISITES': 'fake',
+            'SHAFFY_TEST_ROOT_STATE': str(Path(self.temporary.name) / 'root'),
+        }
 
     def shaffy(self, *arguments):
-        return subprocess.run([str(ROOT / 'bin/shaffy'), *arguments], capture_output=True,
-                              text=True, env=self.env, check=False)
+        return subprocess.run(
+            [str(ROOT / 'bin/shaffy'), *arguments], capture_output=True, text=True, env=self.env, check=False
+        )
 
     def root_record(self, binding):
         """A root record as a system apply leaves it, in a test root state directory."""
         import pwd
+
         root = Path(self.temporary.name) / 'root'
         (root / 'targets').mkdir(parents=True)
         self.env.update(SHAFFY_TEST_PREREQUISITES='fake', SHAFFY_TEST_ROOT_STATE=str(root))
         uid = os.getuid()
-        (root / f'targets/{uid}.json').write_text(json.dumps({
-            'record_version': 1, 'target': {'uid': uid, 'user': pwd.getpwuid(uid).pw_name, 'home': str(Path.home())},
-            'binding': binding, 'pending': None, 'last_completed_op': 'op-0', 'phases': {}}))
+        (root / f'targets/{uid}.json').write_text(
+            json.dumps(
+                {
+                    'record_version': 1,
+                    'target': {'uid': uid, 'user': pwd.getpwuid(uid).pw_name, 'home': str(Path.home())},
+                    'binding': binding,
+                    'pending': None,
+                    'last_completed_op': 'op-0',
+                    'phases': {},
+                }
+            )
+        )
 
     def test_a_root_record_is_adopted_only_when_it_agrees(self):
         supplement = ROOT / 'supplement.example'

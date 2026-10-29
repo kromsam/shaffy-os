@@ -1,16 +1,17 @@
 """Exercise backup scope, retention isolation and real Restic restore verification."""
+
 import importlib.machinery
 import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
-import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from support import host_test  # noqa: E402
+from support import host_test
 
 PATH = Path(__file__).parents[1] / 'home/private_dot_local/bin/executable_restic-home'
 loader = importlib.machinery.SourceFileLoader('home_backup', str(PATH))
@@ -18,24 +19,36 @@ spec = importlib.util.spec_from_loader(loader.name, loader)
 module = importlib.util.module_from_spec(spec)
 loader.exec_module(module)
 
-SETTINGS = {'home': '/home/tester', 'host': 'laptop', 'tags': ['automatic', 'shaffy'],
-            'repository': 'sftp:restic-home-nas:repository', 'repository_id': None,
-            'retention': {'daily': 14, 'weekly': 8, 'monthly': 12}}
+SETTINGS = {
+    'home': '/home/tester',
+    'host': 'laptop',
+    'tags': ['automatic', 'shaffy'],
+    'repository': 'sftp:restic-home-nas:repository',
+    'repository_id': None,
+    'retention': {'daily': 14, 'weekly': 8, 'monthly': 12},
+}
 
 
 class BackupScope(unittest.TestCase):
     def test_other_hosts_paths_and_tags_are_rejected(self):
         valid = {'hostname': 'laptop', 'paths': ['/home/tester'], 'tags': ['automatic', 'shaffy']}
         module.verify_snapshot(valid, SETTINGS)
-        for override in [{'hostname': 'another-host'}, {'paths': ['/home/old']},
-                         {'paths': ['/home/tester', '/etc']}, {'tags': ['automatic']}, {'tags': None}]:
+        for override in [
+            {'hostname': 'another-host'},
+            {'paths': ['/home/old']},
+            {'paths': ['/home/tester', '/etc']},
+            {'tags': ['automatic']},
+            {'tags': None},
+        ]:
             with self.subTest(override=override), self.assertRaises(RuntimeError):
                 module.verify_snapshot({**valid, **override}, SETTINGS)
 
     def test_retention_is_scoped_and_follows_the_settings(self):
         arguments = module.retention_args({**SETTINGS, 'retention': {'daily': 7, 'weekly': 4, 'monthly': 6}})
-        self.assertEqual(arguments[:8], ['forget', '--host', 'laptop', '--path', '/home/tester', '--tag',
-                                         'automatic,shaffy', '--group-by'])
+        self.assertEqual(
+            arguments[:8],
+            ['forget', '--host', 'laptop', '--path', '/home/tester', '--tag', 'automatic,shaffy', '--group-by'],
+        )
         self.assertEqual(arguments[-6:], ['--keep-daily', '7', '--keep-weekly', '4', '--keep-monthly', '6'])
 
     def test_missing_or_failed_backup_has_no_success_summary(self):
@@ -83,10 +96,13 @@ class RealRepositoryTests(unittest.TestCase):
         for name in ['password', 'id_ed25519', 'ssh_config', 'known_hosts']:
             (self.config / name).write_text('fixture\n')
         (self.config / 'excludes').write_text('$HOME/.cache\n$HOME/Projects/database\n')
-        for relative, data in (('Documenten/notes.md', b'# notes\n'), ('Documenten/brief.odt', bytes(range(256)) * 40),
-                               ('Projects/site/index.html', b'<p>hi</p>\n'),
-                               ('Projects/database/table.db', b'never sampled\n'),
-                               ('.ssh/id_ed25519', b'never sampled either\n')):
+        for relative, data in (
+            ('Documenten/notes.md', b'# notes\n'),
+            ('Documenten/brief.odt', bytes(range(256)) * 40),
+            ('Projects/site/index.html', b'<p>hi</p>\n'),
+            ('Projects/database/table.db', b'never sampled\n'),
+            ('.ssh/id_ed25519', b'never sampled either\n'),
+        ):
             path = self.home / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
@@ -144,8 +160,11 @@ class RealRepositoryTests(unittest.TestCase):
         backup = self.client(repository_id=self.backup.repository(allow_unpinned=True))
         backup.backup()
         snapshot = json.loads((backup.state / 'last-success.json').read_text())['snapshot_id']
-        for path in (self.home / 'Documenten/notes.md', self.home / 'Documenten/brief.odt',
-                     self.home / 'Projects/site/index.html'):
+        for path in (
+            self.home / 'Documenten/notes.md',
+            self.home / 'Documenten/brief.odt',
+            self.home / 'Projects/site/index.html',
+        ):
             path.write_bytes(b'changed\n')
             os.utime(path, ns=(1, 1))  # older than the run, but no longer what the snapshot holds
         self.assertEqual(backup.random_samples(snapshot, 10**18), [])

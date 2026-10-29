@@ -13,12 +13,12 @@ pacman -Syu --needed --noconfirm mise uv chezmoi python-yaml python-jsonschema s
 # Desktop prerequisites a Niri installation brings; check asks for the desktop key's build tools.
 pacman -S --needed --noconfirm wayland libxkbcommon >/dev/null
 useradd --create-home tester
-echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/shaffy-test
+echo 'tester ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/shaffy-test
 cp -a /src /home/tester/checkout
 rm -rf /home/tester/checkout/collections /home/tester/checkout/artifacts
 cp -a /src/tests/fixtures/supplements/comprehensive /home/tester/supplement
 # An extra package, so the first apply changes something and the second must change nothing.
-printf 'packages:\n  extra: [htop]\n' >> /home/tester/supplement/config.yaml
+printf 'packages:\n  extra: [htop]\n' >>/home/tester/supplement/config.yaml
 # A settings value shaped like Jinja: the actual play route must carry it as text.
 python3 - <<'EOF2'
 from pathlib import Path
@@ -28,15 +28,15 @@ probe = ('    jinja-probe:\n      command: "/usr/bin/true"\n      env:\n'
 path.write_text(path.read_text().replace('  mcp_servers:\n', '  mcp_servers:\n' + probe, 1))
 EOF2
 cp /home/tester/supplement/config.yaml /home/tester/config.yaml.good
-mkdir /home/tester/Bilder /home/tester/Projects  # the fixture's folder_links targets
+mkdir /home/tester/Bilder /home/tester/Projects # the fixture's folder_links targets
 chown -R tester: /home/tester
 
-run() {  # run a command as the target user in the checkout; never fails the script
+run() { # run a command as the target user in the checkout; never fails the script
   runuser -u tester -- env -i HOME=/home/tester USER=tester PATH=/usr/bin:/bin LANG=C.UTF-8 \
     SHAFFY_TEST_PREREQUISITES=fake SHAFFY_TEST_ROOT_STATE=/var/lib/shaffy ${FAULT:+SHAFFY_TEST_FAULT=$FAULT} \
     bash -c 'cd /home/tester/checkout && exec "$@"' bash "$@"
 }
-state() {  # print the records as one JSON line
+state() { # print the records as one JSON line
   python3 - <<'EOF'
 import json
 from pathlib import Path
@@ -68,14 +68,17 @@ for attempt in first second; do
   echo "RESULT apply-$attempt code=$code recap=$recap"
   echo "RESULT state-$attempt $(state)"
   echo "RESULT jinja-$attempt $(test -e /tmp/shaffy-jinja-ran && echo evaluated || echo literal)"
-  [[ $code == 0 ]] || { echo "$output" | tail -40; exit 1; }
+  [[ $code == 0 ]] || {
+    echo "$output" | tail -40
+    exit 1
+  }
 done
 
 echo "RESULT desktop $(pacman -Q grim tesseract localsend restic htop 2>&1 | cut -d' ' -f1 | tr '\n' ' ')"
 
 # Crash between record writes, then recover.
 for fault in after-pending after-root-pre-snapshots after-root-pending after-root-phase-start \
-    after-root-phase-done after-play; do
+  after-root-phase-done after-play; do
   set +e
   FAULT=$fault run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
   crashed=$?
@@ -84,23 +87,30 @@ for fault in after-pending after-root-pre-snapshots after-root-pending after-roo
   code=$?
   set -e
   echo "RESULT resume-$fault code=$code $(state)"
-  [[ $code == 0 ]] || { echo "$resumed" | tail -40; exit 1; }
+  [[ $code == 0 ]] || {
+    echo "$resumed" | tail -40
+    exit 1
+  }
 done
 
 # Settings that make the play fail every time: a group name in `remove` (pacman would expand it).
-printf '  remove: [cachyos]\n' >> /home/tester/supplement/config.yaml
+printf '  remove: [cachyos]\n' >>/home/tester/supplement/config.yaml
 set +e
-run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1; failed=$?
-run ./bin/shaffy apply --resume >/dev/null 2>&1; resumed=$?
-abandon=$(run ./bin/shaffy apply --abandon 2>&1); abandoned=$?
+run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
+failed=$?
+run ./bin/shaffy apply --resume >/dev/null 2>&1
+resumed=$?
+abandon=$(run ./bin/shaffy apply --abandon 2>&1)
+abandoned=$?
 set -e
 echo "RESULT failing apply=$failed resume=$resumed abandon=$abandoned $(state)"
-grep -q 'pacman groups' <<<"$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1 || true)" \
-  && echo "RESULT group-refusal named" || echo "RESULT group-refusal missing"
+grep -q 'pacman groups' <<<"$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1 || true)" &&
+  echo "RESULT group-refusal named" || echo "RESULT group-refusal missing"
 run ./bin/shaffy apply --abandon >/dev/null 2>&1 || true
 cp /home/tester/config.yaml.good /home/tester/supplement/config.yaml
 set +e
-run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1; code=$?
+run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
+code=$?
 set -e
 echo "RESULT after-abandon code=$code $(state)"
 
@@ -115,9 +125,12 @@ record['pending'] = {'op': '20000101T000000Z-rolled', 'scope': 'system', 'captur
 json.dump(record, open(path, 'w'))
 EOF2
 set +e
-run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1; refused=$?
-run ./bin/shaffy apply --system --abandon >/dev/null 2>&1; cleared=$?
-run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1; code=$?
+run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
+refused=$?
+run ./bin/shaffy apply --system --abandon >/dev/null 2>&1
+cleared=$?
+run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
+code=$?
 set -e
 echo "RESULT rollback refused=$refused abandon=$cleared apply=$code $(state)"
 echo "RESULT status $(run ./bin/shaffy status --no-drift | grep -E '^System:')"

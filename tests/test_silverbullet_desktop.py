@@ -1,4 +1,5 @@
 """The SilverBullet Desktop installer trusts only its channel's manifest."""
+
 import base64
 import hashlib
 from pathlib import Path
@@ -37,11 +38,16 @@ class SilverBulletDesktopTests(unittest.TestCase):
     def test_the_manifest_names_the_appimage_its_size_and_digest(self):
         version, url, size, digest = INSTALLER['release'](manifest())
         self.assertEqual(version, '9.9.9')
-        self.assertEqual(url, 'https://release.silverbullet.md/electron/artifacts/9.9.9/linux/x64/'
-                              'SilverBullet-9.9.9-linux-x86_64.AppImage')
+        self.assertEqual(
+            url,
+            'https://release.silverbullet.md/electron/artifacts/9.9.9/linux/x64/'
+            'SilverBullet-9.9.9-linux-x86_64.AppImage',
+        )
         self.assertEqual((size, digest), (len(PAYLOAD), hashlib.sha512(PAYLOAD).digest()))
-        self.assertEqual(INSTALLER['manifest_url']('x86_64'),
-                         'https://release.silverbullet.md/electron/stable/linux/x64/latest-linux.yml')
+        self.assertEqual(
+            INSTALLER['manifest_url']('x86_64'),
+            'https://release.silverbullet.md/electron/stable/linux/x64/latest-linux.yml',
+        )
 
     def test_a_manifest_pointing_elsewhere_is_refused(self):
         with self.assertRaisesRegex(SystemExit, 'outside'):
@@ -55,12 +61,20 @@ class SilverBulletDesktopTests(unittest.TestCase):
             urlopen = INSTALLER['urllib'].request.urlopen
             with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(b'tampered!')):
                 with self.assertRaisesRegex(SystemExit, 'does not match'):
-                    INSTALLER['download']('https://release.silverbullet.md/x.AppImage', destination,
-                                          len(PAYLOAD), hashlib.sha512(PAYLOAD).digest())
+                    INSTALLER['download'](
+                        'https://release.silverbullet.md/x.AppImage',
+                        destination,
+                        len(PAYLOAD),
+                        hashlib.sha512(PAYLOAD).digest(),
+                    )
             self.assertFalse(destination.exists())
             with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(PAYLOAD)) as fetched:
-                INSTALLER['download']('https://release.silverbullet.md/x.AppImage', destination,
-                                      len(PAYLOAD), hashlib.sha512(PAYLOAD).digest())
+                INSTALLER['download'](
+                    'https://release.silverbullet.md/x.AppImage',
+                    destination,
+                    len(PAYLOAD),
+                    hashlib.sha512(PAYLOAD).digest(),
+                )
             self.assertEqual(destination.read_bytes(), PAYLOAD)
             # The release server refuses Python's default user agent.
             self.assertEqual(fetched.call_args[0][0].get_header('User-agent'), INSTALLER['USER_AGENT'])
@@ -71,8 +85,10 @@ class SilverBulletDesktopTests(unittest.TestCase):
             target = Path(home) / INSTALLER['TARGET']
             target.parent.mkdir(parents=True)
             target.write_bytes(b'installed')
-            with patch.dict('os.environ', {'HOME': home}), \
-                    patch.object(INSTALLER['urllib'].request, 'urlopen', side_effect=AssertionError('no download')):
+            with (
+                patch.dict('os.environ', {'HOME': home}),
+                patch.object(INSTALLER['urllib'].request, 'urlopen', side_effect=AssertionError('no download')),
+            ):
                 INSTALLER['main']()
             self.assertEqual(target.read_bytes(), b'installed')
 

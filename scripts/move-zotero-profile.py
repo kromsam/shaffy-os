@@ -12,6 +12,7 @@ pre/post pair (config home) brackets the move, the old `profiles.ini` is copied
 first, and the output says how to undo it. A run interrupted between the rename
 and the `profiles.ini` write is finished by running it again.
 """
+
 import argparse
 import configparser
 import fcntl
@@ -23,7 +24,7 @@ import tempfile
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
-from shaffy.snapshots import SnapshotError, home_pair  # noqa: E402
+from shaffy.snapshots import SnapshotError, home_pair
 
 MANAGED = 'shaffy.default'
 
@@ -63,8 +64,9 @@ def running(directory):
 def rewrite(ini, old, new):
     """Point the profile's Path line at the new name, changing nothing else."""
     lines = ini.read_text().splitlines(keepends=True)
-    changed = [line.replace(f'Path={old}', f'Path={new}', 1) if line.strip() == f'Path={old}' else line
-               for line in lines]
+    changed = [
+        line.replace(f'Path={old}', f'Path={new}', 1) if line.strip() == f'Path={old}' else line for line in lines
+    ]
     handle, temporary = tempfile.mkstemp(dir=ini.parent, prefix='.profiles-', suffix='.tmp')
     with os.fdopen(handle, 'w') as stream:
         stream.write(''.join(changed))
@@ -98,8 +100,11 @@ def main(argv=None):
                 raise MoveError(f'{new} already exists; review both profiles by hand')
             if running(old):
                 raise MoveError('Zotero is running; close it and run this again')
-        plan = (f'finish the interrupted move: point {ini} at {MANAGED}' if interrupted
-                else f'rename {old} to {new} and point {ini} at it')
+        plan = (
+            f'finish the interrupted move: point {ini} at {MANAGED}'
+            if interrupted
+            else f'rename {old} to {new} and point {ini} at it'
+        )
         if not args.apply:
             print(f'Would {plan}. Close Zotero and add --apply to do it.')
             return 0
@@ -114,9 +119,11 @@ def main(argv=None):
     except (MoveError, SnapshotError, OSError, configparser.Error) as error:
         print(f'move-zotero-profile: {error}', file=sys.stderr)
         return 1
-    print(f'Moved the profile to {new}. The old profiles.ini is in {copies}.\n'
-          f'Undo, with Zotero closed: mv {new} {old}; cp {copies}/profiles.ini {ini}\n'
-          'Next: start Zotero once to check the library, then run ./bin/shaffy integration zotero adopt.')
+    print(
+        f'Moved the profile to {new}. The old profiles.ini is in {copies}.\n'
+        f'Undo, with Zotero closed: mv {new} {old}; cp {copies}/profiles.ini {ini}\n'
+        'Next: start Zotero once to check the library, then run ./bin/shaffy integration zotero adopt.'
+    )
     return 0
 
 

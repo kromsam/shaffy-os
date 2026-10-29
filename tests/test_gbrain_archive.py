@@ -1,12 +1,13 @@
 """Recovery integrity and cooperative database exclusion before retirement."""
+
 import fcntl
 import json
 from pathlib import Path
 import runpy
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = runpy.run_path(str(ROOT / 'scripts/archive-gbrain.py'))
@@ -51,9 +52,10 @@ class GBrainArchiveTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 with ARCHIVE['paused_service']():
                     raise RuntimeError('copy failed')
-            self.assertEqual([call.args[0][-2:] for call in mocked.call_args_list],
-                             [['is-active', 'gbrain-mcp.service'], ['stop', 'gbrain-mcp.service'],
-                              ['start', 'gbrain-mcp.service']])
+            self.assertEqual(
+                [call.args[0][-2:] for call in mocked.call_args_list],
+                [['is-active', 'gbrain-mcp.service'], ['stop', 'gbrain-mcp.service'], ['start', 'gbrain-mcp.service']],
+            )
 
     def test_unknown_service_state_fails_without_copy_or_stop(self):
         with patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as mocked:

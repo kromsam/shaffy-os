@@ -1,4 +1,5 @@
 """Validate a rendered home with each application's own checker."""
+
 import json
 from pathlib import Path
 import re
@@ -10,8 +11,10 @@ ANSI = re.compile(r'\x1b\[[0-9;]*m')
 # Noctalia fetches plugins from its sources at runtime, so a rendered home has
 # none: their settings and their widgets (types written author/plugin:entry) are expected
 # to be unknown there. Built-in widgets and everything else must still validate.
-NOCTALIA_EXPECTED = re.compile(r'plugin_settings\.[^:\s]+: no loaded plugin with this id'
-                               r'|widget\.[^:\s]+: unrecognized widget type "[^"/\s]+/[^"\s]+"')
+NOCTALIA_EXPECTED = re.compile(
+    r'plugin_settings\.[^:\s]+: no loaded plugin with this id'
+    r'|widget\.[^:\s]+: unrecognized widget type "[^"/\s]+/[^"\s]+"'
+)
 SKIP_DIRS = {'.cache', '__pycache__'}
 
 
@@ -36,8 +39,9 @@ def validate_desktop(home):
     noctalia = home / '.config/noctalia'
     if noctalia.is_dir():
         code, output = _run(['noctalia', 'config', 'validate', str(noctalia)])
-        unexpected = [line for line in output.splitlines()
-                      if re.search(r'\bWARN', line) and not NOCTALIA_EXPECTED.search(line)]
+        unexpected = [
+            line for line in output.splitlines() if re.search(r'\bWARN', line) and not NOCTALIA_EXPECTED.search(line)
+        ]
         if code or unexpected:
             problems.append('noctalia: ' + ('\n'.join(unexpected) or _tail(output)))
     return problems
@@ -65,8 +69,7 @@ def validate_home(home, checkout):
             problems.append(f'fish: {script.relative_to(home)}: {_tail(output, 3)}')
     tmux = home / '.config/tmux/tmux.conf'
     if tmux.exists() and shutil.which('tmux'):
-        code, output = _run(['/usr/bin/python3', str(checkout / 'scripts/validate-tmux-config.py'),
-                             str(tmux)])
+        code, output = _run(['/usr/bin/python3', str(checkout / 'scripts/validate-tmux-config.py'), str(tmux)])
         if code:
             problems.append('tmux: ' + _tail(output))
     for path in sorted(home.rglob('*')):
@@ -79,6 +82,7 @@ def validate_home(home, checkout):
                 json.loads(path.read_text())
             elif path.suffix in ('.yaml', '.yml'):
                 import yaml
+
                 yaml.safe_load(path.read_text())
         except Exception as error:  # report any parser's error with the file
             problems.append(f'{path.relative_to(home)}: {type(error).__name__}: {error}')

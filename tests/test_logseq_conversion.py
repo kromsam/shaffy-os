@@ -1,4 +1,5 @@
 """Converting a Logseq graph into a SilverBullet space, with a synthetic graph."""
+
 from pathlib import Path
 import runpy
 import subprocess
@@ -83,8 +84,9 @@ class LogseqConversionTests(unittest.TestCase):
             (graph / name).parent.mkdir(parents=True, exist_ok=True)
             (graph / name).write_text(textwrap.dedent(text))
         before = {p: p.read_bytes() for p in graph.rglob('*') if p.is_file()}
-        result = subprocess.run([sys.executable, '-I', str(SCRIPT), str(graph), str(space)],
-                                capture_output=True, text=True)
+        result = subprocess.run(
+            [sys.executable, '-I', str(SCRIPT), str(graph), str(space)], capture_output=True, text=True
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual({p: p.read_bytes() for p in graph.rglob('*') if p.is_file()}, before, 'the graph is only read')
         return space
@@ -92,7 +94,9 @@ class LogseqConversionTests(unittest.TestCase):
     def test_journals_tasks_and_links_follow_silverbullet_conventions(self):
         space = self.convert()
         journal = (space / 'Journal/2024-01-15.md').read_text()
-        self.assertTrue(journal.startswith('---\ntags: [journal]\ndate: 2024-01-15\n---\n'), 'as the journal template writes')
+        self.assertTrue(
+            journal.startswith('---\ntags: [journal]\ndate: 2024-01-15\n---\n'), 'as the journal template writes'
+        )
         self.assertIn('- [ ] call [[Example Person]] about [[Example Project/Plans]]', journal)
         self.assertIn('  - [x] draft #notes', journal)
         self.assertIn('- [DOING] reading\n  [scheduled: 2024-01-16]', journal)
@@ -110,12 +114,17 @@ class LogseqConversionTests(unittest.TestCase):
         space = self.convert()
         text = (space / 'Example Project/Plans.md').read_text()
         front, body = text.split('---\n')[1:3]
-        self.assertEqual(yaml.safe_load(front), {'tags': ['planning', 'example'], 'aliases': ['Plans'],
-                                                 'source': '[[Journal/2024-01-15]]'})
+        self.assertEqual(
+            yaml.safe_load(front),
+            {'tags': ['planning', 'example'], 'aliases': ['Plans'], 'source': '[[Journal/2024-01-15]]'},
+        )
         self.assertIn('- first idea\n  [originalTitle: An Idea]\n', body)
         self.assertNotIn('id::', body)
-        self.assertIn('- ${query[[from o = logseq.blocks() where (logseq.refers(o, "planning") and '
-                      'logseq.refers(o, "example")) select logseq.render(o)]]}', body)
+        self.assertIn(
+            '- ${query[[from o = logseq.blocks() where (logseq.refers(o, "planning") and '
+            'logseq.refers(o, "example")) select logseq.render(o)]]}',
+            body,
+        )
         self.assertIn('![[assets/diagram.png]]', body)
         self.assertIn('`[[not a link]]` stays code', body)
         self.assertTrue((space / 'assets/photo.png').exists())
@@ -131,17 +140,25 @@ class LogseqConversionTests(unittest.TestCase):
     def test_simple_queries_become_silverbullet_queries(self):
         space = self.convert()
         outings = (space / 'Outings.md').read_text().split('\n')
-        self.assertEqual(outings[0], '- ${query[[from o = logseq.blocks() where (logseq.refers(o, "Outing") and '
-                                     'not (logseq.refers(o, "Example Person"))) order by o.what desc nulls last '
-                                     'select {page = "[[" .. o.page .. "]]", what = o.what, '
-                                     'tags = table.concat(o.tags or {}, " ")}]]}')
-        self.assertEqual(outings[1], '- ${query[[from o = logseq.blocks() where logseq.marker(o, "TODO") '
-                                     'select logseq.render(o)]]}')
+        self.assertEqual(
+            outings[0],
+            '- ${query[[from o = logseq.blocks() where (logseq.refers(o, "Outing") and '
+            'not (logseq.refers(o, "Example Person"))) order by o.what desc nulls last '
+            'select {page = "[[" .. o.page .. "]]", what = o.what, '
+            'tags = table.concat(o.tags or {}, " ")}]]}',
+        )
+        self.assertEqual(
+            outings[1], '- ${query[[from o = logseq.blocks() where logseq.marker(o, "TODO") select logseq.render(o)]]}'
+        )
         self.assertEqual(outings[2], '- `{{query "full text"}}`', 'what it cannot translate stays as code')
         library = (space / 'Library/Logseq.md').read_text()
         self.assertTrue(library.startswith('---\ntags: meta\n---\n'))
-        for helper in ('function logseq.refers(o, name)', 'function logseq.marker(o, marker)',
-                       'function logseq.blocks()', 'function logseq.render(o)'):
+        for helper in (
+            'function logseq.refers(o, name)',
+            'function logseq.marker(o, marker)',
+            'function logseq.blocks()',
+            'function logseq.render(o)',
+        ):
             self.assertIn(helper, library)
         report = (space / 'Logseq import.md').read_text()
         self.assertTrue(report.startswith('---\ntags: meta/logseq-import\n---\n'), 'kept out of queries')
@@ -151,11 +168,13 @@ class LogseqConversionTests(unittest.TestCase):
 
     def test_templates_become_slash_templates(self):
         space = self.convert()
-        self.assertEqual((space / 'Library/Templates/Outing.md').read_text(),
-                         '---\ntags: meta/template/slash\ndescription: Logseq template Outing\n---\n'
-                         '- #Outing\n  [what: X]\n')
-        self.assertEqual((space / 'Templates.md').read_text(),
-                         '- Slash template /Outing: [[Library/Templates/Outing]]\n')
+        self.assertEqual(
+            (space / 'Library/Templates/Outing.md').read_text(),
+            '---\ntags: meta/template/slash\ndescription: Logseq template Outing\n---\n- #Outing\n  [what: X]\n',
+        )
+        self.assertEqual(
+            (space / 'Templates.md').read_text(), '- Slash template /Outing: [[Library/Templates/Outing]]\n'
+        )
 
     def test_invalid_names_are_cleaned_and_reported(self):
         space = self.convert()
@@ -180,8 +199,9 @@ class LogseqConversionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             graph = Path(directory) / 'graph'
             (graph / 'pages').mkdir(parents=True)
-            result = subprocess.run([sys.executable, '-I', str(SCRIPT), str(graph), directory],
-                                    capture_output=True, text=True)
+            result = subprocess.run(
+                [sys.executable, '-I', str(SCRIPT), str(graph), directory], capture_output=True, text=True
+            )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('exists', result.stderr)
 
@@ -189,8 +209,9 @@ class LogseqConversionTests(unittest.TestCase):
         clean = CONVERT['clean_name']
         self.assertEqual(clean('@key|part#2'), 'key-part-2')
         self.assertEqual(clean('.hidden/../page.md'), 'hidden/page')
-        self.assertEqual(CONVERT['journal_date']('Jan 5th, 2024', CONVERT['title_pattern']('MMM do, yyyy')).isoformat(),
-                         '2024-01-05')
+        self.assertEqual(
+            CONVERT['journal_date']('Jan 5th, 2024', CONVERT['title_pattern']('MMM do, yyyy')).isoformat(), '2024-01-05'
+        )
 
 
 if __name__ == '__main__':

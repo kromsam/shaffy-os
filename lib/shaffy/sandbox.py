@@ -10,6 +10,7 @@ SHAFFY_RENDER_DIRECT=1 renders without bubblewrap, and is honoured only inside a
 container whose account's home carries no Shaffy OS binding, and never for the
 preflight of a real apply.
 """
+
 import json
 import os
 from pathlib import Path
@@ -46,27 +47,85 @@ def _prepare(root, supplement_path, user_dirs=None):
     binding = home / '.local/state/shaffy/binding.json'
     binding.parent.mkdir(parents=True)
     mode = 'supplement' if supplement_path else 'none'
-    binding.write_text(json.dumps({'record_version': 1, 'binding': {
-        'mode': mode, 'path': supplement_path, 'supplement_id': None}}) + '\n')
+    binding.write_text(
+        json.dumps({'record_version': 1, 'binding': {'mode': mode, 'path': supplement_path, 'supplement_id': None}})
+        + '\n'
+    )
     return home, work
 
 
 def _bwrap(root, checkout, supplement, argv, found=None):
-    command = ['bwrap', '--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc',
-               '--unshare-all', '--new-session', '--die-with-parent',
-               '--tmpfs', '/home', '--bind', str(root / 'home'), INSIDE_HOME,
-               '--tmpfs', '/run', '--tmpfs', '/tmp', '--tmpfs', '/var/tmp', '--tmpfs', '/dev/shm',
-               '--bind', str(root / 'work'), '/tmp/work',
-               '--ro-bind', str(checkout), '/tmp/checkout',
-               '--ro-bind', str(root / 'work/passwd'), '/etc/passwd',
-               '--ro-bind', str(root / 'work/group'), '/etc/group',
-               '--ro-bind', str(root / 'work/hostname'), '/etc/hostname',
-               '--hostname', HOST, '--uid', str(UID), '--gid', str(UID), '--clearenv',
-               '--setenv', 'HOME', INSIDE_HOME, '--setenv', 'USER', USER,
-               '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'PATH', PATH,
-               '--setenv', 'XDG_CACHE_HOME', '/tmp/work/cache', '--setenv', 'SHAFFY_OP_MODE', 'sandbox',
-               '--setenv', 'SHAFFY_SANDBOX_TOKEN', '/tmp/work/sandbox-token',
-               '--chdir', INSIDE_HOME]
+    command = [
+        'bwrap',
+        '--ro-bind',
+        '/',
+        '/',
+        '--dev',
+        '/dev',
+        '--proc',
+        '/proc',
+        '--unshare-all',
+        '--new-session',
+        '--die-with-parent',
+        '--tmpfs',
+        '/home',
+        '--bind',
+        str(root / 'home'),
+        INSIDE_HOME,
+        '--tmpfs',
+        '/run',
+        '--tmpfs',
+        '/tmp',
+        '--tmpfs',
+        '/var/tmp',
+        '--tmpfs',
+        '/dev/shm',
+        '--bind',
+        str(root / 'work'),
+        '/tmp/work',
+        '--ro-bind',
+        str(checkout),
+        '/tmp/checkout',
+        '--ro-bind',
+        str(root / 'work/passwd'),
+        '/etc/passwd',
+        '--ro-bind',
+        str(root / 'work/group'),
+        '/etc/group',
+        '--ro-bind',
+        str(root / 'work/hostname'),
+        '/etc/hostname',
+        '--hostname',
+        HOST,
+        '--uid',
+        str(UID),
+        '--gid',
+        str(UID),
+        '--clearenv',
+        '--setenv',
+        'HOME',
+        INSIDE_HOME,
+        '--setenv',
+        'USER',
+        USER,
+        '--setenv',
+        'LANG',
+        'C.UTF-8',
+        '--setenv',
+        'PATH',
+        PATH,
+        '--setenv',
+        'XDG_CACHE_HOME',
+        '/tmp/work/cache',
+        '--setenv',
+        'SHAFFY_OP_MODE',
+        'sandbox',
+        '--setenv',
+        'SHAFFY_SANDBOX_TOKEN',
+        '/tmp/work/sandbox-token',
+        '--chdir',
+        INSIDE_HOME,
+    ]
     if supplement:
         command += ['--ro-bind', supplement, '/tmp/supplement']
     if found:
@@ -88,13 +147,16 @@ def _direct(allow_direct):
         raise RenderError('SHAFFY_RENDER_DIRECT=1 is honoured only inside a disposable container')
     account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
     if (account_home / '.local/state/shaffy/binding.json').exists():
-        raise RenderError(f'SHAFFY_RENDER_DIRECT=1 is refused: {account_home} holds a Shaffy OS '
-                          'binding, so this container shares a real home')
+        raise RenderError(
+            f'SHAFFY_RENDER_DIRECT=1 is refused: {account_home} holds a Shaffy OS '
+            'binding, so this container shares a real home'
+        )
     return True
 
 
-def render(checkout, supplement=None, without=False, home=None, keep=None, timeout=300,
-           allow_direct=True, user_dirs=None):
+def render(
+    checkout, supplement=None, without=False, home=None, keep=None, timeout=300, allow_direct=True, user_dirs=None
+):
     """Render the selected settings into a fresh synthetic home; return the result dict.
 
     The result has `problems` (a list of strings), `converged`, `identity` and
@@ -116,20 +178,35 @@ def render(checkout, supplement=None, without=False, home=None, keep=None, timeo
         found = release(checkout)  # the Git directory may be out of the sandbox's sight
         if direct:
             base = [str(checkout), str(rendered), str(work)]
-            env = {'HOME': str(rendered), 'USER': USER, 'LANG': 'C.UTF-8', 'PATH': PATH,
-                   'XDG_CACHE_HOME': str(work / 'cache'), 'SHAFFY_OP_MODE': 'sandbox',
-                   'SHAFFY_SANDBOX_TOKEN': str(work / 'sandbox-token')}
+            env = {
+                'HOME': str(rendered),
+                'USER': USER,
+                'LANG': 'C.UTF-8',
+                'PATH': PATH,
+                'XDG_CACHE_HOME': str(work / 'cache'),
+                'SHAFFY_OP_MODE': 'sandbox',
+                'SHAFFY_SANDBOX_TOKEN': str(work / 'sandbox-token'),
+            }
             if found:
                 env['SHAFFY_RELEASE'] = found
             command = ['/usr/bin/python3', str(checkout / 'lib/shaffy/render_inside.py'), *base]
         else:
             env = None
-            command = _bwrap(root, checkout, supplement_path,
-                             ['/usr/bin/python3', '/tmp/checkout/lib/shaffy/render_inside.py',
-                              '/tmp/checkout', INSIDE_HOME, '/tmp/work'], found)
+            command = _bwrap(
+                root,
+                checkout,
+                supplement_path,
+                [
+                    '/usr/bin/python3',
+                    '/tmp/checkout/lib/shaffy/render_inside.py',
+                    '/tmp/checkout',
+                    INSIDE_HOME,
+                    '/tmp/work',
+                ],
+                found,
+            )
         try:
-            result = subprocess.run(command, capture_output=True, text=True, env=env,
-                                    timeout=timeout, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, env=env, timeout=timeout, check=False)
         except subprocess.TimeoutExpired as error:
             raise RenderError(f'the render did not finish within {timeout} seconds') from error
         except OSError as error:
@@ -137,7 +214,8 @@ def render(checkout, supplement=None, without=False, home=None, keep=None, timeo
         try:
             data = json.loads(result.stdout.strip().splitlines()[-1])
         except (IndexError, ValueError) as error:
-            raise RenderError('the render produced no result:\n'
-                              + (result.stderr or result.stdout).strip()[-2000:]) from error
+            raise RenderError(
+                'the render produced no result:\n' + (result.stderr or result.stdout).strip()[-2000:]
+            ) from error
         data['selection'] = selection
         return data

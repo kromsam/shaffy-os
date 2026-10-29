@@ -1,4 +1,5 @@
 """The desktop key helper is built outside the checkout and installed atomically."""
+
 import os
 from pathlib import Path
 import shutil
@@ -9,7 +10,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import desktop_key  # noqa: E402
+from shaffy import desktop_key
 
 
 class ProblemTests(unittest.TestCase):

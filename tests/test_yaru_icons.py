@@ -1,4 +1,5 @@
 """The Yaru installer replaces its own older install and leaves anyone else's theme alone."""
+
 import hashlib
 import io
 from pathlib import Path
@@ -29,10 +30,12 @@ class YaruInstallerTests(unittest.TestCase):
         self.installer['main'].__globals__['SHA256'] = hashlib.sha256(self.archive.read_bytes()).hexdigest()
 
     def install(self):
-        with mock.patch.dict('os.environ', {'HOME': str(self.home)}), \
-                mock.patch('sys.argv', ['install-yaru-icons.py', str(self.archive)]), \
-                mock.patch.object(self.installer['subprocess'], 'run') as run, \
-                mock.patch('sys.stdout', new_callable=io.StringIO):
+        with (
+            mock.patch.dict('os.environ', {'HOME': str(self.home)}),
+            mock.patch('sys.argv', ['install-yaru-icons.py', str(self.archive)]),
+            mock.patch.object(self.installer['subprocess'], 'run') as run,
+            mock.patch('sys.stdout', new_callable=io.StringIO),
+        ):
             self.installer['main']()
         return run
 

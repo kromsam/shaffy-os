@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Install the pinned upstream icon assets for the current user, without a desktop stack."""
+
 import argparse
 import hashlib
 from pathlib import Path
@@ -14,7 +15,9 @@ SHA256 = '2418ac22adafc4e7027375f87f4c93d7e86215d125c62c37f97219e877604619'
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('archive', type=Path, help='Official ubuntu/yaru release tarball, checked against its pinned SHA256')
+    parser.add_argument(
+        'archive', type=Path, help='Official ubuntu/yaru release tarball, checked against its pinned SHA256'
+    )
     args = parser.parse_args()
     if hashlib.file_digest(args.archive.open('rb'), 'sha256').hexdigest() != SHA256:
         raise SystemExit('Yaru archive checksum mismatch')
@@ -39,7 +42,17 @@ def main():
             staged = target / f'.{name}.shaffy-new'
             shutil.rmtree(staged, ignore_errors=True)
             shutil.copytree(source / name, staged, symlinks=True)
-            cmd = ['/usr/bin/python3', str(generator), name, '--source-dir', str(staged), '--output-dir', str(staged), '--inherits', 'Adwaita']
+            cmd = [
+                '/usr/bin/python3',
+                str(generator),
+                name,
+                '--source-dir',
+                str(staged),
+                '--output-dir',
+                str(staged),
+                '--inherits',
+                'Adwaita',
+            ]
             if name != 'Yaru':
                 cmd += ['--inherits', 'Yaru']
             subprocess.run(cmd, check=True)

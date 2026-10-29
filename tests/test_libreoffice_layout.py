@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('libreoffice_layout', ROOT/'scripts/configure-libreoffice.py')
+spec = importlib.util.spec_from_file_location('libreoffice_layout', ROOT / 'scripts/configure-libreoffice.py')
 layout = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(layout)
 
@@ -13,14 +13,23 @@ BASE = layout.ROOT
 
 def registry(application_path):
     """A saved profile with Tabbed selected and one unrelated setting."""
-    items = [f'<item oor:path="{BASE}"><prop oor:name="Active{app}" oor:op="fuse">'
-             f'<value>notebookbar.ui</value></prop></item>' for app in layout.APPS]
-    items += [f'<item oor:path="{application_path(app)}"><prop oor:name="Active" oor:op="fuse">'
-              f'<value>notebookbar.ui</value></prop></item>' for app in layout.APPS]
-    items.append('<item oor:path="/org.openoffice.Office.Common/Misc">'
-                 '<prop oor:name="FirstRun" oor:op="fuse"><value>false</value></prop></item>')
-    return (f'<?xml version="1.0" encoding="UTF-8"?><oor:items xmlns:oor="{OOR}">'
-            + ''.join(items) + '</oor:items>').encode()
+    items = [
+        f'<item oor:path="{BASE}"><prop oor:name="Active{app}" oor:op="fuse">'
+        f'<value>notebookbar.ui</value></prop></item>'
+        for app in layout.APPS
+    ]
+    items += [
+        f'<item oor:path="{application_path(app)}"><prop oor:name="Active" oor:op="fuse">'
+        f'<value>notebookbar.ui</value></prop></item>'
+        for app in layout.APPS
+    ]
+    items.append(
+        '<item oor:path="/org.openoffice.Office.Common/Misc">'
+        '<prop oor:name="FirstRun" oor:op="fuse"><value>false</value></prop></item>'
+    )
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?><oor:items xmlns:oor="{OOR}">' + ''.join(items) + '</oor:items>'
+    ).encode()
 
 
 class LibreOfficeLayoutTests(unittest.TestCase):
@@ -48,7 +57,8 @@ class LibreOfficeLayoutTests(unittest.TestCase):
 
     def test_classic_layout_is_switched_without_touching_unrelated_settings(self):
         before = registry(lambda app: layout.application_paths(app)[0]).replace(
-            b'<value>notebookbar.ui</value>', b'<value>Default</value>')
+            b'<value>notebookbar.ui</value>', b'<value>Default</value>'
+        )
         after, changed = layout.tabbed_config(before)
         self.assertTrue(changed)
         self.assertEqual(after.decode().count('notebookbar.ui'), 8)

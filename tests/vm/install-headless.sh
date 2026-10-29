@@ -12,12 +12,15 @@ set -euo pipefail
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 at_boot=0
 [[ ${1:-} != --at-boot ]] || at_boot=1
-refuse() { printf 'install-headless: %s\n' "$*" >&2; exit 2; }
+refuse() {
+  printf 'install-headless: %s\n' "$*" >&2
+  exit 2
+}
 say() { printf 'install-headless: %s\n' "$*"; }
 
 ((EUID == 0)) || refuse 'run it as root: sudo bash /run/shaffy-share/install-headless.sh'
 case $(systemd-detect-virt --vm 2>/dev/null) in
-  kvm|qemu) ;;
+  kvm | qemu) ;;
   *) refuse 'this is not a QEMU or KVM guest, and the install erases /dev/vda' ;;
 esac
 [[ -d /run/archiso ]] || refuse 'this is not the installer'"'"'s live session'
@@ -40,7 +43,7 @@ if ((at_boot)); then
     cp /tmp/cachyos-install.log "/run/shaffy-evidence/install-$(date -u +%Y%m%dT%H%M%SZ).log" 2>/dev/null || true
     sync
   }
-  diagnose() {  # after a failed attempt: why the new system's own database sync fails, if it does
+  diagnose() { # after a failed attempt: why the new system's own database sync fails, if it does
     [[ -f /mnt/etc/pacman.conf ]] || return 0
     {
       date -u
@@ -80,7 +83,7 @@ printf '%s\n' '# install-headless.sh (Shaffy OS VM kit): keep the default mirror
 
 say "$(cachyos-installer --version); installing to /dev/vda from $here/vm-install.json"
 attempts=1
-((at_boot)) && attempts=3  # unattended: a mirror caught mid-sync fails a database sync at random
+((at_boot)) && attempts=3 # unattended: a mirror caught mid-sync fails a database sync at random
 for ((attempt = 1; ; attempt++)); do
   if cachyos-installer --config "$here/vm-install.json"; then
     installed=1

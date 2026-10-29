@@ -21,6 +21,7 @@ downgrades a package, which they decline. A stage's questions are answered by th
 command of the first matching --on REGEX=COMMAND; a question nothing matches is skipped
 (s), so the stage records it as unanswered rather than passed.
 """
+
 import argparse
 import json
 import os
@@ -41,12 +42,45 @@ ACCOUNT, PASSWORD, PORT = 'demo', 'demo', 2222
 PASSWORD_PROMPT = re.compile(r'(\[sudo\] password for \S+|BECOME password|Password): *$')
 QUESTION = re.compile(r'([^\n]*)\[y/n/s\(kip\)\] *$')
 PACMAN_CONFIRM = re.compile(r':: Proceed with installation\? \[Y/n\] *$')
-KEYS = {' ': 'spc', '\n': 'ret', '\t': 'tab', '-': 'minus', '=': 'equal', '.': 'dot', ',': 'comma',
-        '/': 'slash', ';': 'semicolon', "'": 'apostrophe', '[': 'bracket_left', ']': 'bracket_right',
-        '\\': 'backslash', '`': 'grave_accent'}
-SHIFTED = {'_': 'minus', '+': 'equal', '>': 'dot', '<': 'comma', '?': 'slash', ':': 'semicolon',
-           '"': 'apostrophe', '{': 'bracket_left', '}': 'bracket_right', '|': 'backslash', '~': 'grave_accent',
-           '!': '1', '@': '2', '#': '3', '$': '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0'}
+KEYS = {
+    ' ': 'spc',
+    '\n': 'ret',
+    '\t': 'tab',
+    '-': 'minus',
+    '=': 'equal',
+    '.': 'dot',
+    ',': 'comma',
+    '/': 'slash',
+    ';': 'semicolon',
+    "'": 'apostrophe',
+    '[': 'bracket_left',
+    ']': 'bracket_right',
+    '\\': 'backslash',
+    '`': 'grave_accent',
+}
+SHIFTED = {
+    '_': 'minus',
+    '+': 'equal',
+    '>': 'dot',
+    '<': 'comma',
+    '?': 'slash',
+    ':': 'semicolon',
+    '"': 'apostrophe',
+    '{': 'bracket_left',
+    '}': 'bracket_right',
+    '|': 'backslash',
+    '~': 'grave_accent',
+    '!': '1',
+    '@': '2',
+    '#': '3',
+    '$': '4',
+    '%': '5',
+    '^': '6',
+    '&': '7',
+    '*': '8',
+    '(': '9',
+    ')': '0',
+}
 
 
 def chords(text):
@@ -70,12 +104,18 @@ class QMPError(SystemExit):
 
 def png(width, height, rgb):
     """A PNG file holding RGB, WIDTH by HEIGHT pixels of three bytes each."""
+
     def chunk(kind, data):
         return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+
     stride = width * 3
-    rows = b''.join(b'\x00' + rgb[row * stride:(row + 1) * stride] for row in range(height))
-    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
-            + chunk(b'IDAT', zlib.compress(rows, 6)) + chunk(b'IEND', b''))
+    rows = b''.join(b'\x00' + rgb[row * stride : (row + 1) * stride] for row in range(height))
+    return (
+        b'\x89PNG\r\n\x1a\n'
+        + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+        + chunk(b'IDAT', zlib.compress(rows, 6))
+        + chunk(b'IEND', b'')
+    )
 
 
 def vnc_screenshot(path, timeout=30):
@@ -127,7 +167,7 @@ def vnc_screenshot(path, timeout=30):
                     data = read(w * h * 4)
                     for row in range(h):
                         start = ((y + row) * width + x) * 4
-                        frame[start:start + w * 4] = data[row * w * 4:(row + 1) * w * 4]
+                        frame[start : start + w * 4] = data[row * w * 4 : (row + 1) * w * 4]
                     received += w * h
             elif kind == 1:  # SetColourMapEntries
                 read(struct.unpack('>xHH', read(5))[1] * 6)
@@ -158,7 +198,7 @@ class QMP:
             if 'return' in reply:
                 return reply['return']
             if 'error' in reply:
-                raise QMPError(f"drive: QMP {command}: {reply['error'].get('desc')}")
+                raise QMPError(f'drive: QMP {command}: {reply["error"].get("desc")}')
 
     def press(self, keys):
         self.execute('send-key', keys=[{'type': 'qcode', 'data': key} for key in keys], **{'hold-time': 60})
@@ -167,19 +207,37 @@ class QMP:
 
 def ssh_command(vm_dir, remote):
     """ssh with the kit's key; REMOTE runs in bash whatever the account's login shell."""
-    return ['ssh', '-i', str(vm_dir / 'ssh/id_ed25519'), '-p', str(PORT), '-tt',
-            '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'LogLevel=ERROR',
-            '-o', 'ConnectTimeout=5', '-o', 'BatchMode=yes', f'{ACCOUNT}@127.0.0.1',
-            'bash -c ' + shlex.quote(remote)]
+    return [
+        'ssh',
+        '-i',
+        str(vm_dir / 'ssh/id_ed25519'),
+        '-p',
+        str(PORT),
+        '-tt',
+        '-o',
+        'StrictHostKeyChecking=no',
+        '-o',
+        'UserKnownHostsFile=/dev/null',
+        '-o',
+        'LogLevel=ERROR',
+        '-o',
+        'ConnectTimeout=5',
+        '-o',
+        'BatchMode=yes',
+        f'{ACCOUNT}@127.0.0.1',
+        'bash -c ' + shlex.quote(remote),
+    ]
 
 
 def in_session(command):
     """A bash snippet running COMMAND under the account's user manager with the Niri session's variables."""
-    return ('socket=$(ls /run/user/$(id -u)/niri.*.sock 2>/dev/null | head -n 1); '
-            'display=$(systemctl --user show-environment | sed -n "s/^WAYLAND_DISPLAY=//p"); '
-            'exec systemd-run --user --pty --wait --collect --same-dir --quiet '
-            '-E NIRI_SOCKET="$socket" -E WAYLAND_DISPLAY="${display:-wayland-1}" '
-            '-E XDG_SESSION_TYPE=wayland -E XDG_CURRENT_DESKTOP=niri -E TERM=xterm-256color ' + command)
+    return (
+        'socket=$(ls /run/user/$(id -u)/niri.*.sock 2>/dev/null | head -n 1); '
+        'display=$(systemctl --user show-environment | sed -n "s/^WAYLAND_DISPLAY=//p"); '
+        'exec systemd-run --user --pty --wait --collect --same-dir --quiet '
+        '-E NIRI_SOCKET="$socket" -E WAYLAND_DISPLAY="${display:-wayland-1}" '
+        '-E XDG_SESSION_TYPE=wayland -E XDG_CURRENT_DESKTOP=niri -E TERM=xterm-256color ' + command
+    )
 
 
 def respond(buffer, answers, hooks, vm_dir):
@@ -301,8 +359,12 @@ def main(argv=None):
             qmp.press(['ret'])
             deadline = time.monotonic() + args.timeout
             while time.monotonic() < deadline:
-                if subprocess.run(ssh_command(vm_dir, f'pgrep -u {ACCOUNT} -x niri >/dev/null'),
-                                  capture_output=True, check=False).returncode == 0:
+                if (
+                    subprocess.run(
+                        ssh_command(vm_dir, f'pgrep -u {ACCOUNT} -x niri >/dev/null'), capture_output=True, check=False
+                    ).returncode
+                    == 0
+                ):
                     print('drive: the Niri session is running')
                     return 0
                 time.sleep(3)
@@ -324,7 +386,9 @@ def main(argv=None):
             print('drive: asked the guest to power off')
             return 0
         QMP(vm_dir / 'qmp.sock').execute('system_powerdown')
-        print('drive: the guest does not answer on SSH, so its power button was pressed; in a Niri session that suspends it')
+        print(
+            'drive: the guest does not answer on SSH, so its power button was pressed; in a Niri session that suspends it'
+        )
         return 0
     return 2
 

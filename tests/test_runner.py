@@ -1,4 +1,5 @@
 """The parallel runner behind `./bin/shaffy selftest`, on a synthetic suite."""
+
 from pathlib import Path
 import shutil
 import subprocess
@@ -9,10 +10,10 @@ import unittest
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import runner  # noqa: E402
-import support  # noqa: E402
+import runner
+import support
 
-SUITE = '''
+SUITE = """
 import unittest
 
 calls = []
@@ -63,7 +64,7 @@ class BrokenFixture(unittest.TestCase):
 
     def test_never_runs(self):
         pass
-'''
+"""
 
 
 class RunnerTests(unittest.TestCase):
@@ -71,8 +72,13 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             shutil.copy(HERE / 'runner.py', directory)
             (Path(directory) / 'test_synthetic.py').write_text(textwrap.dedent(source))
-            return subprocess.run([sys.executable, str(Path(directory) / 'runner.py'), '--jobs', '2', *arguments],
-                                  capture_output=True, text=True, timeout=120, check=False)
+            return subprocess.run(
+                [sys.executable, str(Path(directory) / 'runner.py'), '--jobs', '2', *arguments],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
 
     def test_failures_and_errors_fail_the_run_with_their_output(self):
         result = self.run_suite(SUITE, '-v')
@@ -119,8 +125,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(serial, [[tests[4].id()]])
 
     def test_a_passing_suite_succeeds(self):
-        result = self.run_suite('import unittest\n\n\nclass Passing(unittest.TestCase):\n'
-                                '    def test_one(self):\n        pass\n')
+        result = self.run_suite(
+            'import unittest\n\n\nclass Passing(unittest.TestCase):\n    def test_one(self):\n        pass\n'
+        )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('Ran 1 tests', result.stdout)
         self.assertTrue(result.stdout.rstrip().endswith('OK'), result.stdout)

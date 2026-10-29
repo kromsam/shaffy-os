@@ -13,6 +13,7 @@ client's own menu action, after a snapper pre snapshot (config home) of the home
 as it was. It is the deliberate step after reviewing a mapping, never part of an
 apply.
 """
+
 import argparse
 import configparser
 import json
@@ -22,7 +23,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
-from shaffy.snapshots import SnapshotError, home_pair  # noqa: E402
+from shaffy.snapshots import SnapshotError, home_pair
 
 BUS = 'com.nextcloudgmbh.Nextcloud'
 ROOT = '/com/nextcloudgmbh/Nextcloud'
@@ -47,14 +48,17 @@ def saved_folders(path):
     for key, value in accounts.items():
         if key.endswith('\\localPath'):
             prefix = key.removesuffix('localPath')
-            folders[value.rstrip('/')] = {'remote': accounts.get(prefix + 'targetPath'),
-                                          'paused': accounts.get(prefix + 'paused', 'false') == 'true'}
+            folders[value.rstrip('/')] = {
+                'remote': accounts.get(prefix + 'targetPath'),
+                'paused': accounts.get(prefix + 'paused', 'false') == 'true',
+            }
     return urls, folders
 
 
 def bus(*args):
-    result = subprocess.run(['busctl', '--user', '--json=short', *args],
-                            check=True, capture_output=True, text=True, timeout=15)
+    result = subprocess.run(
+        ['busctl', '--user', '--json=short', *args], check=True, capture_output=True, text=True, timeout=15
+    )
     return json.loads(result.stdout)['data'] if result.stdout.strip() else None
 
 
@@ -75,17 +79,27 @@ def main(argv=None):
         return 0
     resume = args.resume and str(Path(args.resume).expanduser()).rstrip('/')
     if resume and resume not in mappings:
-        print(f'{resume} is not a configured Nextcloud folder; configured: {", ".join(sorted(mappings))}',
-              file=sys.stderr)
+        print(
+            f'{resume} is not a configured Nextcloud folder; configured: {", ".join(sorted(mappings))}', file=sys.stderr
+        )
         return 1
     objects = bus('call', BUS, ROOT, 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects')[0]
-    live = {interfaces[ACCOUNT]['Path']['data'].rstrip('/'): path
-            for path, interfaces in objects.items() if ACCOUNT in interfaces}
-    report = {'accounts': urls, 'saved_only': sorted(set(mappings) - set(live)),
-              'running_only': sorted(set(live) - set(mappings)), 'folders': []}
+    live = {
+        interfaces[ACCOUNT]['Path']['data'].rstrip('/'): path
+        for path, interfaces in objects.items()
+        if ACCOUNT in interfaces
+    }
+    report = {
+        'accounts': urls,
+        'saved_only': sorted(set(mappings) - set(live)),
+        'running_only': sorted(set(live) - set(mappings)),
+        'folders': [],
+    }
     if resume and resume not in live:
-        print(f'{resume} is configured but the running Nextcloud client does not show it; start the '
-              'client and try again', file=sys.stderr)
+        print(
+            f'{resume} is configured but the running Nextcloud client does not show it; start the client and try again',
+            file=sys.stderr,
+        )
         return 1
     if resume and not mappings[resume]['paused']:
         print(f'{resume} is not paused in the saved configuration; nothing to resume.', file=sys.stderr)
@@ -110,11 +124,21 @@ def main(argv=None):
             if paused(path):
                 raise RuntimeError(f'Nextcloud did not resume {local}')
         saved = mappings.get(local, {})
-        report['folders'].append({'path': local, 'remote': saved.get('remote'),
-                                  'paused_in_config': saved.get('paused'), 'pause_menu_checked': paused(path),
-                                  'details': bus('get-property', BUS, path, ACCOUNT, 'StatusDetails')})
+        report['folders'].append(
+            {
+                'path': local,
+                'remote': saved.get('remote'),
+                'paused_in_config': saved.get('paused'),
+                'pause_menu_checked': paused(path),
+                'details': bus('get-property', BUS, path, ACCOUNT, 'StatusDetails'),
+            }
+        )
     os.umask(0o077)
-    output = Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state') / 'shaffy/runs' / 'sync-runtime/nextcloud-runtime.json'
+    output = (
+        Path(os.environ.get('XDG_STATE_HOME') or Path.home() / '.local/state')
+        / 'shaffy/runs'
+        / 'sync-runtime/nextcloud-runtime.json'
+    )
     output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     output.write_text(json.dumps(report, indent=2) + '\n')
     output.chmod(0o600)

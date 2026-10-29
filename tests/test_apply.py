@@ -1,8 +1,9 @@
 """The home operation protocol, its crash recovery and convergence."""
+
 import json
 import os
-import re
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -15,8 +16,8 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from shaffy.apply import FakeSnapper  # noqa: E402
-from test_render import REASON  # noqa: E402
+from shaffy.apply import FakeSnapper
+from test_render import REASON
 
 FIXTURE = ROOT / 'tests/fixtures/supplements/comprehensive'
 
@@ -29,28 +30,42 @@ class HomeApplyTests(unittest.TestCase):
         root = Path(self.temporary.name)
         self.home = root / 'home'
         (self.home / '.config/tmux').mkdir(parents=True)
-        (self.home / '.config/tmux/tmux.conf').write_text('# the user\'s own tmux\n')
+        (self.home / '.config/tmux/tmux.conf').write_text("# the user's own tmux\n")
         for folder in ('Bilder', 'Projects'):  # the fixture's folder_links targets
             (self.home / folder).mkdir()
         self.supplement = root / 'supplement'
         shutil.copytree(FIXTURE, self.supplement)
-        self.env = {'HOME': str(self.home), 'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8',
-                    'SHAFFY_TEST_PREREQUISITES': 'fake'}
+        self.env = {
+            'HOME': str(self.home),
+            'PATH': '/usr/bin:/bin',
+            'LANG': 'C.UTF-8',
+            'SHAFFY_TEST_PREREQUISITES': 'fake',
+        }
         if os.environ.get('SHAFFY_RENDER_DIRECT'):
             self.env['SHAFFY_RENDER_DIRECT'] = '1'
         self.state = self.home / '.local/state/shaffy'
 
     def shaffy(self, *arguments, fault=None, checkout=ROOT):
         env = dict(self.env, **({'SHAFFY_TEST_FAULT': fault} if fault else {}))
-        result = subprocess.run([str(checkout / 'bin/shaffy'), *arguments], capture_output=True,
-                                text=True, env=env, timeout=300, check=False)
+        result = subprocess.run(
+            [str(checkout / 'bin/shaffy'), *arguments],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=300,
+            check=False,
+        )
         self.assertNotIn('Traceback', result.stderr)
         return result
 
     def copy_checkout(self):
         copy = Path(self.temporary.name) / 'other-checkout'
-        shutil.copytree(ROOT, copy, symlinks=True, ignore=shutil.ignore_patterns(
-            '.git', 'artifacts', '__pycache__', 'supplement', 'logs', 'secrets'))
+        shutil.copytree(
+            ROOT,
+            copy,
+            symlinks=True,
+            ignore=shutil.ignore_patterns('.git', 'artifacts', '__pycache__', 'supplement', 'logs', 'secrets'),
+        )
         return copy
 
     def snapshots(self):
@@ -79,8 +94,7 @@ class HomeApplyTests(unittest.TestCase):
         return (self.home / '.codex/config.toml').read_text()
 
     def attach(self, checkout=ROOT):
-        result = self.shaffy('supplement', 'attach', '--supplement', str(self.supplement),
-                             checkout=checkout)
+        result = self.shaffy('supplement', 'attach', '--supplement', str(self.supplement), checkout=checkout)
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_apply_needs_a_binding(self):
@@ -102,8 +116,7 @@ class HomeApplyTests(unittest.TestCase):
             self.assertEqual(dirs.read_text(), text)
             self.assertEqual(dirs.stat().st_mode & 0o777, 0o644)
             omarchy = tomllib.loads((self.home / '.config/noctalia/90-omarchy.toml').read_text())
-            self.assertEqual(omarchy['shell']['screenshot']['directory'],
-                             f'{self.home}/{name}/Screenshots')
+            self.assertEqual(omarchy['shell']['screenshot']['directory'], f'{self.home}/{name}/Screenshots')
         repeated = self.shaffy('apply', '--home')
         self.assertEqual(repeated.returncode, 0, repeated.stderr)
         self.assertIn('(0 target(s) changed)', repeated.stdout)
@@ -115,8 +128,7 @@ class HomeApplyTests(unittest.TestCase):
         dirs = self.home / '.config/user-dirs.dirs'
         original = dirs.read_text()
         config = self.supplement / 'config.yaml'
-        config.write_text(config.read_text().replace('  pictures: "Bilder"\n', '')
-                          .replace('  videos: "Filme"\n', ''))
+        config.write_text(config.read_text().replace('  pictures: "Bilder"\n', '').replace('  videos: "Filme"\n', ''))
         second = self.shaffy('apply', '--home')
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(dirs.read_text(), original)
@@ -132,7 +144,7 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(self.events(op), ['begin', 'phase-start', 'ledger-intent', 'ledger-done', 'phase-done'])
         self.assertIn('[mcp_servers.notes]', self.codex())
         before = self.state / 'runs' / op / 'before/.config/tmux/tmux.conf'
-        self.assertEqual(before.read_text(), '# the user\'s own tmux\n')
+        self.assertEqual(before.read_text(), "# the user's own tmux\n")
         self.assertEqual(self.snapshots(), [('pre', None), ('post', 1)])
         # New user unit files need the running user manager reloaded; the test adapter only says so.
         self.assertIn('systemctl --user daemon-reload', first.stdout)
@@ -164,6 +176,7 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_changed_unit_files_alone_still_ask_for_a_reload(self):
         from shaffy.apply import HomeApply
+
         messages = []
         with mock.patch.dict(os.environ, self.env):
             home_apply = HomeApply(ROOT, None, messages.append)
@@ -185,7 +198,9 @@ class HomeApplyTests(unittest.TestCase):
         result = self.shaffy('apply', '--home')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(font.read_text(), 'OTTO version 2\n')
-        copy = self.state / 'runs' / self.record()['last_completed_op'] / 'before/.local/share/fonts/Example-Regular.otf'
+        copy = (
+            self.state / 'runs' / self.record()['last_completed_op'] / 'before/.local/share/fonts/Example-Regular.otf'
+        )
         self.assertEqual(copy.read_text(), 'OTTO synthetic font bytes\n')
 
     def test_an_asset_never_replaces_a_folder_or_goes_through_a_link(self):
@@ -209,8 +224,7 @@ class HomeApplyTests(unittest.TestCase):
         self.attach()
         self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
         config = self.supplement / 'config.yaml'
-        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"',
-                                                     'ZOTERO_LOCAL_WRITE: "false"'))
+        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"', 'ZOTERO_LOCAL_WRITE: "false"'))
         diff = self.shaffy('diff', str(self.home / '.codex/config.toml'))
         self.assertEqual(diff.returncode, 0, diff.stderr)
         self.assertIn('-ZOTERO_LOCAL_WRITE = "true"', diff.stdout)
@@ -260,12 +274,12 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_another_chezmoi_holding_its_state_writes_nothing_and_clears_the_operation(self):
         import fcntl
+
         self.attach()
         self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
         state = self.home / '.local/state/shaffy/chezmoistate.boltdb'
         config = self.supplement / 'config.yaml'
-        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"',
-                                                     'ZOTERO_LOCAL_WRITE: "false"'))
+        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"', 'ZOTERO_LOCAL_WRITE: "false"'))
         with open(state, 'rb') as stream:
             fcntl.flock(stream, fcntl.LOCK_SH)  # what a concurrent read-only chezmoi holds
             refused = self.shaffy('apply', '--home')
@@ -365,15 +379,15 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIn('Snapper pre snapshot 1', self.shaffy('status', '--no-drift').stdout)
         # An edit after the capture must not reach this operation.
         config = self.supplement / 'config.yaml'
-        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"',
-                                                     'ZOTERO_LOCAL_WRITE: "false"'))
+        config.write_text(config.read_text().replace('ZOTERO_LOCAL_WRITE: "true"', 'ZOTERO_LOCAL_WRITE: "false"'))
         resumed = self.shaffy('apply', '--resume')
         self.assertEqual(resumed.returncode, 0, resumed.stderr)
         self.assertIsNone(self.record()['pending'])
         self.assertEqual(self.record()['last_completed_op'], op)
         self.assertIn('ZOTERO_LOCAL_WRITE = "true"', self.codex())
-        self.assertEqual(self.events(op), ['begin', 'phase-start', 'resume-start', 'ledger-intent',
-                                           'ledger-done', 'phase-done'])
+        self.assertEqual(
+            self.events(op), ['begin', 'phase-start', 'resume-start', 'ledger-intent', 'ledger-done', 'phase-done']
+        )
         # The resume took its own pre snapshot and copies; the post snapshot pairs with it.
         self.assertEqual(self.snapshots(), [('pre', None), ('pre', None), ('post', 2)])
         self.assertTrue((self.state / 'runs' / op / 'before-resume-1').is_dir())
@@ -399,8 +413,11 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_targets_chezmoi_removes_are_copied_first(self):
         # Retirements expire (lib/shaffy/sunset.py), so take whichever the file lists now.
-        entries = [line for line in (ROOT / 'home/.chezmoiremove').read_text().splitlines()
-                   if line.strip() and not line.startswith('#')]
+        entries = [
+            line
+            for line in (ROOT / 'home/.chezmoiremove').read_text().splitlines()
+            if line.strip() and not line.startswith('#')
+        ]
         if not entries:
             self.skipTest('home/.chezmoiremove retires nothing')
         retired = self.home / entries[0]
@@ -448,13 +465,13 @@ class HomeApplyTests(unittest.TestCase):
         named = self.shaffy('apply', '--home', '--checkout', str(other), checkout=other)
         self.assertEqual(named.returncode, 0, named.stderr)
         op = self.record()['last_completed_op']
-        self.assertEqual(self.events(op), ['checkout-override', 'begin', 'phase-start', 'ledger-intent',
-                                           'ledger-done', 'phase-done'])
+        self.assertEqual(
+            self.events(op), ['checkout-override', 'begin', 'phase-start', 'ledger-intent', 'ledger-done', 'phase-done']
+        )
 
     def test_resume_only_in_the_checkout_the_operation_began_in(self):
         self.attach()
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode,
-                         -signal.SIGKILL)
+        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode, -signal.SIGKILL)
         other = self.copy_checkout()
         refused = self.shaffy('apply', '--resume', checkout=other)
         self.assertEqual(refused.returncode, 1)
@@ -463,8 +480,7 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_resume_runs_the_preflight_and_writes_nothing_when_it_fails(self):
         self.attach()
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode,
-                         -signal.SIGKILL)
+        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode, -signal.SIGKILL)
         op = self.record()['pending']['op']
         (self.home / 'Pictures').mkdir()
         (self.home / 'Pictures/photo.jpg').write_text('mine')
@@ -480,8 +496,9 @@ class HomeApplyTests(unittest.TestCase):
     def test_changed_defaults_stop_a_resume(self):
         other = self.copy_checkout()
         self.attach(checkout=other)
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start',
-                                     checkout=other).returncode, -signal.SIGKILL)
+        self.assertEqual(
+            self.shaffy('apply', '--home', fault='after-phase-start', checkout=other).returncode, -signal.SIGKILL
+        )
         defaults = other / 'defaults/config.yaml'
         original = defaults.read_text()
         changed = original.replace('browser: "zen.desktop"', 'browser: "example-browser.desktop"')
@@ -495,8 +512,9 @@ class HomeApplyTests(unittest.TestCase):
     def test_a_template_change_before_resume_is_journaled(self):
         other = self.copy_checkout()
         self.attach(checkout=other)
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start',
-                                     checkout=other).returncode, -signal.SIGKILL)
+        self.assertEqual(
+            self.shaffy('apply', '--home', fault='after-phase-start', checkout=other).returncode, -signal.SIGKILL
+        )
         op = self.record()['pending']['op']
         with (other / 'home/dot_config/tmux/tmux.conf').open('a') as stream:
             stream.write('# changed before the resume\n')
@@ -507,8 +525,7 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_abandon_clears_the_operation_and_names_what_to_review(self):
         self.attach()
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode,
-                         -signal.SIGKILL)
+        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode, -signal.SIGKILL)
         op = self.record()['pending']['op']
         shutil.rmtree(self.state / 'runs' / op / 'capture')
         refused = self.shaffy('apply', '--resume')
@@ -557,8 +574,9 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIn('nothing of integration ssh is active here', missing.stderr)
         adopted = self.shaffy('integration', 'syncthing', 'adopt')
         self.assertEqual(adopted.returncode, 0, adopted.stderr)
-        self.assertEqual((self.ledger()['syncthing']['state'], self.ledger()['syncthing']['adopted']),
-                         ('managed', True))
+        self.assertEqual(
+            (self.ledger()['syncthing']['state'], self.ledger()['syncthing']['adopted']), ('managed', True)
+        )
         self.assertIn('ledger-adopt', self.events())
         self.assertIn('Integration syncthing: managed (adopted)', self.shaffy('status', '--no-drift').stdout)
         self.assertEqual(self.shaffy('integration', 'syncthing', 'adopt').returncode, 1)  # already managed
@@ -571,8 +589,10 @@ class HomeApplyTests(unittest.TestCase):
         root = self.home / '.zotero/zotero'
         (root / 'abcd1234.default').mkdir(parents=True)
         (root / 'abcd1234.default/prefs.js').write_text('user_pref("a", 1);\n')
-        (root / 'profiles.ini').write_text('[Profile0]\nName=default\nIsRelative=1\nPath=abcd1234.default\n'
-                                           'Default=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n\n')
+        (root / 'profiles.ini').write_text(
+            '[Profile0]\nName=default\nIsRelative=1\nPath=abcd1234.default\n'
+            'Default=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n\n'
+        )
         self.attach()
         refused = self.shaffy('apply', '--home')
         self.assertEqual(refused.returncode, 1)
@@ -582,8 +602,13 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(blocked.returncode, 1)
         self.assertIn("does not hold 'Path=shaffy.default' yet", blocked.stderr)
         self.assertIn('scripts/move-zotero-profile.py --apply', blocked.stderr)
-        moved = subprocess.run([sys.executable, str(ROOT / 'scripts/move-zotero-profile.py'), '--apply'],
-                               capture_output=True, text=True, env=self.env, check=False)
+        moved = subprocess.run(
+            [sys.executable, str(ROOT / 'scripts/move-zotero-profile.py'), '--apply'],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            check=False,
+        )
         self.assertEqual(moved.returncode, 0, moved.stderr)
         self.assertEqual(self.shaffy('integration', 'zotero', 'adopt').returncode, 0)
         applied = self.shaffy('apply', '--home')
@@ -616,13 +641,19 @@ class HomeApplyTests(unittest.TestCase):
         receipt.write_text(json.dumps({'status': 'verified', 'repository_id': '0123456789abcdef' * 4}) + '\n')
         applied = self.shaffy('apply', '--home')
         self.assertEqual(applied.returncode, 0, applied.stderr)
-        self.assertEqual(sorted(p.name for p in wants.iterdir()),
-                         ['restic-home-backup.timer', 'restic-home-check.timer', 'restic-home-maintenance.timer'])
-        self.assertEqual(os.readlink(wants / 'restic-home-check.timer'),
-                         str(self.home / '.config/systemd/user/restic-home-check.timer'))
+        self.assertEqual(
+            sorted(p.name for p in wants.iterdir()),
+            ['restic-home-backup.timer', 'restic-home-check.timer', 'restic-home-maintenance.timer'],
+        )
+        self.assertEqual(
+            os.readlink(wants / 'restic-home-check.timer'),
+            str(self.home / '.config/systemd/user/restic-home-check.timer'),
+        )
         # The test adapter never starts units in a real user manager; it says how instead.
-        self.assertIn('restic-home-backup.timer, restic-home-maintenance.timer, restic-home-check.timer start at '
-                      'the next login', applied.stdout)
+        self.assertIn(
+            'restic-home-backup.timer, restic-home-maintenance.timer, restic-home-check.timer start at the next login',
+            applied.stdout,
+        )
         self.set_integration('backup', 'disabled')
         self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
         self.assertEqual(list(wants.iterdir()), [])
@@ -630,6 +661,7 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_a_lock_timeout_withdraws_the_announced_transitions(self):
         import fcntl
+
         self.attach()
         self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
         before = self.ledger()
@@ -684,8 +716,10 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(refused.returncode, 1)
         self.assertIn('set integrations.syncthing to disabled or released', refused.stderr)
         self.assertIsNone(self.record()['pending'])
-        self.assertIn('Integration awaiting a decision: integration syncthing is managed',
-                      self.shaffy('status', '--no-drift').stdout)
+        self.assertIn(
+            'Integration awaiting a decision: integration syncthing is managed',
+            self.shaffy('status', '--no-drift').stdout,
+        )
         self.set_integration('syncthing', 'released')
         released = self.shaffy('apply', '--home')
         self.assertEqual(released.returncode, 0, released.stderr)
@@ -714,12 +748,15 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(killed.returncode, -signal.SIGKILL)
         op = self.record()['pending']['op']
         self.assertEqual(self.ledger()['syncthing']['transition']['op'], op)
-        self.assertIn(f'Integration syncthing: not yet managed; changing to managed in operation {op}',
-                      self.shaffy('status', '--no-drift').stdout)
+        self.assertIn(
+            f'Integration syncthing: not yet managed; changing to managed in operation {op}',
+            self.shaffy('status', '--no-drift').stdout,
+        )
         resumed = self.shaffy('apply', '--resume')
         self.assertEqual(resumed.returncode, 0, resumed.stderr)
-        self.assertEqual((self.ledger()['syncthing']['state'], self.ledger()['syncthing']['transition']),
-                         ('managed', None))
+        self.assertEqual(
+            (self.ledger()['syncthing']['state'], self.ledger()['syncthing']['transition']), ('managed', None)
+        )
 
     def test_an_abandoned_change_waits_for_adopt_or_release(self):
         self.attach()
@@ -743,8 +780,7 @@ class HomeApplyTests(unittest.TestCase):
 
     def test_a_torn_journal_line_for_the_operation_blocks_resume(self):
         self.attach()
-        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode,
-                         -signal.SIGKILL)
+        self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode, -signal.SIGKILL)
         op = self.record()['pending']['op']
         with open(self.state / 'journal.jsonl', 'a') as stream:
             stream.write(f'{{"op": "{op}", "event": "phase-')
@@ -757,6 +793,7 @@ class HomeApplyTests(unittest.TestCase):
 class SigningNoteTests(unittest.TestCase):
     def test_a_missing_key_is_reported_and_a_present_one_is_not(self):
         from shaffy.identity import signing_note
+
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
             settings = {'identity': {'signing': {'key': '~/.ssh/id_ed25519.pub'}}}
@@ -770,22 +807,23 @@ class SigningNoteTests(unittest.TestCase):
 class AdapterTests(unittest.TestCase):
     def test_the_test_adapter_is_refused_for_the_real_home(self):
         import pwd
-        real = Path(pwd.getpwuid(os.getuid()).pw_dir)
-        with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.object(Path, 'home', return_value=real):
-            self.assertTrue(FakeSnapper(directory).problems())
-        with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.object(Path, 'home', return_value=Path(directory)):
-            self.assertEqual(FakeSnapper(directory).problems(), [])
 
+        real = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(Path, 'home', return_value=real):
+            self.assertTrue(FakeSnapper(directory).problems())
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(Path, 'home', return_value=Path(directory)):
+            self.assertEqual(FakeSnapper(directory).problems(), [])
 
 
 class NoctaliaSourceTests(unittest.TestCase):
     def test_git_sources_without_a_clone_are_named(self):
         from shaffy.apply import unfetched_plugin_sources
-        listing = ('official git https://github.com/noctalia-dev/official-plugins\n'
-                   'community git https://github.com/noctalia-dev/community-plugins\n'
-                   'mine local /somewhere\n')
+
+        listing = (
+            'official git https://github.com/noctalia-dev/official-plugins\n'
+            'community git https://github.com/noctalia-dev/community-plugins\n'
+            'mine local /somewhere\n'
+        )
         with tempfile.TemporaryDirectory() as state:
             # Noctalia makes the source folder before it clones; only repo/ means a fetched source.
             (Path(state) / 'noctalia/plugins/sources/official/repo').mkdir(parents=True)

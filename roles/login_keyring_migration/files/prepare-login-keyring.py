@@ -8,8 +8,9 @@ keeping its bytes, after a hash-verified private copy, and points `default` at
 it. It never decrypts anything and refuses whenever the directory is not in the
 expected shape.
 """
+
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import hashlib
 import json
 import os
@@ -67,9 +68,11 @@ def inspect(directory):
 def require_daemon_stopped():
     for process in Path('/proc').glob('[0-9]*'):
         try:
-            if process.stat().st_uid == os.getuid() and (process / 'comm').read_text().strip().startswith('gnome-keyring'):
+            if process.stat().st_uid == os.getuid() and (process / 'comm').read_text().strip().startswith(
+                'gnome-keyring'
+            ):
                 raise RuntimeError('Keyring daemon is running; migration is only for pre-login')
-        except (FileNotFoundError, PermissionError, ProcessLookupError):
+        except FileNotFoundError, PermissionError, ProcessLookupError:
             continue
 
 
@@ -81,7 +84,7 @@ def promote(directory, state):
     if state.resolve() != state:
         raise RuntimeError('Refusing linked recovery state')
     state.mkdir(parents=True, exist_ok=True, mode=0o700)
-    backup = Path(tempfile.mkdtemp(prefix=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ-'), dir=state))
+    backup = Path(tempfile.mkdtemp(prefix=datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ-'), dir=state))
     before = backup / 'before'
     shutil.copytree(directory, before, copy_function=shutil.copy2)
     hashes = {p.name: digest(p) for p in directory.iterdir()}
@@ -113,8 +116,12 @@ def promote(directory, state):
         new.unlink()
         alias.write_bytes(old_alias)
         raise
-    report = {'changed': True, 'backup': str(before), 'encrypted_sha256': digest(new),
-              'bytes_preserved': digest(new) == hashes[old.name]}
+    report = {
+        'changed': True,
+        'backup': str(before),
+        'encrypted_sha256': digest(new),
+        'bytes_preserved': digest(new) == hashes[old.name],
+    }
     (backup / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
     handle = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
     try:

@@ -16,6 +16,7 @@ transitional block may keep an old name until the workstation's migration
 converges: a comment that starts with the TRANSITIONAL marker, and the lines up to
 the next blank line. The export refuses any that remain.
 """
+
 from dataclasses import dataclass
 import fnmatch
 import ipaddress
@@ -39,16 +40,24 @@ class Hit:
 
 def public_files(root):
     """Tracked and untracked, not ignored files that the export keeps."""
-    listed = subprocess.run(['git', '-C', str(root), 'ls-files', '-z', '-co', '--exclude-standard'],
-                            capture_output=True, text=True, check=True).stdout.split('\0')[:-1]
+    listed = subprocess.run(
+        ['git', '-C', str(root), 'ls-files', '-z', '-co', '--exclude-standard'],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split('\0')[:-1]
     listed = sorted({p for p in listed if os.path.lexists(Path(root) / p)})
-    attributes = subprocess.run(['git', '-C', str(root), 'check-attr', '-z', '--stdin', 'export-ignore'],
-                                input='\0'.join(listed), capture_output=True, text=True, check=True).stdout
+    attributes = subprocess.run(
+        ['git', '-C', str(root), 'check-attr', '-z', '--stdin', 'export-ignore'],
+        input='\0'.join(listed),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
     fields = attributes.split('\0')[:-1]
     ignored = {fields[i] for i in range(0, len(fields), 3) if fields[i + 2] == 'set'}
     # A link is scanned as its target text, even when it names a folder.
-    return [p for p in listed if p not in ignored
-            and ((Path(root) / p).is_symlink() or not (Path(root) / p).is_dir())]
+    return [p for p in listed if p not in ignored and ((Path(root) / p).is_symlink() or not (Path(root) / p).is_dir())]
 
 
 def lines(root, path):
@@ -64,8 +73,7 @@ def exempt_lines(path, content):
     """Line numbers of licence notices and of transitional blocks, as two sets."""
     notices, transitional, inside = set(), set(), False
     for number, line in enumerate(content, 1):
-        if 'SPDX-FileCopyrightText' in line or (Path(path).name.startswith('LICENSE')
-                                               and line.startswith('Copyright')):
+        if 'SPDX-FileCopyrightText' in line or (Path(path).name.startswith('LICENSE') and line.startswith('Copyright')):
             notices.add(number)
         if TRANSITIONAL.match(line):
             inside = True
@@ -92,8 +100,14 @@ def _private_ip(line, previous=''):
             continue
         # Private, shared (carrier-grade NAT, as Tailscale uses) and link-local addresses are
         # not global; loopback, multicast, reserved and documentation ranges are fine.
-        if not (address.is_global or address.is_loopback or address.is_multicast or address.is_reserved
-                or address in ipaddress.ip_network('0.0.0.0/8') or any(address in n for n in DOCUMENTATION)):
+        if not (
+            address.is_global
+            or address.is_loopback
+            or address.is_multicast
+            or address.is_reserved
+            or address in ipaddress.ip_network('0.0.0.0/8')
+            or any(address in n for n in DOCUMENTATION)
+        ):
             found.append(candidate)
     found += [m for m in re.findall(r'(?i)\bf[cd][0-9a-f]{2}:[0-9a-f:]+', line)]
     return found
@@ -106,31 +120,62 @@ SYNTHETIC_UUID = ('00000000-0000-0000-0000-000000000000', '01234567-89ab-cdef-01
 
 def static_rules():
     """(rule id, function returning the matched texts of one line)."""
+
     def pattern(regex, keep=lambda match, context: True):
         compiled = re.compile(regex)
-        return lambda line, previous='': [m.group(0) for m in compiled.finditer(line)
-                                          if keep(m, previous + '\n' + line)]
+        return lambda line, previous='': [
+            m.group(0) for m in compiled.finditer(line) if keep(m, previous + '\n' + line)
+        ]
+
     return [
         ('home-path', pattern(r'(?<![\w.}$-])/home/[A-Za-z_][A-Za-z0-9_.-]*')),  # not a repository path
         ('private-ip', _private_ip),
-        ('email', pattern(r'[\w.+-]+@((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})\b',
-                          keep=lambda m, context: not SYNTHETIC_DOMAINS.search(m.group(1)))),
+        (
+            'email',
+            pattern(
+                r'[\w.+-]+@((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})\b',
+                keep=lambda m, context: not SYNTHETIC_DOMAINS.search(m.group(1)),
+            ),
+        ),
         ('private-dns', pattern(r'(?i)\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:ts\.net|lan|home\.arpa|internal)\b')),
         ('private-dns', pattern(r'(?<![/~\w.])[a-z0-9-]+(?:\.[a-z0-9-]+)+\.local\b(?!/)')),
-        ('device-id', pattern(r'(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b',
-                              keep=lambda m, context: m.group(0).lower() not in SYNTHETIC_UUID)),
+        (
+            'device-id',
+            pattern(
+                r'(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b',
+                keep=lambda m, context: m.group(0).lower() not in SYNTHETIC_UUID,
+            ),
+        ),
         ('device-id', pattern(r'(?i)uuid[=:\s"\']+[0-9A-F]{4}-[0-9A-F]{4}\b')),
         ('device-id', pattern(r'(?i)serial[\'"]?\s*[:=,]\s*[\'"]?[A-Z0-9]{8,}')),
-        ('ssh-key', pattern(r'(?:ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-nistp\d+|sk-ssh-ed25519@openssh\.com) '
-                            r'AAAA[0-9A-Za-z+/=]{16,}', keep=lambda m, context: 'Example' not in m.group(0))),
+        (
+            'ssh-key',
+            pattern(
+                r'(?:ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-nistp\d+|sk-ssh-ed25519@openssh\.com) '
+                r'AAAA[0-9A-Za-z+/=]{16,}',
+                keep=lambda m, context: 'Example' not in m.group(0),
+            ),
+        ),
         ('ssh-key', pattern(r'SHA256:[0-9A-Za-z+/]{43}')),
-        ('mac', pattern(r'(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b',
-                        keep=lambda m, context: m.group(0) != '00:00:00:00:00:00'
-                        and not m.group(0).lower().startswith('00:00:5e:00:53:'))),
+        (
+            'mac',
+            pattern(
+                r'(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b',
+                keep=lambda m, context: (
+                    m.group(0) != '00:00:00:00:00:00' and not m.group(0).lower().startswith('00:00:5e:00:53:')
+                ),
+            ),
+        ),
         # A checksum names itself on its line or the one above; a bare one may be an identifier.
-        ('hex-id', pattern(r'(?i)(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])',
-                           keep=lambda m, context: not SYNTHETIC_HEX.match(m.group(0))
-                           and not re.search(r'(?i)sha-?256|sha512|b2sums', context))),
+        (
+            'hex-id',
+            pattern(
+                r'(?i)(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])',
+                keep=lambda m, context: (
+                    not SYNTHETIC_HEX.match(m.group(0)) and not re.search(r'(?i)sha-?256|sha512|b2sums', context)
+                ),
+            ),
+        ),
     ]
 
 
@@ -149,8 +194,9 @@ def environment_rules(root):
         hosts.add(Path('/etc/hostname').read_text().strip().split('.')[0])
     except OSError:
         pass
-    for host in sorted(h for h in hosts if len(h) >= 3 and h.lower() not in GENERIC_HOSTS
-                       and not re.fullmatch(r'[0-9a-f]{12,64}', h)):
+    for host in sorted(
+        h for h in hosts if len(h) >= 3 and h.lower() not in GENERIC_HOSTS and not re.fullmatch(r'[0-9a-f]{12,64}', h)
+    ):
         rules.append(('host', _word(host)))
     try:
         machine = Path('/etc/machine-id').read_text().strip()
@@ -159,12 +205,14 @@ def environment_rules(root):
     except OSError:
         pass
     for key in ('user.name', 'user.email'):
-        value = subprocess.run(['git', '-C', str(root), 'config', key], capture_output=True, text=True,
-                               check=False).stdout.strip()
+        value = subprocess.run(
+            ['git', '-C', str(root), 'config', key], capture_output=True, text=True, check=False
+        ).stdout.strip()
         if value and not SYNTHETIC_DOMAINS.search(value.rsplit('@', 1)[-1]):
             rules.append(('git-identity', _word(value)))
-    return [(rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)])
-            for rule, compiled in rules]
+    return [
+        (rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)]) for rule, compiled in rules
+    ]
 
 
 def scan(root, files, rules, exempt_transitional=True):
@@ -207,5 +255,7 @@ def read_allowlist(path):
 
 
 def allowed(hit, entries):
-    return any(hit.rule == rule and fnmatch.fnmatchcase(hit.path, glob) and text in ('*', hit.text)
-               for rule, glob, text, _ in entries)
+    return any(
+        hit.rule == rule and fnmatch.fnmatchcase(hit.path, glob) and text in ('*', hit.text)
+        for rule, glob, text, _ in entries
+    )

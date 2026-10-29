@@ -1,4 +1,5 @@
 """Keys that Noctalia's runtime files override are reported."""
+
 from pathlib import Path
 import sys
 import tempfile
@@ -6,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy.noctalia import overlaps  # noqa: E402
+from shaffy.noctalia import overlaps
 
 
 class OverlapTests(unittest.TestCase):
@@ -21,12 +22,18 @@ class OverlapTests(unittest.TestCase):
             (home / '.config/noctalia').mkdir(parents=True)
             (home / '.local/state/noctalia').mkdir(parents=True)
             (home / '.config/noctalia/99-runtime.toml').write_text('[bar]\nposition = "bottom"\n')
-            (home / '.local/state/noctalia/settings.toml').write_text(
-                '[theme]\nmode = "dark"\n[unrelated]\nkey = 1\n')
-            found = {(key, source.split('/')[-1]): (managed, runtime)
-                     for key, managed, source, runtime in overlaps(rendered, home)}
-            self.assertEqual(found, {('bar.position', '99-runtime.toml'): ('bottom', 'bottom'),
-                                     ('theme.mode', 'settings.toml'): ('light', 'dark')})
+            (home / '.local/state/noctalia/settings.toml').write_text('[theme]\nmode = "dark"\n[unrelated]\nkey = 1\n')
+            found = {
+                (key, source.split('/')[-1]): (managed, runtime)
+                for key, managed, source, runtime in overlaps(rendered, home)
+            }
+            self.assertEqual(
+                found,
+                {
+                    ('bar.position', '99-runtime.toml'): ('bottom', 'bottom'),
+                    ('theme.mode', 'settings.toml'): ('light', 'dark'),
+                },
+            )
 
     def test_missing_runtime_files_mean_no_overlaps(self):
         with tempfile.TemporaryDirectory() as directory:

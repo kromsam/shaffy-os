@@ -5,6 +5,7 @@ Run it in the dev worktree, read the diff, run ./bin/shaffy selftest and commit;
 the new pins and a release takes them to the machine (docs/UPDATING.md). It changes only
 files in this checkout. A pin it cannot raise is reported and left alone.
 """
+
 import argparse
 from pathlib import Path
 import subprocess
@@ -13,17 +14,17 @@ import sys
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'lib'))
 
-from shaffy import pins  # noqa: E402
+from shaffy import pins
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--check', action='store_true', help='report the pins only; change nothing')
-    parser.add_argument('--lazyvim', action='store_true',
-                        help='refresh the LazyVim plugin lock even when it is recent')
+    parser.add_argument('--lazyvim', action='store_true', help='refresh the LazyVim plugin lock even when it is recent')
     args = parser.parse_args(argv)
-    branch = subprocess.run(['git', '-C', str(REPO), 'branch', '--show-current'], capture_output=True,
-                            text=True, check=False).stdout.strip()
+    branch = subprocess.run(
+        ['git', '-C', str(REPO), 'branch', '--show-current'], capture_output=True, text=True, check=False
+    ).stdout.strip()
     if branch == 'main' and not args.check:
         sys.exit('refresh-pins: main is the released version; refresh the pins on dev')
     failed = False
@@ -45,7 +46,7 @@ def main(argv):
                 failed = True
                 continue
             moved = f'{pin.current} → {pin.latest}' if pin.latest != pin.current else 'refreshed'
-            print(f'{pin.name}: {moved}' + (f" ({', '.join(changed)})" if changed else ', nothing changed'))
+            print(f'{pin.name}: {moved}' + (f' ({", ".join(changed)})' if changed else ', nothing changed'))
     if not args.check:
         print('Review `git diff`, run ./bin/shaffy selftest, then commit on dev.')
     return 1 if failed else 0

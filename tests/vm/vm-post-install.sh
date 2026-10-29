@@ -30,7 +30,10 @@ else
   trap 'umount "$target/boot" "$target/var/log" "$target/var/cache" "$target/home"; umount "$target" && rmdir "$target"' EXIT
 fi
 fstab=$target/etc/fstab
-[[ -f $fstab ]] || { echo "vm-post-install: $fstab is missing; the install did not finish" >&2; exit 1; }
+[[ -f $fstab ]] || {
+  echo "vm-post-install: $fstab is missing; the install did not finish" >&2
+  exit 1
+}
 if ! grep -q '^shaffy-share ' "$fstab"; then
   cat >>"$fstab" <<'EOF'
 
@@ -71,8 +74,11 @@ if ((live)) && [[ ! -e $target/usr/share/wayland-sessions/niri.desktop ]]; then
 fi
 
 [[ -f $share/authorized_keys ]] || exit 0
-IFS=: read -r _ _ uid gid _ home _ < <(grep "^$account:" "$target/etc/passwd") \
-  || { echo "vm-post-install: there is no account $account" >&2; exit 1; }
+IFS=: read -r _ _ uid gid _ home _ < <(grep "^$account:" "$target/etc/passwd") ||
+  {
+    echo "vm-post-install: there is no account $account" >&2
+    exit 1
+  }
 install -d -m 0700 -o "$uid" -g "$gid" "$target$home/.ssh"
 install -m 0600 -o "$uid" -g "$gid" "$share/authorized_keys" "$target$home/.ssh/authorized_keys"
 if ((live)); then

@@ -1,8 +1,9 @@
 """Deployed home files must not depend on one checkout's absolute path."""
+
 import json
 import os
-import re
 from pathlib import Path
+import re
 import runpy
 import shutil
 import subprocess
@@ -35,11 +36,15 @@ class ClaudeMergeTests(unittest.TestCase):
 
 class CodexMergeTests(unittest.TestCase):
     def test_repeated_rewrites_do_not_add_blank_lines(self):
-        servers = {'zotero': {'command': 'z', 'args': ['serve'], 'env': {'WRITE': 'false'}},
-                   'gbrain': {'command': 'g', 'args': []}}
-        text = ('model = "x"\n\n[mcp_servers.zotero]\ncommand = "z"\nargs = ["serve"]\n\n'
-                '[mcp_servers.zotero.env]\nWRITE = "true"\n\n[mcp_servers.gbrain]\ncommand = "g"\n'
-                'args = []\n\n[projects."/p"]\ntrust_level = "trusted"\n')
+        servers = {
+            'zotero': {'command': 'z', 'args': ['serve'], 'env': {'WRITE': 'false'}},
+            'gbrain': {'command': 'g', 'args': []},
+        }
+        text = (
+            'model = "x"\n\n[mcp_servers.zotero]\ncommand = "z"\nargs = ["serve"]\n\n'
+            '[mcp_servers.zotero.env]\nWRITE = "true"\n\n[mcp_servers.gbrain]\ncommand = "g"\n'
+            'args = []\n\n[projects."/p"]\ntrust_level = "trusted"\n'
+        )
         outputs = []
         for _ in range(3):
             text = merge['merge_codex'](text, servers)
@@ -55,9 +60,11 @@ class CheckoutPathTests(unittest.TestCase):
     def test_home_sources_never_name_a_checkout(self):
         # The whole path: a checkout at /work must not match ~/.local/share/workmux.
         checkout = re.compile(re.escape(os.fsencode(str(REPO))) + rb'(?![\w.-])')
-        offenders = [str(path.relative_to(REPO)) for path in HOME.rglob('*')
-                     if path.is_file() and '__pycache__' not in path.parts
-                     and checkout.search(path.read_bytes())]
+        offenders = [
+            str(path.relative_to(REPO))
+            for path in HOME.rglob('*')
+            if path.is_file() and '__pycache__' not in path.parts and checkout.search(path.read_bytes())
+        ]
         self.assertEqual(offenders, [])
 
 
@@ -76,11 +83,11 @@ class ApplyingCheckoutTests(unittest.TestCase):
             (source / 'defaults').mkdir()
             (source / 'defaults/config.yaml').write_text(
                 'schema_version: 1\nai:\n  mcp_servers:\n    marker:\n'
-                '      command: "/only/in/this/checkout"\n      args: []\n')
+                '      command: "/only/in/this/checkout"\n      args: []\n'
+            )
             if supplement:
                 (source / 'supplement').mkdir()
-                (source / 'supplement/config.yaml').write_text(
-                    'schema_version: 1\nsupplement_id: test\n' + supplement)
+                (source / 'supplement/config.yaml').write_text('schema_version: 1\nsupplement_id: test\n' + supplement)
             shim = source / 'home' / source_name
             shim.parent.mkdir(parents=True)
             shutil.copy(HOME / source_name, shim)
@@ -89,16 +96,28 @@ class ApplyingCheckoutTests(unittest.TestCase):
             config = root / 'chezmoi.toml'
             config.write_text(f'persistentState = "{root / "state.boltdb"}"\n')
             result = subprocess.run(
-                ['chezmoi', '--config', str(config), '--source', str(source / 'home'),
-                 '--destination', str(dest), 'cat', str(dest / target)],
-                capture_output=True, text=True, cwd=root,
-                env={'HOME': str(dest), 'PATH': os.environ['PATH']}, check=False)
+                [
+                    'chezmoi',
+                    '--config',
+                    str(config),
+                    '--source',
+                    str(source / 'home'),
+                    '--destination',
+                    str(dest),
+                    'cat',
+                    str(dest / target),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=root,
+                env={'HOME': str(dest), 'PATH': os.environ['PATH']},
+                check=False,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
 
     def test_codex_config_uses_this_checkouts_merge_and_servers(self):
-        output = self.render('private_dot_codex/modify_private_config.toml',
-                             '.codex/config.toml', 'model = "x"\n')
+        output = self.render('private_dot_codex/modify_private_config.toml', '.codex/config.toml', 'model = "x"\n')
         self.assertIn('/only/in/this/checkout', output)
         self.assertIn('model = "x"', output)
 
@@ -115,15 +134,33 @@ class ApplyingCheckoutTests(unittest.TestCase):
         self.assertEqual(data['preferences'], {'sidebarMode': 'chat'})
 
     def test_supplement_can_disable_a_default_and_add_a_server_in_every_client(self):
-        supplement = ('ai:\n  mcp_servers:\n    marker:\n      enabled: false\n'
-                      '    new:\n      enabled: true\n      command: "~/bin/new-mcp"\n')
+        supplement = (
+            'ai:\n  mcp_servers:\n    marker:\n      enabled: false\n'
+            '    new:\n      enabled: true\n      command: "~/bin/new-mcp"\n'
+        )
         for source, target, existing, parse, key in (
-                ('private_dot_codex/modify_private_config.toml', '.codex/config.toml',
-                 'model="kept"\n[mcp_servers.marker]\ncommand="old"\n', tomllib.loads, 'mcp_servers'),
-                ('modify_dot_claude.json', '.claude.json',
-                 '{"theme":"dark","mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers'),
-                (DESKTOP, DESKTOP_TARGET,
-                 '{"preferences":{},"mcpServers":{"marker":{"command":"old"}}}', json.loads, 'mcpServers')):
+            (
+                'private_dot_codex/modify_private_config.toml',
+                '.codex/config.toml',
+                'model="kept"\n[mcp_servers.marker]\ncommand="old"\n',
+                tomllib.loads,
+                'mcp_servers',
+            ),
+            (
+                'modify_dot_claude.json',
+                '.claude.json',
+                '{"theme":"dark","mcpServers":{"marker":{"command":"old"}}}',
+                json.loads,
+                'mcpServers',
+            ),
+            (
+                DESKTOP,
+                DESKTOP_TARGET,
+                '{"preferences":{},"mcpServers":{"marker":{"command":"old"}}}',
+                json.loads,
+                'mcpServers',
+            ),
+        ):
             with self.subTest(target=target):
                 output = self.render(source, target, existing, supplement)
                 servers = parse(output)[key]
@@ -133,8 +170,9 @@ class ApplyingCheckoutTests(unittest.TestCase):
                 self.assertEqual(servers['new']['args'], [])
 
     def test_a_new_claude_file_with_the_default_server_disabled_is_valid_json(self):
-        output = self.render('modify_dot_claude.json', '.claude.json', '',
-                             'ai:\n  mcp_servers:\n    marker:\n      enabled: false\n')
+        output = self.render(
+            'modify_dot_claude.json', '.claude.json', '', 'ai:\n  mcp_servers:\n    marker:\n      enabled: false\n'
+        )
         self.assertEqual(json.loads(output), {})
 
 

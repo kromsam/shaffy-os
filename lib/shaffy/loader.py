@@ -3,6 +3,7 @@
 PyYAML parses (YAML 1.2 core typing, duplicate keys rejected), python-jsonschema
 validates the structure, and hand-written checks cover what a schema cannot.
 """
+
 import copy
 import hashlib
 import json
@@ -14,8 +15,10 @@ from urllib.parse import quote
 import jsonschema
 import yaml
 
-from .integrations import load_catalogue, resolve as resolve_integrations
-from .packages import load_groups, resolve as resolve_packages
+from .integrations import load_catalogue
+from .integrations import resolve as resolve_integrations
+from .packages import load_groups
+from .packages import resolve as resolve_packages
 from .selection import resolve
 from .source import release, release_key
 
@@ -40,11 +43,16 @@ class _Loader(yaml.SafeLoader):
 
 _Loader.yaml_implicit_resolvers = {}
 for _tag, _pattern, _first in (
-        ('bool', r'^(?:true|True|TRUE|false|False|FALSE)$', 'tTfF'),
-        ('null', r'^(?:~|null|Null|NULL|)$', ['~', 'n', 'N', '']),
-        ('int', r'^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$', '-+0123456789'),
-        ('float', r'^(?:[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?'
-                  r'|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$', '-+.0123456789')):
+    ('bool', r'^(?:true|True|TRUE|false|False|FALSE)$', 'tTfF'),
+    ('null', r'^(?:~|null|Null|NULL|)$', ['~', 'n', 'N', '']),
+    ('int', r'^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$', '-+0123456789'),
+    (
+        'float',
+        r'^(?:[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?'
+        r'|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$',
+        '-+.0123456789',
+    ),
+):
     _Loader.add_implicit_resolver(f'tag:yaml.org,2002:{_tag}', re.compile(_pattern), list(_first))
 
 
@@ -62,8 +70,7 @@ def _construct_mapping(loader, node):
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=True)
         if key in mapping:
-            raise yaml.constructor.ConstructorError(
-                None, None, f'duplicate key {key!r}', key_node.start_mark)
+            raise yaml.constructor.ConstructorError(None, None, f'duplicate key {key!r}', key_node.start_mark)
         mapping[key] = loader.construct_object(value_node, deep=True)
     return mapping
 
@@ -110,8 +117,10 @@ def validate(data, schema, label):
     """Return problems: unsupported version first, then schema errors in key order."""
     version = data.get('schema_version')
     if 'schema_version' in data and version not in SUPPORTED_VERSIONS:
-        return [f'{label}: schema_version: {version!r} is not supported; this Shaffy OS reads '
-                + ', '.join(map(str, SUPPORTED_VERSIONS))]
+        return [
+            f'{label}: schema_version: {version!r} is not supported; this Shaffy OS reads '
+            + ', '.join(map(str, SUPPORTED_VERSIONS))
+        ]
     validator = jsonschema.Draft202012Validator(schema)
     errors = sorted(validator.iter_errors(data), key=lambda e: [str(p) for p in e.absolute_path])
     return [f'{label}: ' + ': '.join(_describe(error)) for error in errors]
@@ -123,11 +132,15 @@ def release_problem(checkout, wanted):
         return None  # absent, or malformed, which the schema reports
     have = release(checkout)
     if have is None:
-        return (f'minimum_release: this supplement needs Shaffy OS {wanted} or later, and no release '
-                "tag is reachable from this checkout's HEAD; fetch the tags (git fetch --tags)")
+        return (
+            f'minimum_release: this supplement needs Shaffy OS {wanted} or later, and no release '
+            "tag is reachable from this checkout's HEAD; fetch the tags (git fetch --tags)"
+        )
     if release_key(have) < release_key(wanted):
-        return (f'minimum_release: this supplement needs Shaffy OS {wanted} or later; this checkout '
-                f'is at {have}; update it to a newer release')
+        return (
+            f'minimum_release: this supplement needs Shaffy OS {wanted} or later; this checkout '
+            f'is at {have}; update it to a newer release'
+        )
     return None
 
 
@@ -191,15 +204,17 @@ def _effective_problems(settings):
             problems.append(f'effective settings: ai.mcp_servers.{name}: has both a command and a url')
         elif 'url' in spec and ('args' in spec or 'env' in spec):
             problems.append(f'effective settings: ai.mcp_servers.{name}: args and env need a command')
-    if ('projects' in settings.get('folder_links', {}).values()
-            and 'projects' not in settings.get('folders', {})):
-        problems.append('folder_links: a projects target needs folders.projects; '
-                        'projects is not a standard XDG directory')
+    if 'projects' in settings.get('folder_links', {}).values() and 'projects' not in settings.get('folders', {}):
+        problems.append(
+            'folder_links: a projects target needs folders.projects; projects is not a standard XDG directory'
+        )
     for exclude in settings.get('backup', {}).get('excludes', []):
         parts = tuple(part for part in exclude[2:].split('/') if part)
-        if parts == BACKUP_MARKER[:len(parts)]:
-            problems.append(f'backup.excludes: {exclude} would leave out ~/{"/".join(BACKUP_MARKER)}, '
-                            "where each backup's verification marker is written")
+        if parts == BACKUP_MARKER[: len(parts)]:
+            problems.append(
+                f'backup.excludes: {exclude} would leave out ~/{"/".join(BACKUP_MARKER)}, '
+                "where each backup's verification marker is written"
+            )
     return problems
 
 
@@ -222,8 +237,10 @@ def load(checkout, supplement=None, without=False, home=None):
         supplement_id = overrides.get('supplement_id')
     if problems:
         raise SettingsError(problems)
-    settings = merge({k: v for k, v in defaults.items() if k not in IDENTITY_KEYS},
-                     {k: v for k, v in overrides.items() if k not in IDENTITY_KEYS})
+    settings = merge(
+        {k: v for k, v in defaults.items() if k not in IDENTITY_KEYS},
+        {k: v for k, v in overrides.items() if k not in IDENTITY_KEYS},
+    )
     problems = _effective_problems(settings)
     fragments, written, system_overrides = {}, set(), {}
     for name, reference in settings.pop('overrides', {}).items():
@@ -261,9 +278,16 @@ def load(checkout, supplement=None, without=False, home=None):
             problems.append(f'assets.{target}: {reference!r} cannot be read: {error.strerror}')
             continue
         written.add(os.path.normpath(reference))
-        assets.append({'target': target[2:], 'path': path, 'url': 'file://' + quote(path), 'sha256': digest,
-                       'executable': bool(isinstance(value, dict) and value.get('executable')),
-                       'private': bool(isinstance(value, dict) and value.get('private'))})
+        assets.append(
+            {
+                'target': target[2:],
+                'path': path,
+                'url': 'file://' + quote(path),
+                'sha256': digest,
+                'executable': bool(isinstance(value, dict) and value.get('executable')),
+                'private': bool(isinstance(value, dict) and value.get('private')),
+            }
+        )
     groups, retired, group_problems = load_groups(checkout, parse)
     packages, choice_problems = resolve_packages(groups, retired, settings)
     problems += group_problems or choice_problems
@@ -274,10 +298,18 @@ def load(checkout, supplement=None, without=False, home=None):
         raise SettingsError(problems)
     # `references` are resolved paths, for cache stamps; `reference_paths` are the paths as
     # config.yaml writes them, which a capture must reproduce even through symlinks.
-    return {'shaffy': {'schema_version': 1,
-                       'selection': {**selection, 'supplement_id': supplement_id},
-                       'settings': settings, 'overrides': fragments, 'present': sorted(present),
-                       'references': sorted({*fragments.values(), *(a['path'] for a in assets)}),
-                       'reference_paths': sorted(written), 'assets': assets,
-                       'system_overrides': system_overrides,
-                       'packages': packages, 'integrations': integrations}}
+    return {
+        'shaffy': {
+            'schema_version': 1,
+            'selection': {**selection, 'supplement_id': supplement_id},
+            'settings': settings,
+            'overrides': fragments,
+            'present': sorted(present),
+            'references': sorted({*fragments.values(), *(a['path'] for a in assets)}),
+            'reference_paths': sorted(written),
+            'assets': assets,
+            'system_overrides': system_overrides,
+            'packages': packages,
+            'integrations': integrations,
+        }
+    }

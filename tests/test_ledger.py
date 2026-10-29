@@ -1,4 +1,5 @@
 """The ownership ledger's planning and crash-safe transitions."""
+
 import json
 import os
 from pathlib import Path
@@ -8,8 +9,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import ledger  # noqa: E402
-from shaffy.records import RecordError  # noqa: E402
+from shaffy import ledger
+from shaffy.records import RecordError
 
 LINK = {'kind': 'wants-link', 'unit': 'a.service', 'link': '~/.config/systemd/user/default.target.wants/a.service'}
 ENTRY = {'kind': 'autostart', 'path': '~/.config/autostart/A.desktop'}
@@ -61,8 +62,10 @@ class LedgerTests(unittest.TestCase):
         self.activate()
         owned = ledger.adopt({'integrations': {}}, 'a', integration('managed'), 'op0')
         _, transitions, _ = ledger.plan({'a': integration('disabled')}, owned, self.home, 'op1')
-        self.assertEqual(ledger.removals(transitions, self.home),
-                         ['.config/systemd/user/default.target.wants/a.service', '.config/autostart/A.desktop'])
+        self.assertEqual(
+            ledger.removals(transitions, self.home),
+            ['.config/systemd/user/default.target.wants/a.service', '.config/autostart/A.desktop'],
+        )
         ledger.begin(owned, transitions, 'op1')
         writes = []
 
@@ -70,6 +73,7 @@ class LedgerTests(unittest.TestCase):
             writes.append(json.dumps(data))
             if len(writes) == 1:
                 raise KeyboardInterrupt
+
         with self.assertRaises(KeyboardInterrupt):
             ledger.finish(owned, 'op1', self.home, crash_after_first)
         stored = json.loads(writes[0])
@@ -82,11 +86,16 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(stored['integrations']['a']['state'], 'disabled')
         self.assertIsNone(stored['integrations']['a']['transition'])
 
-
     def test_an_unmet_activation_precondition_defers_instead_of_refusing(self):
         receipt = self.home / 'receipt.json'
-        gated = {**integration('managed'), 'activate_requires': {
-            'file': '~/receipt.json', 'json': {'status': 'verified', 'repository_id': 'abc'}, 'hint': 'back up first'}}
+        gated = {
+            **integration('managed'),
+            'activate_requires': {
+                'file': '~/receipt.json',
+                'json': {'status': 'verified', 'repository_id': 'abc'},
+                'hint': 'back up first',
+            },
+        }
         problems, transitions, deferred = ledger.plan({'a': gated}, {'integrations': {}}, self.home, 'op1')
         self.assertEqual((problems, transitions), ([], []))
         self.assertIn('back up first', deferred['a'])
@@ -106,6 +115,7 @@ class LedgerTests(unittest.TestCase):
         ledger.begin(owned, transitions, 'op1')
         ledger.finish(owned, 'op1', self.home, lambda data: None)
         self.assertEqual(owned['integrations']['a']['activation'], [LINK, ENTRY])
+
 
 if __name__ == '__main__':
     unittest.main()

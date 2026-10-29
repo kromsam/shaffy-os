@@ -2,7 +2,7 @@
 # Run as the desktop user, without sudo. Defaults to read-only.
 set -euo pipefail
 mode=${1:---check}
-[[ $# -le 1 && ( $mode == --check || $mode == --apply ) ]] || {
+[[ $# -le 1 && ($mode == --check || $mode == --apply) ]] || {
   echo 'Usage: bash scripts/configure-office-apps.sh [--check|--apply]' >&2
   exit 2
 }

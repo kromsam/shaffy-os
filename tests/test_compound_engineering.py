@@ -1,4 +1,5 @@
 """CE configuration must converge without changing other agent capabilities."""
+
 import json
 from pathlib import Path
 import runpy
@@ -31,16 +32,17 @@ class CompoundEngineeringTests(unittest.TestCase):
                     self.assertEqual(actual[key], original[key])
                 self.assertTrue(actual['enabledPlugins']['ruby-lsp@official'])
                 self.assertEqual(actual['enabledPlugins'][PLUGIN], enabled)
-                self.assertEqual(actual['extraKnownMarketplaces']['other'],
-                                 original['extraKnownMarketplaces']['other'])
+                self.assertEqual(actual['extraKnownMarketplaces']['other'], original['extraKnownMarketplaces']['other'])
                 self.assertEqual(MERGE['merge_claude_settings'](output, enabled), output)
 
     def test_codex_keeps_other_plugins_mcp_hooks_and_ce_specific_options(self):
-        source = (f'# local preferences\nmodel = "kept"\n[features]\nhooks = true\n'
-                  '[mcp_servers.other]\nurl = "http://localhost:9000"\n'
-                  '[plugins."other@official"]\nenabled = true\n'
-                  f'[plugins."{PLUGIN}"]\nenabled = false\n[plugins."{PLUGIN}".settings]\ncustom = "kept"\n'
-                  '[marketplaces.other]\nsource_type = "local"\nsource = "/other"\n')
+        source = (
+            f'# local preferences\nmodel = "kept"\n[features]\nhooks = true\n'
+            '[mcp_servers.other]\nurl = "http://localhost:9000"\n'
+            '[plugins."other@official"]\nenabled = true\n'
+            f'[plugins."{PLUGIN}"]\nenabled = false\n[plugins."{PLUGIN}".settings]\ncustom = "kept"\n'
+            '[marketplaces.other]\nsource_type = "local"\nsource = "/other"\n'
+        )
         for enabled in (True, False):
             with self.subTest(enabled=enabled):
                 result = MERGE['merge_codex'](source, {}, enabled)
@@ -73,8 +75,9 @@ class CompoundEngineeringTests(unittest.TestCase):
                 INSTALL['declared'](home, True)
             for enabled in (True, False):
                 for name, content in (
-                        ('.claude/settings.json', MERGE['merge_claude_settings']('', enabled)),
-                        ('.codex/config.toml', MERGE['merge_codex']('', {}, enabled))):
+                    ('.claude/settings.json', MERGE['merge_claude_settings']('', enabled)),
+                    ('.codex/config.toml', MERGE['merge_codex']('', {}, enabled)),
+                ):
                     path = home / name
                     path.parent.mkdir(exist_ok=True)
                     path.write_text(content)
@@ -124,8 +127,9 @@ class CompoundEngineeringTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
             for name, content in (
-                    ('.claude/settings.json', MERGE['merge_claude_settings']('', False)),
-                    ('.codex/config.toml', MERGE['merge_codex']('', {}, False))):
+                ('.claude/settings.json', MERGE['merge_claude_settings']('', False)),
+                ('.codex/config.toml', MERGE['merge_codex']('', {}, False)),
+            ):
                 path = home / name
                 path.parent.mkdir()
                 path.write_text(content)

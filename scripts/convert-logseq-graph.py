@@ -10,33 +10,99 @@ whiteboards, renamed pages and lines from Syncthing conflict copies.
 Remove after 2027-01-20, with tests/test_logseq_conversion.py and
 docs/MIGRATING-PASSWORDS-AND-NOTES.md.
 """
+
 import argparse
 import datetime
 import json
+from pathlib import Path
 import re
 import shutil
 import sys
-from pathlib import Path
 from urllib.parse import unquote
 
 REPORT = 'Logseq import'
 LIBRARY = 'Library/Logseq'
 TEMPLATES = 'Library/Templates/'
 # Logseq-only properties with no meaning in SilverBullet; query-* ones shape the converted query.
-DROPPED = {'collapsed', 'id', 'ls-type', 'hl-page', 'hl-color', 'hl-type', 'hl-stamp', 'filters', 'public',
-           'heading', 'template', 'template-including-parent', 'exclude-in-graph', 'exclude_in_graph',
-           'query-table', 'query-properties', 'query-sort-by', 'query-sort-desc'}
+DROPPED = {
+    'collapsed',
+    'id',
+    'ls-type',
+    'hl-page',
+    'hl-color',
+    'hl-type',
+    'hl-stamp',
+    'filters',
+    'public',
+    'heading',
+    'template',
+    'template-including-parent',
+    'exclude-in-graph',
+    'exclude_in_graph',
+    'query-table',
+    'query-properties',
+    'query-sort-by',
+    'query-sort-desc',
+}
 # Attributes SilverBullet sets itself on pages and on items; Logseq properties of these names are renamed.
-PAGE_FIELDS = {'name', 'size', 'contentType', 'created', 'lastModified', 'perm', 'ref', 'tag', 'itags',
-               'displayName', 'aliases'}
-ITEM_FIELDS = {'ref', 'tag', 'tags', 'itags', 'pos', 'toPos', 'range', 'name', 'text', 'page',
-               'pageLastModified', 'links', 'ilinks', 'parent', 'state', 'done'}
-TASKS = {'TODO': '[ ]', 'LATER': '[ ]', 'DONE': '[x]', 'NOW': '[DOING]', 'DOING': '[DOING]',
-         'WAIT': '[WAITING]', 'WAITING': '[WAITING]', 'IN-PROGRESS': '[DOING]',
-         'CANCELED': '[CANCELED]', 'CANCELLED': '[CANCELED]'}
+PAGE_FIELDS = {
+    'name',
+    'size',
+    'contentType',
+    'created',
+    'lastModified',
+    'perm',
+    'ref',
+    'tag',
+    'itags',
+    'displayName',
+    'aliases',
+}
+ITEM_FIELDS = {
+    'ref',
+    'tag',
+    'tags',
+    'itags',
+    'pos',
+    'toPos',
+    'range',
+    'name',
+    'text',
+    'page',
+    'pageLastModified',
+    'links',
+    'ilinks',
+    'parent',
+    'state',
+    'done',
+}
+TASKS = {
+    'TODO': '[ ]',
+    'LATER': '[ ]',
+    'DONE': '[x]',
+    'NOW': '[DOING]',
+    'DOING': '[DOING]',
+    'WAIT': '[WAITING]',
+    'WAITING': '[WAITING]',
+    'IN-PROGRESS': '[DOING]',
+    'CANCELED': '[CANCELED]',
+    'CANCELLED': '[CANCELED]',
+}
 WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-          'September', 'October', 'November', 'December']
+MONTHS = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+]
 PROPERTY = re.compile(r'^([A-Za-z][\w-]*):: ?(.*)$')
 TASK = re.compile(r'^(\s*- )(' + '|'.join(TASKS) + r') ')
 FENCE = re.compile(r'^\s*(```|~~~)')
@@ -59,7 +125,7 @@ BLOCK = re.compile(r'^(\t*)- ')
 
 # Space Lua for the converted queries: Logseq treats a tag and a link to a page as the same
 # reference, and its blocks are SilverBullet's items and tasks together.
-LIBRARY_PAGE = '''---
+LIBRARY_PAGE = """---
 tags: meta
 ---
 Helpers for the queries converted from Logseq, where a tag and a link to a page are the same reference and a query searches every block, item or task.
@@ -117,7 +183,7 @@ function logseq.render(o)
   return templates.itemItem(o)
 end
 ```
-'''
+"""
 
 
 def edn_string(config, key, default):
@@ -127,11 +193,18 @@ def edn_string(config, key, default):
 
 def title_pattern(fmt):
     """A regular expression for Logseq's journal title format, with named date parts."""
-    tokens = {'EEEE': '(?:' + '|'.join(WEEKDAYS) + ')', 'EEE': '(?:' + '|'.join(d[:3] for d in WEEKDAYS) + ')',
-              'MMMM': '(?P<monthname>' + '|'.join(MONTHS) + ')',
-              'MMM': '(?P<monthabbr>' + '|'.join(m[:3] for m in MONTHS) + ')',
-              'MM': r'(?P<month>\d{2})', 'M': r'(?P<month>\d{1,2})', 'yyyy': r'(?P<year>\d{4})',
-              'do': r'(?P<day>\d{1,2})(?:st|nd|rd|th)', 'dd': r'(?P<day>\d{2})', 'd': r'(?P<day>\d{1,2})'}
+    tokens = {
+        'EEEE': '(?:' + '|'.join(WEEKDAYS) + ')',
+        'EEE': '(?:' + '|'.join(d[:3] for d in WEEKDAYS) + ')',
+        'MMMM': '(?P<monthname>' + '|'.join(MONTHS) + ')',
+        'MMM': '(?P<monthabbr>' + '|'.join(m[:3] for m in MONTHS) + ')',
+        'MM': r'(?P<month>\d{2})',
+        'M': r'(?P<month>\d{1,2})',
+        'yyyy': r'(?P<year>\d{4})',
+        'do': r'(?P<day>\d{1,2})(?:st|nd|rd|th)',
+        'dd': r'(?P<day>\d{2})',
+        'd': r'(?P<day>\d{1,2})',
+    }
     out, i = '', 0
     while i < len(fmt):
         for token in sorted(tokens, key=len, reverse=True):
@@ -209,8 +282,11 @@ def yaml_value(value):
         return value.isoformat()
     if isinstance(value, list):
         return '[' + ', '.join(yaml_value(v) for v in value) + ']'
-    plain = (re.fullmatch(r'[^\W\d][\w ./-]*', value) and not value.endswith(' ')
-             and value.lower() not in ('true', 'false', 'yes', 'no', 'on', 'off', 'null'))
+    plain = (
+        re.fullmatch(r'[^\W\d][\w ./-]*', value)
+        and not value.endswith(' ')
+        and value.lower() not in ('true', 'false', 'yes', 'no', 'on', 'off', 'null')
+    )
     return value if plain else json.dumps(value, ensure_ascii=False)
 
 
@@ -264,9 +340,9 @@ def block_properties(lines, start):
     """The `key:: value` continuation lines right under a block's first line."""
     depth = len(BLOCK.match(lines[start])[1])
     props = {}
-    for line in lines[start + 1:]:
+    for line in lines[start + 1 :]:
         prefix = '\t' * depth + '  '
-        match = PROPERTY.match(line[len(prefix):]) if line.startswith(prefix) else None
+        match = PROPERTY.match(line[len(prefix) :]) if line.startswith(prefix) else None
         if not match:
             break
         props[match[1].lower()] = match[2].strip()
@@ -283,12 +359,22 @@ class Converter:
         self.name_format = fmt[1] if fmt else 'legacy'
         favorites = re.search(r':favorites\s+\[([^\]]*)\]', config)
         self.favorites = re.findall(r'"([^"]+)"', favorites[1]) if favorites else []
-        self.names = {}      # lower-case Logseq name -> SilverBullet name
-        self.pages = []      # (source, name, props, body lines)
+        self.names = {}  # lower-case Logseq name -> SilverBullet name
+        self.pages = []  # (source, name, props, body lines)
         self.templates = {}  # SilverBullet template page name -> body lines in Logseq syntax
-        self.report = {'renamed': [], 'queries': [], 'translated': [], 'macros': [], 'block refs': [],
-                       'conflicts': [], 'empty journals': 0, 'redundant conflicts': 0, 'whiteboards': [],
-                       'other assets': [], 'invalid assets': []}
+        self.report = {
+            'renamed': [],
+            'queries': [],
+            'translated': [],
+            'macros': [],
+            'block refs': [],
+            'conflicts': [],
+            'empty journals': 0,
+            'redundant conflicts': 0,
+            'whiteboards': [],
+            'other assets': [],
+            'invalid assets': [],
+        }
 
     def name_for(self, logseq_name):
         key = logseq_name.strip().lower()
@@ -359,7 +445,7 @@ class Converter:
         def tag(match):
             name = match[1]
             trail = re.search(r'[,.;:!?"]+$', name)
-            name, rest = (name[:trail.start()], trail[0]) if trail else (name, '')
+            name, rest = (name[: trail.start()], trail[0]) if trail else (name, '')
             if name and NOT_A_TAG.search(name):
                 return f'[[{self.name_for(name)}]]' + rest
             return match[0]
@@ -403,7 +489,7 @@ class Converter:
         # Code spans stay as written, and converted macros and assets are not read again as links or tags.
         pieces, last = [], 0
         for span in CODE_SPAN.finditer(text):
-            pieces.append(('text', text[last:span.start()]))
+            pieces.append(('text', text[last : span.start()]))
             pieces.append(('code', span[0]))
             last = span.end()
         pieces.append(('text', text[last:]))
@@ -414,7 +500,7 @@ class Converter:
                 continue
             last = 0
             for found in re.finditer(f'{MACRO.pattern}|{ASSET.pattern}', piece):
-                split.append(('text', piece[last:found.start()]))
+                split.append(('text', piece[last : found.start()]))
                 converted = MACRO.match(found[0])
                 split.append(('code', macro(converted) if converted else asset(ASSET.match(found[0]))))
                 last = found.end()
@@ -449,7 +535,11 @@ class Converter:
                 op, args = node[0].lower(), node[1:]
                 if op == 'task':
                     markers = [a.upper() for a in args if isinstance(a, str) and a.upper() in TASKS]
-                    return '(' + ' or '.join(f'logseq.marker(o, {lua_string(m)})' for m in markers) + ')' if markers else None
+                    return (
+                        '(' + ' or '.join(f'logseq.marker(o, {lua_string(m)})' for m in markers) + ')'
+                        if markers
+                        else None
+                    )
                 parts = [condition(a) for a in args]
                 if not parts or None in parts:
                     return None
@@ -468,12 +558,12 @@ class Converter:
 
         try:
             tree, position = parse(0)
-        except (IndexError, RecursionError):
+        except IndexError, RecursionError:
             return None
         where = condition(tree) if tokens and position == len(tokens) else None
         if not where:
             return None
-        clauses = [f'from o = logseq.blocks()', f'where {where}']
+        clauses = ['from o = logseq.blocks()', f'where {where}']
         sort = props.get('query-sort-by', '').strip()
         if sort and sort not in ('block', 'page'):
             order = 'desc' if props.get('query-sort-desc', '').strip() == 'true' else 'asc'
@@ -513,8 +603,11 @@ class Converter:
             include_parent = props.get('template-including-parent', 'true').strip() != 'false'
             block = [line[depth:] if line.startswith('\t' * depth) else line for line in body[i:end]]
             if not include_parent:
-                block = [line[1:] if line.startswith('\t') else line for line in block[1:]
-                         if not (line.startswith('  ') and PROPERTY.match(line[2:]))]
+                block = [
+                    line[1:] if line.startswith('\t') else line
+                    for line in block[1:]
+                    if not (line.startswith('  ') and PROPERTY.match(line[2:]))
+                ]
             page = TEMPLATES + clean_name(template)
             self.templates[page] = (template, block)
             out.append('\t' * depth + f'- Slash template /{clean_name(template)}: [[{page}]]')
@@ -545,12 +638,12 @@ class Converter:
                 continue
             # A property line inside a block, or a bullet that holds only a property.
             bullet = '- ' if stripped.startswith('- ') else ''
-            prop = PROPERTY.match(stripped[len(bullet):])
+            prop = PROPERTY.match(stripped[len(bullet) :])
             if prop:
                 key = prop[1].lower()
                 if key in DROPPED:
                     continue
-                lead = line[:len(line) - len(line.lstrip())] + bullet
+                lead = line[: len(line) - len(line.lstrip())] + bullet
                 if key in ('tag', 'tags'):
                     tags = [self.name_for(t) if '[[' in prop[2] else t for t in split_refs(prop[2])]
                     out.append(lead + ' '.join(hashtag(t) for t in tags))
@@ -596,14 +689,14 @@ class Converter:
         if not match:
             return [], body
         tags = [a or b for a, b in TAG.findall(body[index])]
-        return tags, body[:index] + body[index + 1:]
+        return tags, body[:index] + body[index + 1 :]
 
     def without_title(self, name, logseq, body):
         """The page name is its title: a first heading that only restates it goes."""
         match, index = first_block(body, HEADING)
         titles = {name.lower(), name.rsplit('/', 1)[-1].lower(), (logseq or '').lower()}
         if match and match[1].strip().lower() in titles:
-            return body[:index] + body[index + 1:]
+            return body[:index] + body[index + 1 :]
         return body
 
     def write_page(self, name, lines):
@@ -618,8 +711,12 @@ class Converter:
             body = self.extract_templates(name, body)
             self.write_page(name, self.frontmatter(name, props, tags) + self.body(body, name))
         for page, (template, block) in self.templates.items():
-            front = ['---', 'tags: meta/template/slash',
-                     f'description: {yaml_value("Logseq template " + template)}', '---']
+            front = [
+                '---',
+                'tags: meta/template/slash',
+                f'description: {yaml_value("Logseq template " + template)}',
+                '---',
+            ]
             self.write_page(page, front + self.body(block, page))
         if self.report['translated']:
             self.write_page(LIBRARY, LIBRARY_PAGE.rstrip('\n').split('\n'))
@@ -642,40 +739,77 @@ class Converter:
 
     def write_report(self):
         r = self.report
-        lines = ['---', 'tags: meta/logseq-import', '---',
-                 f'Converted from the Logseq graph on {datetime.date.today().isoformat()}: '
-                 f'{len(self.pages)} pages; {r["empty journals"]} empty journals and '
-                 f'{r["redundant conflicts"]} conflict copies with nothing new left out.', '']
+        lines = [
+            '---',
+            'tags: meta/logseq-import',
+            '---',
+            f'Converted from the Logseq graph on {datetime.date.today().isoformat()}: '
+            f'{len(self.pages)} pages; {r["empty journals"]} empty journals and '
+            f'{r["redundant conflicts"]} conflict copies with nothing new left out.',
+            '',
+        ]
 
         def section(title, items, intro):
             if items:
                 lines.extend([f'# {title}', intro, *items, ''])
 
-        section('Queries to rewrite', [f'* [[{p}]]' for p in sorted(set(r['queries']))],
-                'These Logseq queries are kept as code; rewrite them as Space Lua queries.')
-        section('Converted queries', [f'* [[{p}]]' for p in sorted(set(r['translated']))],
-                f'These Logseq queries now run as SilverBullet queries, with the helpers on [[{LIBRARY}]]; '
-                'check that each finds what it found in Logseq.')
-        section('Templates', [f'* [[{page}]]: `/{page.removeprefix(TEMPLATES)}`' for page in self.templates],
-                'Logseq templates are now slash templates; type the command in a page to insert one.')
-        section('Favourites', [f'* [[{self.name_for(f)}]]' for f in self.favorites],
-                'Logseq\'s favourites; add the ones you want to the index page.')
-        section('Other macros', [f'* [[{p}]]' for p in sorted(set(r['macros']))],
-                'These pages hold a Logseq macro without a SilverBullet equivalent, kept as code.')
-        section('Block references', [f'* [[{p}]]' for p in sorted(set(r['block refs']))],
-                'These pages refer to Logseq blocks by id; give the block an $anchor and link it as [[$anchor]].')
+        section(
+            'Queries to rewrite',
+            [f'* [[{p}]]' for p in sorted(set(r['queries']))],
+            'These Logseq queries are kept as code; rewrite them as Space Lua queries.',
+        )
+        section(
+            'Converted queries',
+            [f'* [[{p}]]' for p in sorted(set(r['translated']))],
+            f'These Logseq queries now run as SilverBullet queries, with the helpers on [[{LIBRARY}]]; '
+            'check that each finds what it found in Logseq.',
+        )
+        section(
+            'Templates',
+            [f'* [[{page}]]: `/{page.removeprefix(TEMPLATES)}`' for page in self.templates],
+            'Logseq templates are now slash templates; type the command in a page to insert one.',
+        )
+        section(
+            'Favourites',
+            [f'* [[{self.name_for(f)}]]' for f in self.favorites],
+            "Logseq's favourites; add the ones you want to the index page.",
+        )
+        section(
+            'Other macros',
+            [f'* [[{p}]]' for p in sorted(set(r['macros']))],
+            'These pages hold a Logseq macro without a SilverBullet equivalent, kept as code.',
+        )
+        section(
+            'Block references',
+            [f'* [[{p}]]' for p in sorted(set(r['block refs']))],
+            'These pages refer to Logseq blocks by id; give the block an $anchor and link it as [[$anchor]].',
+        )
         if r['conflicts']:
-            lines.extend(['# Syncthing conflict copies',
-                          'Lines that only Syncthing conflict copies of these pages hold, as Logseq wrote them. '
-                          'Copy what you want to keep into the page.', ''])
+            lines.extend(
+                [
+                    '# Syncthing conflict copies',
+                    'Lines that only Syncthing conflict copies of these pages hold, as Logseq wrote them. '
+                    'Copy what you want to keep into the page.',
+                    '',
+                ]
+            )
             for page, extra in r['conflicts']:
                 lines.extend([f'## [[{page}]]', '```', *extra, '```', ''])
-        section('Whiteboards', [f'* `{w}`' for w in r['whiteboards']] + [f'* `{a}`' for a in r['other assets']],
-                'Not converted. Open them in Logseq and export what you need as images.')
-        section('Asset names', [f'* `assets/{a}`' for a in r['invalid assets']],
-                'SilverBullet cannot open a file whose name contains | @ or #; rename it and its links.')
-        section('Renamed pages', [f'* `{old}` → [[{new}]]' for old, new in r['renamed']],
-                'SilverBullet names cannot contain | @ # or start with . ^ /; links follow the new names.')
+        section(
+            'Whiteboards',
+            [f'* `{w}`' for w in r['whiteboards']] + [f'* `{a}`' for a in r['other assets']],
+            'Not converted. Open them in Logseq and export what you need as images.',
+        )
+        section(
+            'Asset names',
+            [f'* `assets/{a}`' for a in r['invalid assets']],
+            'SilverBullet cannot open a file whose name contains | @ or #; rename it and its links.',
+        )
+        section(
+            'Renamed pages',
+            [f'* `{old}` → [[{new}]]' for old, new in r['renamed']],
+            'SilverBullet names cannot contain | @ # or start with . ^ /; links follow the new names.',
+        )
         self.write_page(REPORT, lines)
 
 
@@ -694,10 +828,12 @@ def main():
     converter.write()
     r = converter.report
     print(f'{len(converter.pages)} pages written to {args.target}; {r["empty journals"]} empty journals left out')
-    print(f'Review the "{REPORT}" page: {len(set(r["translated"]))} pages with converted queries, '
-          f'{len(set(r["queries"]))} with queries to rewrite, {len(converter.templates)} templates, '
-          f'{len(r["whiteboards"])} whiteboards, {len(r["renamed"])} renamed, '
-          f'{len(r["conflicts"])} pages with lines from conflict copies')
+    print(
+        f'Review the "{REPORT}" page: {len(set(r["translated"]))} pages with converted queries, '
+        f'{len(set(r["queries"]))} with queries to rewrite, {len(converter.templates)} templates, '
+        f'{len(r["whiteboards"])} whiteboards, {len(r["renamed"])} renamed, '
+        f'{len(r["conflicts"])} pages with lines from conflict copies'
+    )
 
 
 if __name__ == '__main__':

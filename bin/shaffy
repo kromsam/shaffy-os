@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 """Shaffy OS command-line entry point, run from the repository checkout."""
+
 from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 
-from shaffy.cli import main  # noqa: E402
+from shaffy.cli import main
 
 sys.exit(main(sys.argv[1:]))

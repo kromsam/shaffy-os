@@ -7,6 +7,7 @@ comment with `Remove after` and a date, three months after the release that made
 `./bin/shaffy outdated` names those past their date; they are deleted on dev together
 with what the comment says they cover (CLAUDE.md, "Retirements and migrations").
 """
+
 import datetime
 from pathlib import Path
 import re
@@ -27,7 +28,7 @@ def markers(root):
             continue
         try:
             text = target.read_text()
-        except (UnicodeDecodeError, OSError):
+        except UnicodeDecodeError, OSError:
             continue
         for number, line in enumerate(text.splitlines(), 1):
             for match in MARKER.finditer(line):

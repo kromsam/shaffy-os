@@ -1,5 +1,6 @@
 """Routine applies cannot replay restoration, rename personal folders, enroll firmware keys or
 convert disks; those stay explicit, guarded commands."""
+
 from pathlib import Path
 import re
 import unittest
@@ -8,10 +9,25 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 # Commands and markers of the sensitive operations, which only explicit tools may contain.
-SENSITIVE = ('configure-swap', 'configure-secure-boot', 'bootstrap-secure-boot', 'sbctl', 'configure-plymouth',
-             'apply-plymouth-theme', 'migrate-xdg-dutch', 'move-zotero-profile', 'retire-migration-staging',
-             'prepare-login-keyring', 'cryptsetup', 'mkfs', 'mkswap', 'btrfs subvolume', 'restic restore',
-             'migration-staging', 'inspect-nextcloud-runtime')
+SENSITIVE = (
+    'configure-swap',
+    'configure-secure-boot',
+    'bootstrap-secure-boot',
+    'sbctl',
+    'configure-plymouth',
+    'apply-plymouth-theme',
+    'migrate-xdg-dutch',
+    'move-zotero-profile',
+    'retire-migration-staging',
+    'prepare-login-keyring',
+    'cryptsetup',
+    'mkfs',
+    'mkswap',
+    'btrfs subvolume',
+    'restic restore',
+    'migration-staging',
+    'inspect-nextcloud-runtime',
+)
 
 
 def included_roles(node):
@@ -38,8 +54,10 @@ def routine_roles():
     while pending:
         role = ROOT / 'roles' / pending.pop()
         meta = role / 'meta/main.yml'
-        found = {d['role'] if isinstance(d, dict) else d
-                 for d in ((yaml.safe_load(meta.read_text()) or {}).get('dependencies', []) if meta.exists() else [])}
+        found = {
+            d['role'] if isinstance(d, dict) else d
+            for d in ((yaml.safe_load(meta.read_text()) or {}).get('dependencies', []) if meta.exists() else [])
+        }
         for tasks in role.glob('tasks/*.yml'):
             found |= included_roles(yaml.safe_load(tasks.read_text()))
         for name in found - roles:
@@ -62,8 +80,12 @@ def routine_files():
 
 class RoutineApplyTests(unittest.TestCase):
     def test_nothing_a_routine_apply_runs_reaches_a_sensitive_operation(self):
-        found = [(str(path.relative_to(ROOT)), word) for path in routine_files()
-                 for word in SENSITIVE if word in path.read_text(errors='replace')]
+        found = [
+            (str(path.relative_to(ROOT)), word)
+            for path in routine_files()
+            for word in SENSITIVE
+            if word in path.read_text(errors='replace')
+        ]
         self.assertEqual(found, [])
 
     def test_the_keyring_migration_runs_only_when_named(self):

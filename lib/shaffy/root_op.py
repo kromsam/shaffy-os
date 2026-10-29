@@ -19,8 +19,9 @@ as root, with the standard library only:
 `--test-prerequisites fake` replaces snapper and allows `--state-dir` and
 `--test-fault`; it is refused outside a container.
 """
+
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import fcntl
 import hashlib
 import json
@@ -45,7 +46,7 @@ class RootError(Exception):
 
 
 def now():
-    return datetime.now(timezone.utc).isoformat(timespec='seconds')
+    return datetime.now(UTC).isoformat(timespec='seconds')
 
 
 def digest(path):
@@ -93,8 +94,9 @@ class Snapper:
     def problems(self):
         found = []
         for mount in ('/', '/home'):
-            kind = subprocess.run(['findmnt', '-no', 'FSTYPE', mount], capture_output=True, text=True,
-                                  check=False).stdout.strip()
+            kind = subprocess.run(
+                ['findmnt', '-no', 'FSTYPE', mount], capture_output=True, text=True, check=False
+            ).stdout.strip()
             if kind != 'btrfs':
                 found.append(f'{mount} is not a Btrfs subvolume (found {kind or "nothing"})')
         if not os.path.exists('/etc/snapper/configs/root'):
@@ -117,8 +119,20 @@ class Snapper:
         return 'created' if created else ('configured' if changes else None)
 
     def snapshot(self, config, kind, description, pre=None):
-        command = ['-c', config, 'create', '--type', kind, '--print-number', '--cleanup-algorithm',
-                   'number', '--userdata', 'important=yes', '--description', description]
+        command = [
+            '-c',
+            config,
+            'create',
+            '--type',
+            kind,
+            '--print-number',
+            '--cleanup-algorithm',
+            'number',
+            '--userdata',
+            'important=yes',
+            '--description',
+            description,
+        ]
         if pre is not None:
             command += ['--pre-number', str(pre)]
         return int(self._run(*command).strip())
@@ -132,6 +146,7 @@ class Snapper:
 
 class FakeSnapper:
     """Test stand-in, honoured only inside a container."""
+
     name = 'fake'
 
     def __init__(self, targets):
@@ -196,7 +211,7 @@ class Operation:
             if size and os.pread(descriptor, 1, size - 1) != b'\n':
                 data = b'\n' + data
             while data:
-                data = data[os.write(descriptor, data):]
+                data = data[os.write(descriptor, data) :]
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
@@ -262,13 +277,14 @@ class Operation:
                 try:
                     descriptor = os.open(Path(directory) / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
                 except OSError as error:  # ELOOP: a symbolic link
-                    raise RootError(f'the capture contains something other than a file: {relative / name}') \
-                        from error
+                    raise RootError(f'the capture contains something other than a file: {relative / name}') from error
                 if not stat.S_ISREG(os.fstat(descriptor).st_mode):
                     os.close(descriptor)
                     raise RootError(f'the capture contains something other than a file: {relative / name}')
-                with os.fdopen(descriptor, 'rb') as stream, \
-                        open(target / relative / name, 'xb', opener=lambda p, f: os.open(p, f, 0o600)) as copy:
+                with (
+                    os.fdopen(descriptor, 'rb') as stream,
+                    open(target / relative / name, 'xb', opener=lambda p, f: os.open(p, f, 0o600)) as copy,
+                ):
                     shutil.copyfileobj(stream, copy)
         return target
 
@@ -277,8 +293,11 @@ class Operation:
         if not manifest_path.is_file() or digest(manifest_path) != self.args.manifest_sha256:
             raise RootError('the capture manifest does not match the digest the wrapper passed')
         manifest = json.loads(manifest_path.read_text())
-        present = sorted(str(p.relative_to(copy)) for p in copy.rglob('*')
-                         if p.is_file() and p.relative_to(copy) != Path('manifest.json'))
+        present = sorted(
+            str(p.relative_to(copy))
+            for p in copy.rglob('*')
+            if p.is_file() and p.relative_to(copy) != Path('manifest.json')
+        )
         if present != sorted(manifest['files']):
             raise RootError('the capture holds other files than its manifest lists')
         for name, expected in manifest['files'].items():
@@ -301,6 +320,7 @@ class Operation:
             if not os.path.realpath(rebased).startswith(inside) or not Path(rebased).is_file():
                 raise RootError(f'the captured reference {path} is missing from the root copy')
             return rebased
+
         shaffy['overrides'] = {name: rebase(path) for name, path in shaffy.get('overrides', {}).items()}
         shaffy['references'] = [rebase(path) for path in shaffy.get('references', [])]
         play = self.op_dir / 'settings.play.json'
@@ -309,8 +329,11 @@ class Operation:
 
     def _binding(self, copy, manifest):
         selection = json.loads((copy / 'selection.json').read_text())
-        return {'mode': selection['mode'], 'path': selection.get('path'),
-                'supplement_id': manifest.get('supplement_id')}
+        return {
+            'mode': selection['mode'],
+            'path': selection.get('path'),
+            'supplement_id': manifest.get('supplement_id'),
+        }
 
     def begin(self):
         return self.locked(self._begin)
@@ -322,13 +345,15 @@ class Operation:
                 continue
             pending = json.loads(other.read_text()).get('pending')
             if pending:
-                raise RootError(f"system operation {pending['op']} of another user is unfinished; "
-                                'it has to be resumed or abandoned first')
+                raise RootError(
+                    f'system operation {pending["op"]} of another user is unfinished; '
+                    'it has to be resumed or abandoned first'
+                )
         record = self.read_record()
         target = {'uid': args.uid, 'user': args.user, 'home': args.home}
         resumed = bool(record and record['pending'] and record['pending']['op'] == args.op)
         if record and record['pending'] and not resumed:
-            raise RootError(f"system operation {record['pending']['op']} is unfinished; resume or abandon it")
+            raise RootError(f'system operation {record["pending"]["op"]} is unfinished; resume or abandon it')
         if record and (record['target']['uid'], record['target']['home']) != (args.uid, args.home):
             raise RootError(f'the root record names {record["target"]}, not {target}')
         problems = self.snapper.problems()
@@ -339,22 +364,34 @@ class Operation:
         manifest = self._verify(copy)
         binding = self._binding(copy, manifest)
         if record and record['binding'] != binding:
-            raise RootError(f"the root record's binding {record['binding']} differs from the operation's "
-                            f'{binding}; run ./bin/shaffy supplement rebind')
+            raise RootError(
+                f"the root record's binding {record['binding']} differs from the operation's "
+                f'{binding}; run ./bin/shaffy supplement rebind'
+            )
         play = self._play_settings(copy)
         home = self.snapper.ensure_home(args.user)
         if home:
             self.append(f'snapper-home-{home}', allow_user=args.user)
         # The pre snapshots come before root `pending` exists, so / rolled back to them
         # carries the records as they were before this operation.
-        pre = {config: self.snapper.snapshot(config, 'pre', f'shaffy {args.op} system')
-               for config in ('root', 'home')}
+        pre = {config: self.snapper.snapshot(config, 'pre', f'shaffy {args.op} system') for config in ('root', 'home')}
         self._fault('after-root-pre-snapshots')
         if not resumed:
-            record = record or {'record_version': RECORD_VERSION, 'target': target, 'binding': binding,
-                                'pending': None, 'last_completed_op': None, 'phases': {}}
-            record['pending'] = {'op': args.op, 'scope': 'system', 'capture': str(copy), 'phase': 'system',
-                                 'started_at': now()}
+            record = record or {
+                'record_version': RECORD_VERSION,
+                'target': target,
+                'binding': binding,
+                'pending': None,
+                'last_completed_op': None,
+                'phases': {},
+            }
+            record['pending'] = {
+                'op': args.op,
+                'scope': 'system',
+                'capture': str(copy),
+                'phase': 'system',
+                'started_at': now(),
+            }
             # The record first: recovery trusts root `pending`, the journal only explains it.
             write_json(self.record_path, record, 0o644)
             self._fault('after-root-pending')
@@ -381,12 +418,13 @@ class Operation:
                     continue
                 if isinstance(event, dict) and event.get('event') == 'abandoned':
                     kept.add(event.get('op'))
-        candidates = [p for p in (self.state / 'ops').iterdir()
-                      if p.is_dir() and p.name not in kept and p.name != self.args.op]
+        candidates = [
+            p for p in (self.state / 'ops').iterdir() if p.is_dir() and p.name not in kept and p.name != self.args.op
+        ]
         for helper in (p for p in candidates if not (p / 'capture').is_dir()):
             shutil.rmtree(helper, ignore_errors=True)
         done = sorted((p for p in candidates if (p / 'capture').is_dir()), reverse=True)
-        for stale in done[keep - 1:]:
+        for stale in done[keep - 1 :]:
             shutil.rmtree(stale, ignore_errors=True)
 
     def _pending_record(self):
@@ -404,8 +442,10 @@ class Operation:
         if not starts:
             raise RootError(f'operation {self.args.op} has no phase-start on record')
         pre = starts[-1]['pre']
-        post = {config: self.snapper.snapshot(config, 'post', f'shaffy {self.args.op} system', pre=number)
-                for config, number in pre.items()}
+        post = {
+            config: self.snapper.snapshot(config, 'post', f'shaffy {self.args.op} system', pre=number)
+            for config, number in pre.items()
+        }
         self.append('phase-done', phase='system', post=post)
         self._fault('after-root-phase-done')
         record['phases']['system'] = {'op': self.args.op, 'completed_at': now()}
@@ -435,7 +475,7 @@ class Operation:
         if not record:
             raise RootError(f'there is no root record for uid {self.args.uid}')
         if record['pending']:
-            raise RootError(f"system operation {record['pending']['op']} is unfinished; resume or abandon it")
+            raise RootError(f'system operation {record["pending"]["op"]} is unfinished; resume or abandon it')
         new = {'mode': self.args.mode, 'path': self.args.path, 'supplement_id': self.args.supplement_id}
         old = record['binding']
         record['binding'] = new

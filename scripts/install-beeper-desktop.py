@@ -5,6 +5,7 @@ The AppImage updates itself afterwards, so an installed copy is left alone. A
 download must match the size and SHA-512 in the channel's update feed, the file
 the app's own updater reads.
 """
+
 import base64
 import hashlib
 import os
@@ -33,8 +34,19 @@ def manifest_url(machine):
     if machine not in ARCH:
         raise SystemExit(f'Beeper Desktop has no Linux build for {machine}')
     # The feed answers any older version with the current release.
-    return FEED + '?' + urlencode({'bundleID': 'com.automattic.beeper.desktop', 'version': '0.0.0',
-                                   'platform': 'linux', 'arch': ARCH[machine], 'channel': 'stable'})
+    return (
+        FEED
+        + '?'
+        + urlencode(
+            {
+                'bundleID': 'com.automattic.beeper.desktop',
+                'version': '0.0.0',
+                'platform': 'linux',
+                'arch': ARCH[machine],
+                'channel': 'stable',
+            }
+        )
+    )
 
 
 def release(text):
@@ -69,8 +81,9 @@ def download(url, destination, size, digest):
 def install_icons(appimage, icons):
     """Copy the app's hicolor icons, which its launcher names `beepertexts`."""
     with tempfile.TemporaryDirectory(prefix='shaffy-beeper-') as tmp:
-        subprocess.run([str(appimage), '--appimage-extract', 'usr/share/icons/*'], cwd=tmp, check=True,
-                       stdout=subprocess.DEVNULL)
+        subprocess.run(
+            [str(appimage), '--appimage-extract', 'usr/share/icons/*'], cwd=tmp, check=True, stdout=subprocess.DEVNULL
+        )
         source = Path(tmp) / 'squashfs-root/usr/share/icons/hicolor'
         for icon in source.glob('*/apps/beepertexts.png'):
             destination = icons / icon.relative_to(source)

@@ -1,4 +1,5 @@
 """The integrations' configuration modifiers tolerate a fresh home."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -10,8 +11,9 @@ ZETTLR = ROOT / 'home/dot_config/private_Zettlr/modify_private_config.json'
 
 
 def run(modifier, text):
-    return subprocess.run(['/usr/bin/python3', str(modifier)], input=text, capture_output=True, text=True,
-                          check=True).stdout
+    return subprocess.run(
+        ['/usr/bin/python3', str(modifier)], input=text, capture_output=True, text=True, check=True
+    ).stdout
 
 
 class ReaperTests(unittest.TestCase):
@@ -21,8 +23,14 @@ class ReaperTests(unittest.TestCase):
     def test_audio_goes_through_pipewire_and_the_rest_is_kept(self):
         text = '[REAPER]\nalsa_indev=hw:Device\nprojectpath=/somewhere\nlinux_audio_mode=0\n[other]\nx=1\n'
         result = run(REAPER, text)
-        for line in ('alsa_indev=pipewire', 'alsa_outdev=pipewire', 'linux_audio_mode=1',
-                     'linux_auto_pasuspend=0', 'projectpath=/somewhere', '[other]\nx=1'):
+        for line in (
+            'alsa_indev=pipewire',
+            'alsa_outdev=pipewire',
+            'linux_audio_mode=1',
+            'linux_auto_pasuspend=0',
+            'projectpath=/somewhere',
+            '[other]\nx=1',
+        ):
             self.assertIn(line, result)
         self.assertEqual(run(REAPER, result), result)
 
@@ -31,8 +39,13 @@ class ReaperTests(unittest.TestCase):
         text = '[.swell]\nui_scale=1.0\n\n[nag]\nnag=X\n\n[reaper]\nlastproject=\nwnd_w=608\n\n[verchk]\nlastt=1\n'
         result = run(REAPER, text)
         section = result.split('[reaper]\n', 1)[1].split('\n[verchk]', 1)[0]
-        for line in ('alsa_indev=pipewire', 'alsa_outdev=pipewire', 'linux_audio_mode=1',
-                     'linux_auto_pasuspend=0', 'wnd_w=608'):
+        for line in (
+            'alsa_indev=pipewire',
+            'alsa_outdev=pipewire',
+            'linux_audio_mode=1',
+            'linux_auto_pasuspend=0',
+            'wnd_w=608',
+        ):
             self.assertIn(line, section.splitlines())
         self.assertNotIn('[REAPER]', result)
         self.assertEqual(run(REAPER, result), result)

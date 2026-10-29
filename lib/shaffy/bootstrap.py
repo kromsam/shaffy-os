@@ -5,6 +5,7 @@ checkout, `mise trust`, `mise install ansible-core` and the Galaxy collections
 of requirements.yml. Nothing here installs anything; it reports what is
 missing, and finds Python modules without importing them.
 """
+
 import importlib.util
 import json
 import os
@@ -13,11 +14,29 @@ import re
 import shutil
 import subprocess
 
-PACKAGES = ('mise', 'uv', 'chezmoi', 'python-yaml', 'python-jsonschema', 'snapper', 'git',
-            'base-devel', 'bubblewrap', 'xdg-user-dirs')
-COMMANDS = {'mise': 'mise', 'uv': 'uv', 'chezmoi': 'chezmoi', 'snapper': 'snapper', 'git': 'git',
-            'makepkg': 'base-devel', 'cc': 'base-devel', 'bwrap': 'bubblewrap',
-            'xdg-user-dir': 'xdg-user-dirs'}
+PACKAGES = (
+    'mise',
+    'uv',
+    'chezmoi',
+    'python-yaml',
+    'python-jsonschema',
+    'snapper',
+    'git',
+    'base-devel',
+    'bubblewrap',
+    'xdg-user-dirs',
+)
+COMMANDS = {
+    'mise': 'mise',
+    'uv': 'uv',
+    'chezmoi': 'chezmoi',
+    'snapper': 'snapper',
+    'git': 'git',
+    'makepkg': 'base-devel',
+    'cc': 'base-devel',
+    'bwrap': 'bubblewrap',
+    'xdg-user-dir': 'xdg-user-dirs',
+}
 MODULES = {'yaml': 'python-yaml', 'jsonschema': 'python-jsonschema'}
 UNTRUSTED = re.compile(r'Config files in (\S+) are not trusted')
 
@@ -31,9 +50,10 @@ def galaxy_step():
 
 
 def _packages():
-    missing = sorted({package for command, package in COMMANDS.items() if shutil.which(command) is None}
-                     | {package for module, package in MODULES.items()
-                        if importlib.util.find_spec(module) is None})
+    missing = sorted(
+        {package for command, package in COMMANDS.items() if shutil.which(command) is None}
+        | {package for module, package in MODULES.items() if importlib.util.find_spec(module) is None}
+    )
     if not missing:
         return []
     return [f'missing packages: {", ".join(missing)}; run {pacman_step()}']
@@ -42,8 +62,9 @@ def _packages():
 def _controller(checkout):
     """The mise-managed ansible-core, or what to run to install it."""
     try:
-        result = subprocess.run(['mise', 'where', 'ansible-core'], cwd=checkout, capture_output=True,
-                                text=True, timeout=30, check=False)
+        result = subprocess.run(
+            ['mise', 'where', 'ansible-core'], cwd=checkout, capture_output=True, text=True, timeout=30, check=False
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
         return [f'mise could not run: {error}']
     if result.returncode == 0:
@@ -61,6 +82,7 @@ def pinned_collections(checkout):
     if importlib.util.find_spec('yaml') is None:
         return {}
     import yaml
+
     data = yaml.safe_load((Path(checkout) / 'requirements.yml').read_text())
     return {entry['name']: str(entry['version']) for entry in data['collections']}
 
@@ -71,27 +93,29 @@ def _collections(checkout):
         manifest = Path(checkout, 'collections/ansible_collections', *name.split('.'), 'MANIFEST.json')
         try:
             found = json.loads(manifest.read_text())['collection_info']['version']
-        except (OSError, ValueError, KeyError):
+        except OSError, ValueError, KeyError:
             found = None
         if found != version:
             stale.append(f'{name} {version}' + (f' (found {found})' if found else ''))
     if not stale:
         return []
-    return [f'Galaxy collections not installed as pinned: {", ".join(stale)}; run {galaxy_step()} '
-            f'in {checkout}']
+    return [f'Galaxy collections not installed as pinned: {", ".join(stale)}; run {galaxy_step()} in {checkout}']
 
 
 def _snapshots():
     problems = []
     for mount in ('/', '/home'):
-        kind = subprocess.run(['findmnt', '-no', 'FSTYPE', mount], capture_output=True, text=True,
-                              check=False).stdout.strip()
+        kind = subprocess.run(
+            ['findmnt', '-no', 'FSTYPE', mount], capture_output=True, text=True, check=False
+        ).stdout.strip()
         if kind != 'btrfs':
-            problems.append(f'{mount} is not a Btrfs subvolume (found {kind or "nothing"}); '
-                            'Shaffy OS needs Btrfs and snapper')
+            problems.append(
+                f'{mount} is not a Btrfs subvolume (found {kind or "nothing"}); Shaffy OS needs Btrfs and snapper'
+            )
     if not os.path.exists('/etc/snapper/configs/root'):
-        problems.append('snapper has no root configuration; create it as the distribution '
-                        'documents before the first system apply')
+        problems.append(
+            'snapper has no root configuration; create it as the distribution documents before the first system apply'
+        )
     return problems
 
 

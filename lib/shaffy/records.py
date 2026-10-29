@@ -4,8 +4,9 @@ The record holds identity, location and progress, never settings values. It is
 written atomically (temporary file, fsync, rename, directory fsync), so a crash
 leaves either the old or the new record; the journal is append-only JSONL.
 """
+
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import fcntl
 import json
 import os
@@ -27,7 +28,7 @@ class RecordError(Exception):
 
 
 def now():
-    return datetime.now(timezone.utc).isoformat(timespec='seconds')
+    return datetime.now(UTC).isoformat(timespec='seconds')
 
 
 def current_target():
@@ -58,8 +59,10 @@ class Records:
         except (OSError, ValueError) as error:
             raise RecordError(f'{self.binding} is unreadable: {error}') from error
         if record.get('record_version') != RECORD_VERSION:
-            raise RecordError(f'{self.binding} has record_version {record.get("record_version")!r}; '
-                              f'this Shaffy OS reads {RECORD_VERSION}')
+            raise RecordError(
+                f'{self.binding} has record_version {record.get("record_version")!r}; '
+                f'this Shaffy OS reads {RECORD_VERSION}'
+            )
         return record
 
     def write(self, record):
@@ -96,7 +99,7 @@ class Records:
             if size and os.pread(descriptor, 1, size - 1) != b'\n':
                 data = b'\n' + data
             while data:
-                data = data[os.write(descriptor, data):]
+                data = data[os.write(descriptor, data) :]
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
@@ -130,8 +133,7 @@ class Records:
             try:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
-                raise LockedError('another Shaffy OS operation is running for '
-                                  f'{current_target()["user"]}') from error
+                raise LockedError(f'another Shaffy OS operation is running for {current_target()["user"]}') from error
             yield
         finally:
             os.close(descriptor)
@@ -140,14 +142,22 @@ class Records:
         """The bound target must be the user running this command."""
         target, current = record['target'], current_target()
         if (target['uid'], target['home']) != (current['uid'], current['home']):
-            raise RecordError(f"this installation is bound for {target['user']} ({target['home']}), "
-                              f"not {current['user']} ({current['home']})")
+            raise RecordError(
+                f'this installation is bound for {target["user"]} ({target["home"]}), '
+                f'not {current["user"]} ({current["home"]})'
+            )
 
 
 def new_record(binding, checkout):
-    return {'record_version': RECORD_VERSION, 'target': current_target(), 'binding': binding,
-            'checkout': {'path': str(checkout)}, 'system': {'bound': False},
-            'pending': None, 'last_completed_op': None}
+    return {
+        'record_version': RECORD_VERSION,
+        'target': current_target(),
+        'binding': binding,
+        'checkout': {'path': str(checkout)},
+        'system': {'bound': False},
+        'pending': None,
+        'last_completed_op': None,
+    }
 
 
 ROOT_STATE = Path('/var/lib/shaffy')
@@ -169,8 +179,10 @@ def read_root_record(uid):
     except FileNotFoundError:
         return None
     except PermissionError as error:
-        raise RecordError(f'{path} is unreadable because {root_state()} is not readable by this user; it '
-                          f'holds no settings values, so run: sudo chmod 755 {root_state()}') from error
+        raise RecordError(
+            f'{path} is unreadable because {root_state()} is not readable by this user; it '
+            f'holds no settings values, so run: sudo chmod 755 {root_state()}'
+        ) from error
     except (OSError, ValueError) as error:
         raise RecordError(f'{path} is unreadable: {error}') from error
 
@@ -195,16 +207,19 @@ def disagreements(user, root):
     """What the user and root records disagree on; an empty list means they agree."""
     problems = []
     for label, mine, theirs in (
-            ('target.uid', user['target']['uid'], root['target']['uid']),
-            ('target.home', user['target']['home'], root['target']['home']),
-            ('binding.mode', user['binding']['mode'], root['binding']['mode']),
-            ('binding.supplement_id', user['binding']['supplement_id'], root['binding']['supplement_id']),
-            ('binding.path', user['binding']['path'], root['binding']['path'])):
+        ('target.uid', user['target']['uid'], root['target']['uid']),
+        ('target.home', user['target']['home'], root['target']['home']),
+        ('binding.mode', user['binding']['mode'], root['binding']['mode']),
+        ('binding.supplement_id', user['binding']['supplement_id'], root['binding']['supplement_id']),
+        ('binding.path', user['binding']['path'], root['binding']['path']),
+    ):
         if mine != theirs:
             problems.append(f'{label} is {mine!r} in the user record but {theirs!r} in the root record')
     pending, root_pending = user.get('pending') or {}, root.get('pending') or {}
     system = pending.get('scope') == 'system'
     if (system or root_pending) and (pending.get('op') if system else None) != root_pending.get('op'):
-        problems.append(f"the unfinished system operation is {pending.get('op') if system else None!r} "
-                        f"in the user record but {root_pending.get('op')!r} in the root record")
+        problems.append(
+            f'the unfinished system operation is {pending.get("op") if system else None!r} '
+            f'in the user record but {root_pending.get("op")!r} in the root record'
+        )
     return problems

@@ -5,6 +5,7 @@ untracked-but-not-ignored files, plus HEAD and a dirty flag. A capture freezes
 the supplement; this detects changes to the framework itself during an operation.
 The release is the newest release tag HEAD contains (CLAUDE.md, "Branches").
 """
+
 import hashlib
 import os
 from pathlib import Path
@@ -16,8 +17,9 @@ RELEASE = re.compile(r'v([0-9]{4})\.([0-9]{2})\.([0-9]{2})(?:\.([1-9][0-9]*))?')
 
 
 def _files(checkout):
-    listing = subprocess.run(['git', '-C', str(checkout), 'ls-files', '-co', '--exclude-standard', '-z'],
-                             capture_output=True, check=False)
+    listing = subprocess.run(
+        ['git', '-C', str(checkout), 'ls-files', '-co', '--exclude-standard', '-z'], capture_output=True, check=False
+    )
     if listing.returncode == 0:
         return sorted(p for p in listing.stdout.decode().split('\0') if p)
     found = []
@@ -38,10 +40,17 @@ def manifest(checkout):
         elif path.is_file():
             with open(path, 'rb') as stream:
                 digest.update(hashlib.file_digest(stream, 'sha256').digest())
-    head = subprocess.run(['git', '-C', str(checkout), 'rev-parse', 'HEAD'], capture_output=True,
-                          text=True, check=False).stdout.strip() or None
-    dirty = bool(subprocess.run(['git', '-C', str(checkout), 'status', '--porcelain'], capture_output=True,
-                                text=True, check=False).stdout.strip())
+    head = (
+        subprocess.run(
+            ['git', '-C', str(checkout), 'rev-parse', 'HEAD'], capture_output=True, text=True, check=False
+        ).stdout.strip()
+        or None
+    )
+    dirty = bool(
+        subprocess.run(
+            ['git', '-C', str(checkout), 'status', '--porcelain'], capture_output=True, text=True, check=False
+        ).stdout.strip()
+    )
     return {'sha256': digest.hexdigest(), 'head': head, 'dirty': dirty}
 
 
@@ -59,7 +68,11 @@ def release(checkout):
     """
     if os.environ.get('SHAFFY_OP_MODE') == 'sandbox':
         return os.environ.get('SHAFFY_RELEASE') or None
-    listing = subprocess.run(['git', '-C', str(checkout), 'tag', '--merged', 'HEAD', '--list', 'v*'],
-                             capture_output=True, text=True, check=False)
+    listing = subprocess.run(
+        ['git', '-C', str(checkout), 'tag', '--merged', 'HEAD', '--list', 'v*'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     tags = [tag for tag in listing.stdout.split() if release_key(tag)]
     return max(tags, key=release_key, default=None)

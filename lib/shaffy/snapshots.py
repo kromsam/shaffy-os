@@ -5,6 +5,7 @@ personal data (the Zotero profile move, a Nextcloud folder resume) use this, so
 each can be compared with or restored from the state just before it. They refuse to run without the snapper `home`
 configuration, which the system apply creates.
 """
+
 from contextlib import contextmanager
 import sys
 
@@ -32,5 +33,7 @@ def home_pair(description):
         yield pre
     finally:
         post = snapper.snapshot('post', description, pre=pre)
-        print(f'Snapper post snapshot {post} pairs with {pre}; compare them with '
-              f'snapper -c home status {pre}..{post}.', file=sys.stderr)
+        print(
+            f'Snapper post snapshot {post} pairs with {pre}; compare them with snapper -c home status {pre}..{post}.',
+            file=sys.stderr,
+        )

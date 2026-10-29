@@ -3,6 +3,7 @@
 
 Usage: test-windows-vst2.py [DIRECTORY] (default ~/.vst/yabridge, searched recursively).
 """
+
 import ctypes as C
 import json
 import math
@@ -13,17 +14,31 @@ CALLBACK = C.CFUNCTYPE(IP, C.c_void_p, C.c_int32, C.c_int32, IP, C.c_void_p, C.c
 
 
 class Effect(C.Structure):
-    _fields_ = [('magic', C.c_int32), ('dispatcher', C.c_void_p),
-                ('process', C.c_void_p), ('setParameter', C.c_void_p),
-                ('getParameter', C.c_void_p), ('numPrograms', C.c_int32),
-                ('numParams', C.c_int32), ('numInputs', C.c_int32),
-                ('numOutputs', C.c_int32), ('flags', C.c_int32),
-                ('resvd1', IP), ('resvd2', IP), ('initialDelay', C.c_int32),
-                ('realQualities', C.c_int32), ('offQualities', C.c_int32),
-                ('ioRatio', C.c_float), ('object', C.c_void_p), ('user', C.c_void_p),
-                ('uniqueID', C.c_int32), ('version', C.c_int32),
-                ('processReplacing', C.c_void_p), ('processDoubleReplacing', C.c_void_p),
-                ('future', C.c_char * 56)]
+    _fields_ = [
+        ('magic', C.c_int32),
+        ('dispatcher', C.c_void_p),
+        ('process', C.c_void_p),
+        ('setParameter', C.c_void_p),
+        ('getParameter', C.c_void_p),
+        ('numPrograms', C.c_int32),
+        ('numParams', C.c_int32),
+        ('numInputs', C.c_int32),
+        ('numOutputs', C.c_int32),
+        ('flags', C.c_int32),
+        ('resvd1', IP),
+        ('resvd2', IP),
+        ('initialDelay', C.c_int32),
+        ('realQualities', C.c_int32),
+        ('offQualities', C.c_int32),
+        ('ioRatio', C.c_float),
+        ('object', C.c_void_p),
+        ('user', C.c_void_p),
+        ('uniqueID', C.c_int32),
+        ('version', C.c_int32),
+        ('processReplacing', C.c_void_p),
+        ('processDoubleReplacing', C.c_void_p),
+        ('future', C.c_char * 56),
+    ]
 
 
 @CALLBACK
@@ -67,16 +82,18 @@ def verify(path):
         parameter_ok = abs(get(pointer, 0) - before) < 1e-5
         assert parameter_ok, 'Parameter round trip failed'
     frames = 256
-    inputs = [(C.c_float * frames)(*[0.05 * math.sin(i * 0.04) for i in range(frames)])
-              for _ in range(effect.numInputs)]
+    inputs = [
+        (C.c_float * frames)(*[0.05 * math.sin(i * 0.04) for i in range(frames)]) for _ in range(effect.numInputs)
+    ]
     outputs = [(C.c_float * frames)() for _ in range(effect.numOutputs)]
     input_ptrs = (C.POINTER(C.c_float) * len(inputs))(*inputs)
     output_ptrs = (C.POINTER(C.c_float) * len(outputs))(*outputs)
     dispatch(pointer, 12, 0, 1, None, 0)
     dispatch(pointer, 71, 0, 0, None, 0)
     assert effect.processReplacing, 'Missing processReplacing callback'
-    process = C.CFUNCTYPE(None, C.c_void_p, C.POINTER(C.POINTER(C.c_float)),
-                         C.POINTER(C.POINTER(C.c_float)), C.c_int32)(effect.processReplacing)
+    process = C.CFUNCTYPE(
+        None, C.c_void_p, C.POINTER(C.POINTER(C.c_float)), C.POINTER(C.POINTER(C.c_float)), C.c_int32
+    )(effect.processReplacing)
     peak = 0.0
     # ReaFIR buffers a full FFT window before producing its first output block.
     for _ in range(max(64, effect.initialDelay // frames + 32)):
@@ -89,15 +106,21 @@ def verify(path):
         assert peak > 0, 'No output after allowing for plugin latency'
     dispatch(pointer, 72, 0, 0, None, 0)
     dispatch(pointer, 12, 0, 0, None, 0)
-    result = {'plugin': path.name, 'name': name.value.decode(errors='replace'),
-              'inputs': effect.numInputs, 'outputs': effect.numOutputs,
-              'parameter_roundtrip': parameter_ok, 'output_peak': peak}
+    result = {
+        'plugin': path.name,
+        'name': name.value.decode(errors='replace'),
+        'inputs': effect.numInputs,
+        'outputs': effect.numOutputs,
+        'parameter_roundtrip': parameter_ok,
+        'output_peak': peak,
+    }
     dispatch(pointer, 1, 0, 0, None, 0)
     return result
 
 
 if __name__ == '__main__':
     import sys
+
     directory = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / '.vst/yabridge'
     plugins = sorted(directory.rglob('*.so'))
     assert plugins, f'No bridged plugins in {directory}; run yabridgectl sync first'

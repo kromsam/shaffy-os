@@ -1,5 +1,6 @@
 """System roles read their personal values from the settings and do nothing personal without
 them, so a public installation without a supplement applies cleanly."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -11,7 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import bootstrap  # noqa: E402
+from shaffy import bootstrap
 
 
 def tasks(role):
@@ -44,8 +45,11 @@ class SettingsGatedRoleTests(unittest.TestCase):
         self.assertLess(priority, 5270)
         self.assertNotIn(priority, (5210, 5230, 5250))
         steps = tasks('tailnet')
-        enable = next(i for i, task in enumerate(steps)
-                      if task.get('ansible.builtin.systemd_service', {}).get('name') == 'shaffy-tailnet-local-networks.service')
+        enable = next(
+            i
+            for i, task in enumerate(steps)
+            if task.get('ansible.builtin.systemd_service', {}).get('name') == 'shaffy-tailnet-local-networks.service'
+        )
         accept = next(i for i, task in enumerate(steps) if '--accept-routes=true' in str(task))
         self.assertLess(enable, accept)
 
@@ -78,15 +82,22 @@ class DockerEngineTests(unittest.TestCase):
     def test_published_ports_default_to_loopback_on_every_bridge_network(self):
         daemon = json.loads((ROOT / 'roles/workflows/files/daemon.json').read_text())
         self.assertEqual(daemon['ip'], '127.0.0.1')
-        self.assertEqual(daemon['default-network-opts'],
-                         {'bridge': {'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1'}})
+        self.assertEqual(
+            daemon['default-network-opts'], {'bridge': {'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1'}}
+        )
 
     def test_the_engine_starts_with_its_configuration_and_restarts_when_it_changes(self):
         steps = tasks('workflows')
-        config = next(i for i, task in enumerate(steps)
-                      if task.get('ansible.builtin.copy', {}).get('dest') == '/etc/docker/daemon.json')
-        start = next(i for i, task in enumerate(steps)
-                     if task.get('ansible.builtin.systemd_service', {}).get('name') == 'docker.service')
+        config = next(
+            i
+            for i, task in enumerate(steps)
+            if task.get('ansible.builtin.copy', {}).get('dest') == '/etc/docker/daemon.json'
+        )
+        start = next(
+            i
+            for i, task in enumerate(steps)
+            if task.get('ansible.builtin.systemd_service', {}).get('name') == 'docker.service'
+        )
         self.assertLess(config, start)
         self.assertEqual(steps[config]['notify'], 'Restart the Docker engine')
         self.assertEqual(steps[-1].get('ansible.builtin.meta'), 'flush_handlers')
@@ -104,6 +115,7 @@ class DockerEngineTests(unittest.TestCase):
             elif isinstance(node, list):
                 for item in node:
                     yield from user_tasks(item)
+
         for path in sorted((ROOT / 'roles').glob('*/tasks/*.yml')):
             for user in user_tasks(yaml.safe_load(path.read_text())):
                 groups = user.get('groups', [])
@@ -116,8 +128,11 @@ if __name__ == '__main__':
 
 
 def _controller_ready():
-    return subprocess.run(['mise', 'where', 'ansible-core'], cwd=ROOT, capture_output=True,
-                          check=False).returncode == 0 if bootstrap.shutil.which('mise') else False
+    return (
+        subprocess.run(['mise', 'where', 'ansible-core'], cwd=ROOT, capture_output=True, check=False).returncode == 0
+        if bootstrap.shutil.which('mise')
+        else False
+    )
 
 
 @unittest.skipUnless(_controller_ready(), 'the mise controller is not installed')
@@ -130,12 +145,22 @@ class PackagesEvaluationTests(unittest.TestCase):
             settings = Path(directory) / 'settings.json'
             settings.write_text(json.dumps({'shaffy': {'packages': {'extra': [], 'remove': [], 'omit': []}}}))
             play = Path(directory) / 'play.yml'
-            play.write_text('- hosts: localhost\n  connection: local\n  gather_facts: false\n  roles:\n'
-                            '    - packages\n')
-            command, env = bootstrap.ansible_command(ROOT, 'ansible-playbook', '-i', 'localhost,', '--check',
-                                                     str(play), '-e', f'shaffy_settings_file={settings}')
+            play.write_text(
+                '- hosts: localhost\n  connection: local\n  gather_facts: false\n  roles:\n    - packages\n'
+            )
+            command, env = bootstrap.ansible_command(
+                ROOT,
+                'ansible-playbook',
+                '-i',
+                'localhost,',
+                '--check',
+                str(play),
+                '-e',
+                f'shaffy_settings_file={settings}',
+            )
             env['ANSIBLE_ROLES_PATH'] = str(ROOT / 'roles')
-            result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=300,
-                                    check=False)
+            result = subprocess.run(
+                command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=300, check=False
+            )
         self.assertEqual(result.returncode, 0, result.stdout[-2000:])
         self.assertIn('failed=0', result.stdout)

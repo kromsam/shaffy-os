@@ -1,4 +1,5 @@
 """The Beeper Desktop installer trusts only its channel's update feed."""
+
 import base64
 import hashlib
 from pathlib import Path
@@ -16,8 +17,7 @@ PAYLOAD = b'appimage'
 DIGEST = base64.b64encode(hashlib.sha512(PAYLOAD).digest()).decode()
 
 
-def manifest(url='https://beeper-desktop.download.beeper.com/builds/Beeper-9.9.9-x86_64.AppImage',
-             size=len(PAYLOAD)):
+def manifest(url='https://beeper-desktop.download.beeper.com/builds/Beeper-9.9.9-x86_64.AppImage', size=len(PAYLOAD)):
     return f'version: 9.9.9\nfiles:\n  - url: {url}\n    sha512: {DIGEST}\n    size: {size}\n'
 
 
@@ -43,15 +43,18 @@ class BeeperDesktopTests(unittest.TestCase):
         self.assertEqual(url, 'https://beeper-desktop.download.beeper.com/builds/Beeper-9.9.9-x86_64.AppImage')
         self.assertEqual((size, digest), (len(PAYLOAD), hashlib.sha512(PAYLOAD).digest()))
         feed = urlsplit(INSTALLER['manifest_url']('x86_64'))
-        self.assertEqual(feed._replace(query='').geturl(),
-                         'https://api.beeper.com/desktop/update-feed/latest-linux.yml')
+        self.assertEqual(
+            feed._replace(query='').geturl(), 'https://api.beeper.com/desktop/update-feed/latest-linux.yml'
+        )
         self.assertEqual(parse_qs(feed.query)['channel'], ['stable'])
         with self.assertRaisesRegex(SystemExit, 'no Linux build'):
             INSTALLER['manifest_url']('aarch64')
 
     def test_a_feed_pointing_elsewhere_is_refused(self):
-        for url in ('https://elsewhere.example.invalid/Beeper.AppImage',
-                    'http://beeper-desktop.download.beeper.com/builds/Beeper.AppImage'):
+        for url in (
+            'https://elsewhere.example.invalid/Beeper.AppImage',
+            'http://beeper-desktop.download.beeper.com/builds/Beeper.AppImage',
+        ):
             with self.subTest(url=url), self.assertRaisesRegex(SystemExit, 'outside'):
                 INSTALLER['release'](manifest(url=url))
         with self.assertRaisesRegex(SystemExit, 'no AppImage'):
@@ -76,8 +79,10 @@ class BeeperDesktopTests(unittest.TestCase):
             target = Path(home) / INSTALLER['TARGET']
             target.parent.mkdir(parents=True)
             target.write_bytes(b'installed')
-            with patch.dict('os.environ', {'HOME': home}), \
-                    patch.object(INSTALLER['urllib'].request, 'urlopen', side_effect=AssertionError('no download')):
+            with (
+                patch.dict('os.environ', {'HOME': home}),
+                patch.object(INSTALLER['urllib'].request, 'urlopen', side_effect=AssertionError('no download')),
+            ):
                 INSTALLER['main']()
             self.assertEqual(target.read_bytes(), b'installed')
 

@@ -4,6 +4,7 @@
 Remove after 2027-01-16, with scripts/export-gbrain-snapshot.ts, tests/test_gbrain_archive.py
 and docs/MIGRATING-AGENT-TOOLS.md.
 """
+
 import argparse
 from contextlib import contextmanager
 import datetime
@@ -64,8 +65,7 @@ def exclusive_database(database):
 
 @contextmanager
 def paused_service():
-    result = subprocess.run(['systemctl', '--user', 'is-active', SERVICE],
-                            capture_output=True, text=True)
+    result = subprocess.run(['systemctl', '--user', 'is-active', SERVICE], capture_output=True, text=True)
     if result.returncode not in (0, 3, 4):
         raise ValueError('Cannot determine the GBrain service state')
     active = result.returncode == 0
@@ -84,9 +84,11 @@ def archive(home, destination):
         raise ValueError('This recovery helper supports only a local PGLite database')
     database = Path(config['database_path']).expanduser().resolve()
     brain = home / '.gbrain'
-    if (not (database / 'PG_VERSION').is_file()
-            or not database.is_relative_to(brain.resolve())
-            or not database.is_relative_to(home)):
+    if (
+        not (database / 'PG_VERSION').is_file()
+        or not database.is_relative_to(brain.resolve())
+        or not database.is_relative_to(home)
+    ):
         raise ValueError('Expected an existing database inside .gbrain')
     if destination.exists():
         raise ValueError('Archive destination must not exist; partial archives are never reused')
@@ -104,9 +106,16 @@ def archive(home, destination):
     destination.mkdir(parents=True, mode=0o700)
     raw = destination / 'raw'
     raw.mkdir()
-    paths = ['.gbrain', '.gstack-brain-worktree', '.config/gbrain-mcp',
-             '.local/share/gbrain/source', '.local/bin/gbrain', '.local/bin/gbrain-mcp',
-             '.local/lib/shaffy/gbrain-mcp-proxy.py', '.config/systemd/user/gbrain-mcp.service']
+    paths = [
+        '.gbrain',
+        '.gstack-brain-worktree',
+        '.config/gbrain-mcp',
+        '.local/share/gbrain/source',
+        '.local/bin/gbrain',
+        '.local/bin/gbrain-mcp',
+        '.local/lib/shaffy/gbrain-mcp-proxy.py',
+        '.config/systemd/user/gbrain-mcp.service',
+    ]
     with paused_service(), exclusive_database(database):
         for name in paths:
             original, target = home / name, raw / name
@@ -119,8 +128,9 @@ def archive(home, destination):
                 target.symlink_to(os.readlink(original))
             else:
                 shutil.copy2(original, target)
-        original_inventory = {name: inventory(home / name) for name in paths
-                              if (home / name).is_dir() and not (home / name).is_symlink()}
+        original_inventory = {
+            name: inventory(home / name) for name in paths if (home / name).is_dir() and not (home / name).is_symlink()
+        }
         for name, expected in original_inventory.items():
             if inventory(raw / name) != expected:
                 raise ValueError(f'Source changed during snapshot: {name}')
@@ -131,14 +141,25 @@ def archive(home, destination):
     shutil.copytree(raw / database.relative_to(home), working)
     output = destination / 'export'
     output.mkdir()
-    command = ['/usr/bin/mise', 'exec', '--', 'bun', str(REPO / 'scripts/export-gbrain-snapshot.ts'),
-               str(raw / '.local/share/gbrain/source'), str(working), str(output)]
+    command = [
+        '/usr/bin/mise',
+        'exec',
+        '--',
+        'bun',
+        str(REPO / 'scripts/export-gbrain-snapshot.ts'),
+        str(raw / '.local/share/gbrain/source'),
+        str(working),
+        str(output),
+    ]
     with (destination / 'export.log').open('w') as log:
         subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
     if inventory(raw) != raw_inventory:
         raise ValueError('Export changed the raw snapshot')
-    manifest = {'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                'raw': raw_inventory, 'export': inventory(output)}
+    manifest = {
+        'created_at': datetime.datetime.now(datetime.UTC).isoformat(),
+        'raw': raw_inventory,
+        'export': inventory(output),
+    }
     (destination / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     verify(destination)
     # Leaves original data, raw rollback snapshot and all export rows intact.
@@ -159,9 +180,11 @@ def main():
     elif args.apply:
         archive(Path.home(), destination)
     else:
-        print(f'Dry run: snapshot private GBrain data and installed source to {destination}; '
-              'pause and restore the user service; export every table from a disposable database copy. '
-              'Close all agents first. Add --apply to perform the archive.')
+        print(
+            f'Dry run: snapshot private GBrain data and installed source to {destination}; '
+            'pause and restore the user service; export every table from a disposable database copy. '
+            'Close all agents first. Add --apply to perform the archive.'
+        )
 
 
 if __name__ == '__main__':

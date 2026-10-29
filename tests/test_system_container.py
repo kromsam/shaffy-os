@@ -4,6 +4,7 @@ Opt in with SHAFFY_CONTAINER_TESTS=1: it needs Docker, the recorded image and
 network access for the bootstrap, and takes minutes. tests/container/system.sh
 does the work; this test reads its RESULT lines.
 """
+
 import json
 import os
 from pathlib import Path
@@ -14,8 +15,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE = json.loads((ROOT / 'tests/tool-versions.json').read_text())['ci_container']
-FAULTS = ('after-pending', 'after-root-pre-snapshots', 'after-root-pending', 'after-root-phase-start',
-          'after-root-phase-done', 'after-play')
+FAULTS = (
+    'after-pending',
+    'after-root-pre-snapshots',
+    'after-root-pending',
+    'after-root-phase-start',
+    'after-root-phase-done',
+    'after-play',
+)
 
 
 def _unavailable():
@@ -30,15 +37,19 @@ def _unavailable():
 class SystemContainerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        result = subprocess.run(['docker', 'run', '--rm', '-v', f'{ROOT}:/src:ro', IMAGE, 'bash',
-                                 '/src/tests/container/system.sh'],
-                                capture_output=True, text=True, timeout=3600, check=False)
+        result = subprocess.run(
+            ['docker', 'run', '--rm', '-v', f'{ROOT}:/src:ro', IMAGE, 'bash', '/src/tests/container/system.sh'],
+            capture_output=True,
+            text=True,
+            timeout=3600,
+            check=False,
+        )
         cls.output = result.stdout + result.stderr
         cls.code = result.returncode
         cls.results = {}
         for line in result.stdout.splitlines():
             if line.startswith('RESULT '):
-                name, _, rest = line[len('RESULT '):].partition(' ')
+                name, _, rest = line[len('RESULT ') :].partition(' ')
                 cls.results[name] = rest
 
     def state(self, name):
@@ -82,8 +93,9 @@ class SystemContainerTests(unittest.TestCase):
     def test_a_crash_before_root_is_cleared_and_a_later_one_completes(self):
         for fault in FAULTS[:2]:  # root never held these operations
             with self.subTest(fault=fault):
-                self.assertNotEqual(self.state(f'resume-{fault}')['user_last'],
-                                    self.state(f'crash-{fault}')['user_pending'])
+                self.assertNotEqual(
+                    self.state(f'resume-{fault}')['user_last'], self.state(f'crash-{fault}')['user_pending']
+                )
         for fault in FAULTS[2:]:
             with self.subTest(fault=fault):
                 crashed, resumed = self.state(f'crash-{fault}'), self.state(f'resume-{fault}')
