@@ -1,21 +1,9 @@
 {{- /* Refuse direct changes first (see .chezmoitemplates/guard). */ -}}
 {{- template "guard" . -}}
-{{- /* Compatibility links not listed in folder_links, and .hidden without any, are
-     left alone rather than removed; a real folder of the same name stays untouched. */ -}}
 {{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
-{{- /* Standard user directories are platform-owned unless explicitly overridden.
-     projects is only a target for optional compatibility links. */}}
-{{- if not (omit (dig "folders" dict $shaffy.settings) "projects") }}
+{{- /* Standard user directories are platform-owned unless explicitly overridden. */}}
+{{- if not (dig "folders" dict $shaffy.settings) }}
 .config/user-dirs.dirs
-{{- end }}
-{{- $links := dig "folder_links" dict $shaffy.settings }}
-{{- range list "Desktop" "Documents" "Downloads" "Music" "Pictures" "Projects" "Public" "Templates" "Videos" "Work" }}
-{{-   if not (hasKey $links .) }}
-{{ . }}
-{{-   end }}
-{{- end }}
-{{- if not $links }}
-.hidden
 {{- end }}
 {{- /* Optional integrations render only while managed: the targets of one
      that is not requested, disabled or released are ignored, never removed; so are

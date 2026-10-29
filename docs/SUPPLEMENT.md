@@ -153,15 +153,12 @@ shows home changes only.
 [Desktop setup](DESKTOP-SETUP.md) shows what each setting changes, and
 [keyboard setup](KEYBOARD-SETUP.md) covers layouts and key maps.
 
-### folders and folder_links
+### folders
 
 Standard directories follow the installation's XDG settings, in any language;
 no `folders` block is needed. `folders` optionally overrides individual roles
-with names relative to the home, preserving all unlisted XDG entries.
-`projects` is nonstandard and only supplies a target for optional links.
-`folder_links` adds aliases such as `~/Pictures` for old saved paths, resolving
-their targets from XDG or an explicit override. Both mechanisms are described
-in [home folders](HOME-FOLDERS.md).
+with names relative to the home, preserving all unlisted XDG entries, as
+[home folders](HOME-FOLDERS.md) describes.
 
 ### identity
 

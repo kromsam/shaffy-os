@@ -28,7 +28,6 @@ probe = ('    jinja-probe:\n      command: "/usr/bin/true"\n      env:\n'
 path.write_text(path.read_text().replace('  mcp_servers:\n', '  mcp_servers:\n' + probe, 1))
 EOF2
 cp /home/tester/supplement/config.yaml /home/tester/config.yaml.good
-mkdir /home/tester/Bilder /home/tester/Projects # the fixture's folder_links targets
 chown -R tester: /home/tester
 
 run() { # run a command as the target user in the checkout; never fails the script

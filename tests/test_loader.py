@@ -96,12 +96,6 @@ class ValidInputTests(LoaderCase):
 
 
 class InvalidInputTests(LoaderCase):
-    def test_projects_alias_needs_an_explicit_nonstandard_target(self):
-        self.assertIn(
-            'a projects target needs folders.projects',
-            self.problems('schema_version: 1\nsupplement_id: t\nfolder_links:\n  Work: projects\n'),
-        )
-
     def test_duplicate_key_names_line(self):
         message = self.problems('schema_version: 1\nsupplement_id: a\nsupplement_id: b\n')
         self.assertIn("duplicate key 'supplement_id'", message)
@@ -168,13 +162,13 @@ class InvalidInputTests(LoaderCase):
         self.assertEqual(len(data['references']), 8)  # five overrides and three asset files
         self.assertNotIn('overrides', data['settings'])
 
-    def test_identity_folders_and_links_are_validated(self):
+    def test_identity_and_folders_are_validated(self):
         message = self.problems(
             'schema_version: 1\nsupplement_id: t\n'
             'identity:\n  name: \'A "quoted" name\'\n  email: not-an-email\n'
-            "folders:\n  documents: 'Docs\"'\nfolder_links:\n  Elsewhere: documents\n"
+            "folders:\n  documents: 'Docs\"'\n  projects: Code\n"
         )
-        for key in ('identity.name', 'identity.email', 'folders.documents', "unknown key 'Elsewhere'"):
+        for key in ('identity.name', 'identity.email', 'folders.documents', "unknown key 'projects'"):
             self.assertIn(key, message)
 
     def test_new_server_needs_a_command(self):

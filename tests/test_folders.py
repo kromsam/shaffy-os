@@ -1,4 +1,4 @@
-"""Installer-owned XDG directories, selective overrides and optional aliases."""
+"""Installer-owned XDG directories and selective overrides."""
 
 import os
 from pathlib import Path
@@ -10,7 +10,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy.folders import folder_path, link_conflicts, merge_user_dirs
+from shaffy.folders import folder_path, merge_user_dirs
 
 
 class OverrideTests(unittest.TestCase):
@@ -20,14 +20,13 @@ class OverrideTests(unittest.TestCase):
             'XDG_PICTURES_DIR="$HOME/Bilder"\n\n# Disabled\nXDG_MUSIC_DIR="$HOME/"\n'
         )
         expected = original.replace('$HOME/Bilder', '$HOME/Photos')
-        actual = merge_user_dirs(original, {'pictures': 'Photos', 'projects': 'Code'})
+        actual = merge_user_dirs(original, {'pictures': 'Photos'})
         self.assertEqual(actual, expected)
         self.assertEqual(merge_user_dirs(actual, {'pictures': 'Photos'}), expected)
 
     def test_no_standard_override_leaves_even_an_empty_file_alone(self):
         for text in ('', '# untouched\nXDG_PROJECTS_DIR="$HOME/Code"'):
             self.assertEqual(merge_user_dirs(text, {}), text)
-            self.assertEqual(merge_user_dirs(text, {'projects': 'Projects'}), text)
 
     def test_a_missing_entry_is_added_without_losing_the_last_line(self):
         self.assertEqual(
@@ -71,7 +70,7 @@ class PlatformDirectoryTests(unittest.TestCase):
 
     def test_explicit_override_wins_before_the_platform_file_is_modified(self):
         self.dirs.write_text('XDG_PICTURES_DIR="$HOME/Bilder"\n')
-        self.assertEqual(folder_path({'folders': {'pictures': 'Photos'}}, self.home, 'pictures'), self.home / 'Photos')
+        self.assertEqual(folder_path({'pictures': 'Photos'}, self.home, 'pictures'), self.home / 'Photos')
         self.assertIn('$HOME/Bilder', self.dirs.read_text())
 
     def test_platform_changes_are_seen_without_changing_supplement_settings(self):
@@ -91,23 +90,3 @@ class PlatformDirectoryTests(unittest.TestCase):
         (config / 'user-dirs.dirs').write_text('XDG_PICTURES_DIR="$HOME/Images"\n')
         with mock.patch.dict(os.environ, HOME=str(self.home), XDG_CONFIG_HOME=str(config)):
             self.assertEqual(folder_path({}, self.home, 'pictures'), self.home / 'Images')
-
-    def test_aliases_follow_xdg_and_self_links_are_refused(self):
-        (self.home / 'Images').mkdir()
-        settings = {'folder_links': {'Pictures': 'pictures'}}
-        self.dirs.write_text('XDG_PICTURES_DIR="$HOME/Images"\n')
-        self.assertEqual(link_conflicts(settings, self.home), [])
-        self.dirs.write_text('XDG_PICTURES_DIR="$HOME/Pictures"\n')
-        self.assertIn('would point to itself', link_conflicts(settings, self.home)[0])
-
-    def test_a_link_to_an_unset_directory_would_point_at_the_home_and_is_refused(self):
-        settings = {'folder_links': {'Pictures': 'pictures'}}
-        for text in ('XDG_PICTURES_DIR="$HOME/"\n', 'XDG_MUSIC_DIR="$HOME/Music"\n'):
-            with self.subTest(text=text):
-                self.dirs.write_text(text)
-                self.assertIn('is the home itself', link_conflicts(settings, self.home)[0])
-
-    def test_projects_has_no_guessed_language_or_xdg_entry(self):
-        with self.assertRaisesRegex(ValueError, 'not a standard XDG'):
-            folder_path({}, self.home, 'projects')
-        self.assertEqual(folder_path({'folders': {'projects': 'Code'}}, self.home, 'projects'), self.home / 'Code')

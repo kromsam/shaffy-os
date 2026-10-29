@@ -149,13 +149,9 @@ def check(args):
     # --no-home: the settings and their render alone, for any user, as a supplement's CI checks them.
     if not args.no_home:
         from shaffy.desktop_key import problems as desktop_key_problems
-        from shaffy.folders import asset_conflicts, link_conflicts
+        from shaffy.folders import asset_conflicts
 
-        conflicts = (
-            link_conflicts(data['shaffy']['settings'], Path.home())
-            + asset_conflicts(data['shaffy']['assets'], Path.home())
-            + desktop_key_problems()
-        )
+        conflicts = asset_conflicts(data['shaffy']['assets'], Path.home()) + desktop_key_problems()
         if conflicts:
             return _fail('the home cannot be applied as it is:\n  ' + '\n  '.join(conflicts))
         from shaffy.identity import signing_note

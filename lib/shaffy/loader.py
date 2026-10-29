@@ -204,10 +204,6 @@ def _effective_problems(settings):
             problems.append(f'effective settings: ai.mcp_servers.{name}: has both a command and a url')
         elif 'url' in spec and ('args' in spec or 'env' in spec):
             problems.append(f'effective settings: ai.mcp_servers.{name}: args and env need a command')
-    if 'projects' in settings.get('folder_links', {}).values() and 'projects' not in settings.get('folders', {}):
-        problems.append(
-            'folder_links: a projects target needs folders.projects; projects is not a standard XDG directory'
-        )
     for exclude in settings.get('backup', {}).get('excludes', []):
         parts = tuple(part for part in exclude[2:].split('/') if part)
         if parts == BACKUP_MARKER[: len(parts)]:

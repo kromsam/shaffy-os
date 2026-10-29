@@ -24,7 +24,7 @@ import subprocess
 
 from . import desktop_key, ledger
 from .capture import CaptureError, capture, settings_digest, verify
-from .folders import asset_conflicts, link_conflicts
+from .folders import asset_conflicts
 from .identity import signing_note
 from .loader import SettingsError, load
 from .records import LockedError, RecordError, Records, current_target, disagreements, now, read_root_record
@@ -186,7 +186,7 @@ class HomeApply:
             return problems + refused
         pending['deferred'] = sorted(deferred)
         self.deferred = deferred
-        problems += link_conflicts(settings, Path.home()) + asset_conflicts(shaffy['assets'], Path.home())
+        problems += asset_conflicts(shaffy['assets'], Path.home())
         self.note = signing_note(settings, Path.home())
         missing = desktop_key.problems()
         problems += missing

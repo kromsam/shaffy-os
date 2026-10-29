@@ -1,7 +1,7 @@
 """Follow platform XDG directories unless the supplement explicitly overrides them.
 
-Only configured directory entries are modified. Compatibility links and assets
-must never replace real folders or traverse links.
+Only configured directory entries are modified. Assets must never replace real
+folders or traverse links.
 """
 
 import json
@@ -23,20 +23,16 @@ XDG_ROLES = {
 }
 
 
-def folder_path(settings, home, role):
+def folder_path(overrides, home, role):
     """An explicit home-relative override, otherwise the native XDG lookup.
 
     xdg-user-dir parses the platform file without evaluating it as shell code.
     Its fallback for an unset directory is kept; no localized names are guessed.
     """
     home = Path(home)
-    override = settings.get('folders', {}).get(role)
+    override = overrides.get(role)
     if override is not None:
         return home / override
-    if role == 'projects':
-        raise ValueError(
-            'folders.projects: set a target for a projects compatibility link; projects is not a standard XDG directory'
-        )
     env = dict(os.environ, HOME=str(home))
     if home != Path.home():
         env['XDG_CONFIG_HOME'] = str(home / '.config')
@@ -49,7 +45,7 @@ def folder_path(settings, home, role):
 
 def merge_user_dirs(original, overrides, home=None):
     """Preserve platform entries and comments; own only the explicit standard roles."""
-    values = {f'XDG_{XDG_ROLES[role]}_DIR': f'$HOME/{name}' for role, name in overrides.items() if role in XDG_ROLES}
+    values = {f'XDG_{XDG_ROLES[role]}_DIR': f'$HOME/{name}' for role, name in overrides.items()}
     home = Path(home) if home is not None else Path.home()
     lines, found = [], set()
     for line in original.splitlines(keepends=True):
@@ -78,45 +74,10 @@ def merge_user_dirs(original, overrides, home=None):
     return text
 
 
-def link_conflicts(settings, home):
-    """Problems for configured folder_links: a real folder or file in the way, or a missing target."""
-    problems = []
-    for name, folder in sorted(settings.get('folder_links', {}).items()):
-        path = Path(home) / name
-        try:
-            target = folder_path(settings, home, folder)
-        except (ValueError, OSError, subprocess.CalledProcessError) as error:
-            problems.append(f'folder_links.{name}: {error}')
-            continue
-        if path == target:
-            problems.append(f'folder_links.{name}: would point to itself; drop the unnecessary link')
-            continue
-        if target == Path(home):
-            # xdg-user-dir answers with the home for an unset or disabled directory.
-            problems.append(
-                f'folder_links.{name}: the {folder} directory is the home itself; set it in '
-                "the installation's XDG settings or in folders, or drop the link"
-            )
-            continue
-        if not path.is_symlink() and path.exists():
-            problems.append(
-                f'folder_links.{name}: {path} is a real {"folder" if path.is_dir() else "file"}; '
-                f'move its contents into {target} and remove it, or drop '
-                'the link from the settings'
-            )
-        elif not target.is_dir():
-            problems.append(
-                f'folder_links.{name}: its target {target} is not a folder; create or '
-                'migrate it first, or drop the link from the settings'
-            )
-    return problems
-
-
 def main():
     if sys.argv[1] == 'resolve':
         home, overrides = sys.argv[2], json.loads(sys.argv[3])
-        roles = [*XDG_ROLES, *(['projects'] if 'projects' in overrides else [])]
-        print(json.dumps({role: str(folder_path({'folders': overrides}, home, role)) for role in roles}))
+        print(json.dumps({role: str(folder_path(overrides, home, role)) for role in XDG_ROLES}))
     elif sys.argv[1] == 'merge':
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from shaffy.fastload import load_data

@@ -65,9 +65,9 @@ created or restored by hand.
 Each run backs up the home with `--one-file-system` and `--exclude-caches`.
 The public exclusions are regenerable caches, the Trash, Waydroid's Android runtime
 (which needs its own stopped-container recovery) and the SSH agent socket; the
-settings add personal ones. Compatibility links are backed up as links. Routine
-backup never prunes. Maintenance first inspects its dry-run selection and refuses
-any snapshot outside this home's host, path and tags, then prunes and checks.
+settings add personal ones. Routine backup never prunes. Maintenance first
+inspects its dry-run selection and refuses any snapshot outside this home's
+host, path and tags, then prunes and checks.
 
 Only the home is backed up. Container volumes, such as Docker's under
 `/var/lib/docker`, are outside it: export their databases into the home with each

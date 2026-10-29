@@ -1,9 +1,9 @@
 # Home folders
 
 Shaffy OS follows the XDG directories configured by the installation, in any
-language. A Dutch, French or Japanese installation needs no `folders` block
-and no English aliases. The public defaults leave `~/.config/user-dirs.dirs`
-untouched and create no standard folders or compatibility links.
+language. A Dutch, French or Japanese installation needs no `folders` block.
+The public defaults leave `~/.config/user-dirs.dirs` untouched and create no
+standard folders.
 
 The templates resolve paths with `xdg-user-dir` when the home is rendered.
 Screenshots, recordings and received files therefore follow the actual
@@ -48,52 +48,8 @@ never creates, moves or renames these folders: they hold the user's data.
 
 Removing an override stops managing that entry; it does not undo the last
 value. Removing all standard overrides leaves the entire XDG file alone.
-An existing supplement that repeats the installation's directory settings can
-drop those entries without changing the current paths. Remove `folders`
-entirely when no entries remain, rather than leaving an empty mapping.
-
-`projects` is not a standard XDG role. There is no default project folder and
-Shaffy OS no longer writes `XDG_PROJECTS_DIR`. An explicit `folders.projects`
-can supply a target for a compatibility link; otherwise it is unnecessary.
-An older `XDG_PROJECTS_DIR` entry is left alone as unmanaged content.
-
-## Compatibility links
-
-XDG-aware applications do not need aliases. Use `folder_links` only when an
-existing application, bookmark or script still uses an old literal path:
-
-```yaml
-folder_links:
-  Pictures: pictures
-```
-
-Here `~/Pictures` points at the installation's pictures directory, without
-needing to repeat its localized name. An explicit `folders.pictures`, if
-present, takes precedence. Links within the home are relative; targets
-outside it use an absolute path.
-
-Allowed link names are `Desktop`, `Documents`, `Downloads`, `Music`,
-`Pictures`, `Projects`, `Public`, `Templates`, `Videos` and `Work`. Each can
-point at a standard role or at an explicit `folders.projects`. For example:
-
-```yaml
-folders:
-  projects: "Code"
-folder_links:
-  Work: projects
-```
-
-Only listed links are managed. Unlisted names, including real directories
-and older symlinks, are left alone. While links are configured, `~/.hidden`
-lists their names so GIO file managers hide the aliases in normal listings.
-Without links, an existing `~/.hidden` is also left alone.
-
-`check` and the home apply refuse links that would replace real files or
-folders, point at missing targets, point to themselves, or point at the home
-itself, which is what `xdg-user-dir` answers for an unset directory. A matching English
-XDG directory does not need a link to itself. Removing a link declaration
-stops managing it; remove the actual symlink only after its old path is no
-longer needed.
+Remove `folders` entirely when no entries remain, rather than leaving an empty
+mapping.
 
 ## Changing a directory deliberately
 

@@ -65,7 +65,6 @@ class VersionRecordTests(unittest.TestCase):
 
 class CheckTests(unittest.TestCase):
     def test_no_home_checks_the_settings_without_this_machines_folders(self):
-        # The fixture links Pictures and Work to folders a fresh home lacks.
         supplement = ROOT / 'tests/fixtures/supplements/comprehensive'
         with tempfile.TemporaryDirectory() as directory:
 
@@ -74,9 +73,8 @@ class CheckTests(unittest.TestCase):
                 env = {**os.environ, 'HOME': directory, 'XDG_STATE_HOME': directory}
                 return subprocess.run(command, capture_output=True, text=True, check=False, env=env)
 
-            refused = check()
-            self.assertEqual(refused.returncode, 1, refused.stdout)
-            self.assertIn('is not a folder', refused.stderr)
+            fresh = check()
+            self.assertEqual(fresh.returncode, 0, fresh.stderr)
             anywhere = check('--no-home')
             self.assertEqual(anywhere.returncode, 0, anywhere.stderr)
             self.assertIn('Settings are valid', anywhere.stdout)

@@ -289,9 +289,7 @@ they are given, as STYLE.md asks.
    - the captured settings still load, and their digest equals the one taken at
      capture, so a change to the checkout's defaults, schema or loader refuses;
    - the integrations agree with the [ownership ledger](#ownership-ledger);
-   - no compatibility folder link would replace a real folder or point at a
-     missing one, and no asset would replace a folder or be written through a
-     link;
+   - no asset would replace a folder or be written through a link;
    - the desktop key helper (`shaffy-desktop-key`) builds, into
      `$XDG_CACHE_HOME/shaffy/build/`, never under the checkout;
    - a [sandbox render](#the-render-sandbox-and-check) of the capture validates
@@ -660,8 +658,8 @@ and changes nothing else.
   `~/.local/state/shaffy/chezmoistate.boltdb`;
 - the move of chezmoi's state file has not diverged;
 - the selected settings load and validate;
-- folder links and assets have no conflict in the real home, the desktop key's
-  build tools are installed, and a missing Git signing key is noted;
+- assets have no conflict in the real home, the desktop key's build tools are
+  installed, and a missing Git signing key is noted;
 - a capture of the selection, taken as an apply would take it, renders in the
   sandbox;
 - Noctalia keys that a managed fragment sets and a runtime file overrides are

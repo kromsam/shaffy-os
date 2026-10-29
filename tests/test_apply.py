@@ -31,8 +31,6 @@ class HomeApplyTests(unittest.TestCase):
         self.home = root / 'home'
         (self.home / '.config/tmux').mkdir(parents=True)
         (self.home / '.config/tmux/tmux.conf').write_text("# the user's own tmux\n")
-        for folder in ('Bilder', 'Projects'):  # the fixture's folder_links targets
-            (self.home / folder).mkdir()
         self.supplement = root / 'supplement'
         shutil.copytree(FIXTURE, self.supplement)
         self.env = {
@@ -128,7 +126,7 @@ class HomeApplyTests(unittest.TestCase):
         dirs = self.home / '.config/user-dirs.dirs'
         original = dirs.read_text()
         config = self.supplement / 'config.yaml'
-        config.write_text(config.read_text().replace('  pictures: "Bilder"\n', '').replace('  videos: "Filme"\n', ''))
+        config.write_text(config.read_text().replace('folders:\n  pictures: "Bilder"\n  videos: "Filme"\n', ''))
         second = self.shaffy('apply', '--home')
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(dirs.read_text(), original)
@@ -244,20 +242,6 @@ class HomeApplyTests(unittest.TestCase):
         self.assertTrue(fish.exists())
         self.assertEqual(fish.read_text(), '')
 
-    def test_unconfigured_link_names_leave_real_folders_alone(self):
-        # Every name the fixture does not link, the last one included, stays a real folder.
-        unlisted = ('Desktop', 'Documents', 'Downloads', 'Music', 'Public', 'Templates', 'Videos')
-        for name in unlisted:
-            (self.home / name).mkdir()
-            (self.home / name / 'keep.txt').write_text('mine')
-        self.attach()
-        result = self.shaffy('apply', '--home')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        for name in unlisted:
-            self.assertEqual((self.home / name / 'keep.txt').read_text(), 'mine', name)
-        self.assertEqual(os.readlink(self.home / 'Pictures'), 'Bilder')
-        self.assertTrue((self.home / 'Projects').is_dir() and not (self.home / 'Projects').is_symlink())
-
     def test_a_directory_replaced_by_a_file_is_copied_first(self):
         notes = self.home / '.config/fish/supplement.fish/notes.txt'
         notes.parent.mkdir(parents=True)
@@ -288,23 +272,6 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIsNone(self.record()['pending'])
         self.assertEqual(self.events()[-1], 'phase-not-started')
         self.assertIn('ZOTERO_LOCAL_WRITE = "true"', self.codex())
-
-    def test_a_link_that_would_replace_a_real_folder_is_refused(self):
-        (self.home / 'Pictures').mkdir()
-        (self.home / 'Pictures/photo.jpg').write_text('mine')
-        self.attach()
-        result = self.shaffy('apply', '--home')
-        self.assertEqual(result.returncode, 1)
-        self.assertIn('folder_links.Pictures', result.stderr)
-        self.assertEqual((self.home / 'Pictures/photo.jpg').read_text(), 'mine')
-
-    def test_a_link_to_a_missing_folder_is_refused(self):
-        (self.home / 'Bilder').rmdir()
-        self.attach()
-        result = self.shaffy('apply', '--home')
-        self.assertEqual(result.returncode, 1)
-        self.assertIn('folder_links.Pictures: its target', result.stderr)
-        self.assertFalse(os.path.lexists(self.home / 'Pictures'))
 
     def test_the_desktop_key_is_built_outside_the_checkout_and_installed(self):
         installed = self.home / '.local/bin/shaffy-desktop-key'
@@ -482,15 +449,16 @@ class HomeApplyTests(unittest.TestCase):
         self.attach()
         self.assertEqual(self.shaffy('apply', '--home', fault='after-phase-start').returncode, -signal.SIGKILL)
         op = self.record()['pending']['op']
-        (self.home / 'Pictures').mkdir()
-        (self.home / 'Pictures/photo.jpg').write_text('mine')
+        folder = self.home / '.local/share/fonts/Example-Regular.otf'
+        folder.mkdir(parents=True)
+        (folder / 'keep.txt').write_text('mine')
         refused = self.shaffy('apply', '--resume')
         self.assertEqual(refused.returncode, 1)
         self.assertIn('cannot resume', refused.stderr)
-        self.assertIn('folder_links.Pictures', refused.stderr)
+        self.assertIn('is a real folder, which the copy would replace', refused.stderr)
         self.assertEqual(self.record()['pending']['op'], op)
         self.assertEqual(self.events(op)[-1], 'resume-refused')
-        self.assertEqual((self.home / 'Pictures/photo.jpg').read_text(), 'mine')
+        self.assertEqual((folder / 'keep.txt').read_text(), 'mine')
         self.assertFalse((self.home / '.codex').exists())
 
     def test_changed_defaults_stop_a_resume(self):

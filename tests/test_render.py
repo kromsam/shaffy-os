@@ -111,20 +111,6 @@ class RenderTests(unittest.TestCase):
                 )
                 niri = (home / '.config/niri/cfg/misc.kdl').read_text()
                 self.assertIn(pictures.replace('%', '%%') + '/Screenshots/', niri)
-                for name in (
-                    'Desktop',
-                    'Documents',
-                    'Downloads',
-                    'Music',
-                    'Pictures',
-                    'Projects',
-                    'Public',
-                    'Templates',
-                    'Videos',
-                    'Work',
-                    '.hidden',
-                ):
-                    self.assertFalse(os.path.lexists(home / name), name)
 
     def test_partial_folder_overrides_keep_the_other_installer_entries(self):
         native = (
@@ -146,19 +132,6 @@ class RenderTests(unittest.TestCase):
             self.assertClean(render(ROOT, without=True, keep=keep, user_dirs=native))
             niri = (Path(keep) / 'home/.config/niri/cfg/misc.kdl').read_text()
             self.assertIn('Photos \\"été\\" & 100%%/Screenshots/', niri)
-
-    def test_standard_compatibility_links_need_no_folder_overrides(self):
-        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as keep:
-            supplement = Path(directory)
-            (supplement / 'config.yaml').write_text(
-                'schema_version: 1\nsupplement_id: aliases\nfolder_links:\n  Pictures: pictures\n'
-            )
-            self.assertClean(
-                render(ROOT, supplement=supplement, keep=keep, user_dirs='XDG_PICTURES_DIR="$HOME/Images"\n')
-            )
-            home = Path(keep) / 'home'
-            self.assertEqual(os.readlink(home / 'Pictures'), 'Images')
-            self.assertEqual((home / '.config/user-dirs.dirs').read_text(), 'XDG_PICTURES_DIR="$HOME/Images"\n')
 
     def test_supplement_settings_reach_the_rendered_files(self):
         with tempfile.TemporaryDirectory() as keep:
@@ -291,7 +264,7 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(omarchy.count('"/usr/share/noctalia/assets/noctalia-wallpaper.png"'), 3)
             self.assertFalse((home / '.local/share/wallpapers').exists())
 
-    def test_identity_folders_and_links_render_from_the_settings(self):
+    def test_identity_and_folders_render_from_the_settings(self):
         with tempfile.TemporaryDirectory() as keep:
             self.assertClean(render(ROOT, supplement=ROOT / 'tests/fixtures/supplements/comprehensive', keep=keep))
             home = Path(keep) / 'home'
@@ -303,11 +276,6 @@ class RenderTests(unittest.TestCase):
             dirs = (home / '.config/user-dirs.dirs').read_text()
             self.assertIn('XDG_PICTURES_DIR="$HOME/Bilder"', dirs)
             self.assertNotIn('XDG_DOCUMENTS_DIR=', dirs)
-            self.assertNotIn('XDG_PROJECTS_DIR=', dirs)
-            self.assertEqual(os.readlink(home / 'Pictures'), 'Bilder')
-            self.assertEqual(os.readlink(home / 'Work'), 'Projects')
-            self.assertFalse(os.path.lexists(home / 'Documents'))
-            self.assertEqual((home / '.hidden').read_text(), 'Pictures\nWork\n')
 
     def test_assets_are_copied_from_the_supplement(self):
         with tempfile.TemporaryDirectory() as keep:
@@ -491,8 +459,6 @@ class RenderTests(unittest.TestCase):
             )
             self.assertEqual((home / '.config/git/config').read_text(), GIT_DEFAULTS)
             self.assertFalse((home / '.config/user-dirs.dirs').exists())
-            for name in ('Documents', 'Work', '.hidden'):
-                self.assertFalse(os.path.lexists(home / name), name)
 
     def test_plugins_come_from_noctalia_sources_not_this_repository(self):
         """The rendered [plugins] table validates with the sources enabled."""
@@ -558,68 +524,6 @@ class SandboxIsolationTests(unittest.TestCase):
         processes = int(next(line for line in lines if line.startswith('processes')).split()[1])
         self.assertLess(processes, 10, 'the sandbox sees host processes')  # its own pipeline only
         self.assertEqual(lines[-2:], ['4242', 'synthetic-host'])
-
-
-@unittest.skipUnless(shutil.which('chezmoi'), 'needs chezmoi')
-class IgnoreTests(unittest.TestCase):
-    """Names without a configured link, and .hidden without links, are ignored, never removed."""
-
-    NAMES = (
-        'Desktop',
-        'Documents',
-        'Downloads',
-        'Music',
-        'Pictures',
-        'Projects',
-        'Public',
-        'Templates',
-        'Videos',
-        'Work',
-    )
-
-    def ignored(self, supplement):
-        with tempfile.TemporaryDirectory() as directory:
-            home = Path(directory) / 'home'
-            state = home / '.local/state/shaffy'
-            state.mkdir(parents=True)
-            binding = (
-                {'mode': 'supplement', 'path': str(supplement), 'supplement_id': None}
-                if supplement
-                else {'mode': 'none', 'path': None, 'supplement_id': None}
-            )
-            (state / 'binding.json').write_text(__import__('json').dumps({'binding': binding}))
-            config = Path(directory) / 'chezmoi.toml'
-            config.write_text(f'persistentState = "{Path(directory) / "state.boltdb"}"\n')
-            result = subprocess.run(
-                [
-                    'chezmoi',
-                    '--config',
-                    str(config),
-                    '--source',
-                    str(ROOT / 'home'),
-                    '--destination',
-                    str(home),
-                    '--no-tty',
-                    'ignored',
-                ],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env={'HOME': str(home), 'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'XDG_RUNTIME_DIR': directory},
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            return set(result.stdout.splitlines())
-
-    def test_without_links_every_name_and_hidden_are_ignored(self):
-        ignored = self.ignored(None)
-        self.assertLessEqual(set(self.NAMES) | {'.hidden'}, ignored)
-
-    def test_with_links_every_unlisted_name_is_ignored(self):
-        ignored = self.ignored(ROOT / 'tests/fixtures/supplements/comprehensive')
-        unlisted = set(self.NAMES) - {'Pictures', 'Work'}
-        self.assertLessEqual(unlisted, ignored)
-        self.assertFalse({'Pictures', 'Work', '.hidden'} & ignored)
 
 
 class DirectModeTests(unittest.TestCase):

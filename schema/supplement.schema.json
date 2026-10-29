@@ -121,7 +121,7 @@
       }
     },
     "folders": {
-      "description": "Optional directory overrides relative to the home. Omitted standard roles follow the installation's XDG settings in any language. projects is a nonstandard target for compatibility links only.",
+      "description": "Optional directory overrides relative to the home. Omitted standard roles follow the installation's XDG settings in any language.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
@@ -143,10 +143,6 @@
           "pattern": "^[^/\\u0000\\n\"\\\\$`]+$"
         },
         "pictures": {
-          "type": "string",
-          "pattern": "^[^/\\u0000\\n\"\\\\$`]+$"
-        },
-        "projects": {
           "type": "string",
           "pattern": "^[^/\\u0000\\n\"\\\\$`]+$"
         },
@@ -348,144 +344,6 @@
         "autologin": {
           "type": "boolean",
           "description": "Start Niri after disk unlock without a second password and unlock the keyring with the disk password. Refused unless / is on an encrypted device."
-        }
-      }
-    },
-    "folder_links": {
-      "description": "English-named links in the home that point to the configured folders, for paths kept from an earlier layout. Unlisted names are left alone.",
-      "type": "object",
-      "additionalProperties": false,
-      "minProperties": 1,
-      "properties": {
-        "Desktop": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Documents": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Downloads": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Music": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Pictures": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Projects": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Public": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Templates": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Videos": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
-        },
-        "Work": {
-          "enum": [
-            "desktop",
-            "documents",
-            "downloads",
-            "music",
-            "pictures",
-            "projects",
-            "public",
-            "templates",
-            "videos"
-          ]
         }
       }
     },
