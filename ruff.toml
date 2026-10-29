@@ -1,0 +1,26 @@
+# Python's lint rules and format (STYLE.md). Single quotes and 120 columns are the code's
+# existing look; the rules are an explicit selection, never ALL.
+target-version = "py314"
+line-length = 120
+
+[format]
+quote-style = "single"
+
+[lint]
+select = [
+  "E4", "E7", "E9", "F",  # pyflakes and pycodestyle's errors, ruff's defaults
+  "B",                    # bugbear: likely bugs and design problems
+  "I",                    # sorted imports
+  "UP",                   # syntax the target Python makes simpler
+  "PLE",                  # pylint's errors
+  "PLW1510",              # subprocess.run states `check`
+  "RUF100",               # no unused noqa
+]
+
+[lint.isort]
+# `import x` and `from x import y` sorted together by module, as the code already does.
+force-sort-within-sections = true
+
+[lint.per-file-ignores]
+# Tests and scripts put lib/ or tests/ on sys.path before importing from them.
+"{tests,scripts}/**" = ["E402"]

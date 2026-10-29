@@ -1,0 +1,18 @@
+# The checkout's development tools, which `./bin/shaffy lint` runs (STYLE.md). mise reads
+# this file only with MISE_ENV=dev, so mise.toml stays the Ansible controller alone. Install
+# them in the checkout with `mise trust mise.dev.toml` and `MISE_ENV=dev mise install`.
+[tools]
+actionlint = "latest"
+# markdownlint-cli2 runs on Node.
+node = "lts"
+"npm:markdownlint-cli2" = "latest"
+# In a virtual environment of its own, beside the controller.
+"pipx:ansible-lint" = "latest"
+ruff = "latest"
+shellcheck = "latest"
+shfmt = "latest"
+stylua = "latest"
+
+[settings]
+# As for the desktop's tools: `latest` is the newest release that is at least three days old.
+minimum_release_age = "3d"

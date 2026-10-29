@@ -1,0 +1,14 @@
+# ansible-lint for site.yml, records.yml and roles/ (STYLE.md). The shared profile, plus the
+# fully qualified module names the playbooks already use.
+profile: shared
+enable_list:
+  - fqcn
+# The pinned collections are installed by the bootstrap; ansible-lint never installs any.
+offline: true
+exclude_paths:
+  - collections/
+  - defaults/
+  - home/
+  - schema/
+  - supplement.example/
+  - tests/

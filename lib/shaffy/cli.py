@@ -1,5 +1,5 @@
-"""Subcommands of `bin/shaffy`: selftest, check, data, diff, apply, status, outdated, update,
-supplement, integration and hook."""
+"""Subcommands of `bin/shaffy`: selftest, lint, check, data, diff, apply, status, outdated,
+update, supplement, integration and hook."""
 import argparse
 import json
 import os
@@ -28,6 +28,12 @@ def selftest(args):
     if args.verbose:
         command.append('-v')
     return subprocess.call(command, cwd=ROOT, env=env)
+
+
+def lint(args):
+    """Format and lint the checkout (lib/shaffy/lint.py)."""
+    from . import lint as linter
+    return linter.main(args)
 
 
 def _selection_arguments(parser):
@@ -653,6 +659,12 @@ def main(argv):
                       help='worker processes (default: one per CPU); 1 runs plain unittest in order')
     test.add_argument('-v', '--verbose', action='store_true', help='list every test')
     test.set_defaults(run=selftest)
+    tidy = commands.add_parser('lint', help='format and lint the checkout, one tool per language (STYLE.md)')
+    tidy.add_argument('paths', nargs='*', metavar='PATH', help='files or directories; default: the checkout')
+    tidy.add_argument('--fix', action='store_true', help='let the formatters and safe fixes rewrite the files')
+    tidy.add_argument('--changed', action='store_true', help='only the files that differ from HEAD')
+    tidy.add_argument('--hook', action='store_true', help='read a Claude Code or Codex hook event on stdin')
+    tidy.set_defaults(run=lint)
     validate = commands.add_parser('check', help='validate the settings and a sandboxed render; '
                                    'changes nothing')
     _selection_arguments(validate)

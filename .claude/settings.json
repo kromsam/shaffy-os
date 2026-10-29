@@ -1,0 +1,55 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(~/.config/**)",
+      "Edit(~/.local/**)",
+      "Edit(//etc/**)",
+      "Bash(chezmoi apply:*)",
+      "Bash(chezmoi add:*)",
+      "Bash(chezmoi re-add:*)",
+      "Bash(chezmoi merge:*)",
+      "Bash(ansible-playbook:*)",
+      "Bash(mise use:*)",
+      "Bash(git config --global:*)",
+      "Bash(gsettings set:*)",
+      "Bash(dconf write:*)",
+      "Bash(flatpak override:*)",
+      "Bash(systemctl --user enable:*)",
+      "Bash(sudo:*)",
+      "Bash(./bin/shaffy apply --system:*)"
+    ],
+    "ask": [
+      "Bash(./bin/shaffy apply:*)",
+      "Bash(./bin/shaffy update:*)",
+      "Bash(./bin/shaffy supplement:*)",
+      "Bash(./bin/shaffy integration:*)",
+      "Bash(mise install:*)",
+      "Bash(restic-home:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/shaffy lint --hook",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/shaffy lint --hook",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

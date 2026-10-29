@@ -108,6 +108,7 @@ comments whose date has passed; delete them on dev with everything they name.
 ## Check, review, apply
 
 ```sh
+./bin/shaffy lint [--fix]                   # formatters and linters (STYLE.md); --fix rewrites
 ./bin/shaffy check                          # settings, a sandboxed render, prerequisites; changes nothing
 ./bin/shaffy diff                           # what a home apply would change
 ./bin/shaffy apply --home
@@ -119,8 +120,10 @@ comments whose date has passed; delete them on dev with everything they name.
 Updates follow [Updating](docs/UPDATING.md): the owner runs `./bin/shaffy update`
 for the machine, and the pins are raised on dev with `scripts/refresh-pins.py`.
 
-Run `./bin/shaffy selftest` after changing code, and confirm that a second
-apply changes nothing. The self-test also fails on personal-looking values in
+Write code as [STYLE.md](STYLE.md) says, and run `./bin/shaffy lint` and
+`./bin/shaffy selftest` after changing it; confirm that a second apply changes
+nothing. In Claude Code and Codex, hooks format each edited file and hand what
+the linters still find back to the agent. The self-test also fails on personal-looking values in
 public files and, with a supplement bound, on anything its `denylist.txt` or its
 identifying settings name. It cannot recognise every personal value, so read the
 diff of a public change for them before committing it.

@@ -1,0 +1,4 @@
+# Lua outside the Neovim configuration (STYLE.md), as home/dot_config/nvim/stylua.toml has it.
+indent_type = "Spaces"
+indent_width = 2
+column_width = 120

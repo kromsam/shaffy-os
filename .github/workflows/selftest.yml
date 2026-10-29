@@ -1,6 +1,6 @@
-# Runs the fresh-clone-safe tests, a secret scan of the history and the REUSE licence
-# check, plus the system operation tests in a disposable container. CI never
-# sees a private supplement.
+# Runs the linters, the fresh-clone-safe tests, a secret scan of the history and the
+# REUSE licence check, plus the system operation tests in a disposable container. CI
+# never sees a private supplement.
 name: selftest
 on:
   # A release tag names a commit that dev and main have already tested.
@@ -39,7 +39,18 @@ jobs:
             mise install ansible-core
             mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
           '
+      - name: Install the development tools (mise.dev.toml)
+        run: |
+          runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
+            cd "$GITHUB_WORKSPACE"
+            mise trust mise.dev.toml
+            mise install
+          '
+      - name: Lint (STYLE.md)
+        run: runuser -u tester -- env HOME=/home/tester sh -c 'cd "$GITHUB_WORKSPACE" && ./bin/shaffy lint'
       - name: Run the tests as an unprivileged user
+        # Also after a lint failure, so one run reports both.
+        if: ${{ !cancelled() }}
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
