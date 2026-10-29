@@ -118,6 +118,11 @@ stay in the kernel keyring, outside both repositories. Proton offers the CLI on
 Pass Plus, Family and Professional and on the Proton bundles, not on the free
 plan; see [Proton Pass CLI documentation](https://protonpass.github.io/pass-cli/).
 
+## The editor in Fish
+
+`home/dot_config/fish/conf.d/20-editor.fish` sets `EDITOR` to `nvim`, so Git,
+Claude Code, Codex and other tools that open an editor open Neovim.
+
 ## Directory jumping in Fish
 
 Omarchy makes `cd` fall back to zoxide: an existing path changes directory as
