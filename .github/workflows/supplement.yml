@@ -56,7 +56,8 @@ jobs:
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
-        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy check --supplement ../supplement
+        # --no-home: CI's fresh home has none of the folders or files the owner's machine has.
+        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy check --no-home --supplement ../supplement
       # The checks after the first run also after a failure, so one run reports them all.
       - name: Lint (STYLE.md)
         if: ${{ !cancelled() }}

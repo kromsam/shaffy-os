@@ -63,6 +63,26 @@ class VersionRecordTests(unittest.TestCase):
         self.assertIn(bootstrap.galaxy_step(), readme)
 
 
+class CheckTests(unittest.TestCase):
+    def test_no_home_checks_the_settings_without_this_machines_folders(self):
+        # The fixture links Pictures and Work to folders a fresh home lacks.
+        supplement = ROOT / 'tests/fixtures/supplements/comprehensive'
+        with tempfile.TemporaryDirectory() as directory:
+
+            def check(*options):
+                command = [str(ROOT / 'bin/shaffy'), 'check', '--no-render', *options, '--supplement', str(supplement)]
+                env = {**os.environ, 'HOME': directory, 'XDG_STATE_HOME': directory}
+                return subprocess.run(command, capture_output=True, text=True, check=False, env=env)
+
+            refused = check()
+            self.assertEqual(refused.returncode, 1, refused.stdout)
+            self.assertIn('is not a folder', refused.stderr)
+            anywhere = check('--no-home')
+            self.assertEqual(anywhere.returncode, 0, anywhere.stderr)
+            self.assertIn('Settings are valid', anywhere.stdout)
+            self.assertNotIn('System scope', anywhere.stdout)
+
+
 class ReportTests(unittest.TestCase):
     def test_check_without_chezmoi_prints_the_install_step(self):
         with tempfile.TemporaryDirectory() as directory:

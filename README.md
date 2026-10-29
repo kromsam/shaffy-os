@@ -186,7 +186,7 @@ See [recovery](docs/DESKTOP-SETUP.md#validation-and-recovery) before restoring a
 
 | Command | What it does |
 | --- | --- |
-| `./bin/shaffy check [--no-render]` | Validates the settings, renders the home for a synthetic user in a sandbox and checks the result, and reports missing system prerequisites. Changes nothing. |
+| `./bin/shaffy check [--no-render] [--no-home]` | Validates the settings, renders the home for a synthetic user in a sandbox and checks the result, and reports missing system prerequisites. `--no-home` leaves out this machine's home and system, as a supplement's CI does. Changes nothing. |
 | `./bin/shaffy data` | Prints the effective settings as JSON. |
 | `./bin/shaffy diff [PATH...]` | Shows what a home apply would change, optionally for some targets only. |
 | `./bin/shaffy apply --home` | Applies the home; `--home` is the default scope. |

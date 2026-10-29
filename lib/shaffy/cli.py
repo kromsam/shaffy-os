@@ -146,21 +146,23 @@ def check(args):
         for problem in error.problems:
             print(f'  {problem}', file=sys.stderr)
         return 1
-    from shaffy.desktop_key import problems as desktop_key_problems
-    from shaffy.folders import asset_conflicts, link_conflicts
+    # --no-home: the settings and their render alone, for any user, as a supplement's CI checks them.
+    if not args.no_home:
+        from shaffy.desktop_key import problems as desktop_key_problems
+        from shaffy.folders import asset_conflicts, link_conflicts
 
-    conflicts = (
-        link_conflicts(data['shaffy']['settings'], Path.home())
-        + asset_conflicts(data['shaffy']['assets'], Path.home())
-        + desktop_key_problems()
-    )
-    if conflicts:
-        return _fail('the home cannot be applied as it is:\n  ' + '\n  '.join(conflicts))
-    from shaffy.identity import signing_note
+        conflicts = (
+            link_conflicts(data['shaffy']['settings'], Path.home())
+            + asset_conflicts(data['shaffy']['assets'], Path.home())
+            + desktop_key_problems()
+        )
+        if conflicts:
+            return _fail('the home cannot be applied as it is:\n  ' + '\n  '.join(conflicts))
+        from shaffy.identity import signing_note
 
-    note = signing_note(data['shaffy']['settings'], Path.home())
-    if note:
-        print(f'Note: {note}')
+        note = signing_note(data['shaffy']['settings'], Path.home())
+        if note:
+            print(f'Note: {note}')
     selection = data['shaffy']['selection']
     if selection['mode'] == 'supplement':
         print(
@@ -170,7 +172,8 @@ def check(args):
     else:
         print(f'Settings are valid: public defaults only ({selection["source"]}).')
     if args.no_render:
-        _system_report()
+        if not args.no_home:
+            _system_report()
         return 0
     import tempfile
 
@@ -193,7 +196,7 @@ def check(args):
         except (RenderError, CaptureError) as error:
             print(f'shaffy: {error}', file=sys.stderr)
             return 1
-        found = overlaps(Path(keep) / 'home/.config/noctalia', Path.home())
+        found = [] if args.no_home else overlaps(Path(keep) / 'home/.config/noctalia', Path.home())
     if found:
         print('Noctalia keys also set by its runtime files, which load later and win:')
         for key, managed, source, runtime in found:
@@ -208,7 +211,8 @@ def check(args):
         f'Rendered {result["files"]} files for a synthetic user; Niri, Noctalia, Fish, tmux '
         'and every TOML, YAML and JSON file validate, and a second apply changes nothing.'
     )
-    _system_report()
+    if not args.no_home:
+        _system_report()
     return 0
 
 
@@ -827,6 +831,11 @@ def main(argv):
     _selection_arguments(validate)
     validate.add_argument(
         '--no-render', action='store_true', help='validate the settings only, without rendering the home'
+    )
+    validate.add_argument(
+        '--no-home',
+        action='store_true',
+        help="leave out this machine's home and system: the settings and their render alone, as CI checks them",
     )
     validate.set_defaults(run=check)
     show = commands.add_parser('data', help='print the effective settings as JSON')
