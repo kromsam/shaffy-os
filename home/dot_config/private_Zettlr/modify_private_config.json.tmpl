@@ -1,9 +1,11 @@
 #!/usr/bin/python3
-"""Zettlr's packaged-Pandoc and toolbar settings (the `zettlr` integration); the rest is Zettlr's.
+"""Zettlr's packaged-Pandoc and toolbar settings (the `zettlr` integration) and, with the
+`zotero` integration, the citation library Better BibTeX exports; the rest is Zettlr's.
 
 Before Zettlr has written its configuration there is nothing to change, and the
 empty output leaves the file for Zettlr to create; the next apply sets the keys.
 """
+{{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
 
 import json
 import sys
@@ -11,6 +13,10 @@ import sys
 SETTINGS = {
     ('export', 'useBundledPandoc'): False,
     ('display', 'hideToolbarInDistractionFree'): True,
+{{- if eq (dig "integrations" "zotero" "state" "" $shaffy) "managed" }}
+    # Better BibTeX keeps this export current once it is set up in Zotero (docs/DESKTOP-APPLICATIONS.md).
+    ('export', 'cslLibrary'): {{ joinPath .chezmoi.homeDir ".local/share/zotero-library/My Library.json" | toJson }},
+{{- end }}
 }
 
 

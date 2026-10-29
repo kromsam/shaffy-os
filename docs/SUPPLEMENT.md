@@ -321,8 +321,8 @@ its files and creates its activation only while the supplement asks for it:
 | `reaper` | REAPER's PipeWire audio settings and the yabridge configuration. |
 | `ssh` | The SSH client configuration and the SSH agent socket. |
 | `syncthing` | Syncthing's user service. |
-| `zettlr` | Zettlr's export profiles and two of its settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. |
-| `zotero` | Zotero's profile, the library location and the local API the MCP server reads. |
+| `zettlr` | Zettlr's export profiles and two of its settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. With `zotero` managed too, its citation library is Better BibTeX's export. |
+| `zotero` | Zotero's profile, the library location, the local API the MCP server reads, Better BibTeX and the folder it exports to ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)). |
 
 ```yaml
 integrations:

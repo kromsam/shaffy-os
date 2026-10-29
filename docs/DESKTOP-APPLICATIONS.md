@@ -257,11 +257,25 @@ writing:
 Without `writing.language` the exports set no language, and without
 `writing.docx_reference` DOCX exports use Pandoc's default styles.
 
-Citations come from Zotero through the Better BibTeX add-on. While the `zotero`
+Zettlr's citations come from Zotero through the Better BibTeX add-on. While the `zotero`
 integration is managed, `scripts/install-workspace-tools.sh` installs a checked
 Better BibTeX release into Zotero's profile when the profile has none, and
 Zotero updates it from then on. The profile's `user.js` lets Zotero enable an
-add-on found in the profile, which it otherwise keeps disabled.
+add-on found in the profile, which it otherwise keeps disabled. The home apply
+creates `~/.local/share/zotero-library`, and with the `zettlr` integration
+managed as well, Zettlr cites from `~/.local/share/zotero-library/My Library.json`.
+
+Better BibTeX writes that file after a one-time setup in Zotero:
+
+1. Start Zotero after the installer has run; a Zotero that was already running
+   loads Better BibTeX when it next starts.
+2. Choose **File → Export Library…**, select the **Better CSL JSON** format,
+   tick **Keep updated** and choose **OK**.
+3. Save the export as `~/.local/share/zotero-library/My Library.json`. Type
+   the path in the file dialog, which hides `~/.local`.
+
+Better BibTeX keeps the export's setup in Zotero's data directory, so a
+restored home keeps it, and rewrites the file whenever the library changes.
 
 The `zotero` integration and the Zotero MCP server are described in
 [maintenance](MAINTENANCE.md#integrations) and

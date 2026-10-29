@@ -375,6 +375,8 @@ class RenderTests(unittest.TestCase):
             self.assertIn(
                 f'"extensions.zotero.dataDir", "{home if DIRECT else "/home/tester"}/.local/share/zotero-data"', prefs
             )
+            # The folder Better BibTeX's export goes to, which Zettlr cites from.
+            self.assertTrue((home / '.local/share/zotero-library').is_dir())
             # A fresh home has no REAPER or Zettlr configuration for their modifiers to change,
             # and the fixture disables zettlr, so none of its files render.
             self.assertFalse((home / '.config/REAPER/reaper.ini').exists())
@@ -430,6 +432,7 @@ class RenderTests(unittest.TestCase):
                 '.config/Zettlr',
                 '.zotero',
                 '.local/share/zotero-data',
+                '.local/share/zotero-library',
                 '.config/restic-home',
                 '.local/bin/restic-home',
                 '.local/state/shaffy/home-backup',

@@ -56,12 +56,13 @@ zettlr:
 
 zotero:
   scope: home
-  description: Zotero's profile, its library in ~/.local/share/zotero-data and the local API the MCP server reads
+  description: Zotero's profile, its library in ~/.local/share/zotero-data, the local API the MCP server reads and the folder Better BibTeX exports to
   targets:
     - .zotero
     - .zotero/**
     - .local/share/zotero-data
     - .local/share/zotero-data/**
+    - .local/share/zotero-library
   activation:
     - {kind: config-key, file: "~/.zotero/zotero/profiles.ini", keys: [Profile0.Path]}
   # Zotero names a new profile directory at random; the managed profile is
