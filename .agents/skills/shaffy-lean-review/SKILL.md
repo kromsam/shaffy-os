@@ -7,7 +7,7 @@ description: Review a Shaffy OS change or area for what can go - settings equal 
 
 The repository keeps only what produces Shaffy OS's differences from a fresh
 CachyOS Niri/Noctalia install, with the structure those need (CLAUDE.md,
-"Product scope"). Apply [the laziness protocol](../principle-laziness-protocol/SKILL.md),
+"Product scope"). Apply pstack's `principle-laziness-protocol` skill,
 then look for:
 
 - **The baseline.** Settings equal to what the installer ships: compare with

@@ -27,7 +27,7 @@ Shaffy OS never deletes user data, and every apply can be finished or given up
   or a copy; no new path to sudo; Docker without the docker group.
 - **Tests that would miss it.** Name the defect each changed test should catch,
   and check that it would
-  ([test behaviour, not implementation](../principle-test-behavior-not-implementation/SKILL.md)).
+  (pstack's `principle-test-behavior-not-implementation` skill).
 
 Report a demonstrated defect with its file and line, the trigger, the
 consequence and the evidence. Report a concern with its assumption and how to
