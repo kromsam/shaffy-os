@@ -141,15 +141,20 @@ class HookTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name) / 'checkout'
+        self.root.mkdir()
+        self.state = Path(self.temporary.name) / 'session.json'
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
-        (self.root / 'a.py').write_text('A = 1\n')
+        (self.root / '.gitignore').write_text('supplement/\n')
+        (self.root / 'supplement').mkdir()
+        (self.root / 'supplement/x.py').write_text('X = 1\n')
+        (self.root / 'owners.py').write_text('UNFINISHED = 1\n')  # dirty before the session starts
         (self.root / 'notes.txt').write_text('x\n')
         self.seen = []
 
     def fake(self, status, rewrite=None):
         def run(paths, fix=False, root=None, out=print, require=True):
-            self.seen.append((paths, fix, require))
+            self.seen.append((paths, fix))
             if rewrite:
                 (self.root / paths[0]).write_text(rewrite)
             out('ruff check: 1 file(s), problems remain' if status else 'ruff check: 1 file(s) clean')
@@ -157,38 +162,83 @@ class HookTests(unittest.TestCase):
 
         return run
 
+    def hook(self, event, status=1, rewrite=None):
+        return lint.hook(event, root=self.root, lint=self.fake(status, rewrite), state_file=self.state)
+
+    def start(self, source='startup'):
+        self.assertEqual(self.hook({'hook_event_name': 'SessionStart', 'source': source}), {})
+
     def edit(self, path):
         return {'hook_event_name': 'PostToolUse', 'tool_input': {'file_path': str(path)}}
 
     def test_an_edited_file_is_fixed_and_what_remains_goes_back_to_the_agent(self):
-        reply = lint.hook(self.edit(self.root / 'a.py'), root=self.root, lint=self.fake(1))
-        self.assertEqual(self.seen, [(['a.py'], True, False)])
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        reply = self.hook(self.edit(self.root / 'a.py'))
+        self.assertEqual(self.seen, [(['a.py'], True)])
         context = reply['hookSpecificOutput']['additionalContext']
         self.assertTrue(context.startswith('ruff check: 1 file(s), problems remain\n'), context)
-        self.assertEqual(lint.hook(self.edit(self.root / 'a.py'), root=self.root, lint=self.fake(0)), {})
+        self.assertEqual(self.hook(self.edit(self.root / 'a.py'), status=0), {})
 
     def test_the_agent_hears_when_its_file_was_reformatted(self):
-        reply = lint.hook(self.edit(self.root / 'a.py'), root=self.root, lint=self.fake(0, rewrite='A = 2\n'))
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        reply = self.hook(self.edit(self.root / 'a.py'), status=0, rewrite='A = 2\n')
         self.assertEqual(
             reply['hookSpecificOutput']['additionalContext'], 'Formatted a.py; read it again before the next edit.'
         )
 
-    def test_an_edit_outside_the_checkout_or_to_another_kind_of_file_is_left_alone(self):
-        for path in ('/etc/hosts', self.root / 'notes.txt'):
-            self.assertEqual(lint.hook(self.edit(path), root=self.root, lint=self.fake(1)), {})
+    def test_an_edit_outside_the_checkout_ignored_or_of_another_kind_is_left_alone(self):
+        self.start()
+        for path in ('/etc/hosts', self.root / 'notes.txt', self.root / 'supplement/x.py'):
+            self.assertEqual(self.hook(self.edit(path)), {})
         self.assertEqual(self.seen, [])
 
-    def test_a_stop_checks_the_changed_files_once_without_writing(self):
-        reply = lint.hook({'hook_event_name': 'Stop'}, root=self.root, lint=self.fake(1))
+    def test_a_patch_without_a_file_fixes_only_what_the_session_changed(self):
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        reply = self.hook({'hook_event_name': 'PostToolUse', 'tool_input': {'command': '*** Begin Patch'}})
+        self.assertEqual(self.seen, [(['a.py'], True)])
+        self.assertIn('problems remain', reply['hookSpecificOutput']['additionalContext'])
+
+    def test_a_stop_checks_the_sessions_files_once_and_not_the_owners(self):
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        reply = self.hook({'hook_event_name': 'Stop'})
         self.assertEqual(reply['decision'], 'block')
-        self.assertEqual(self.seen, [(['a.py'], False, False)])
-        again = lint.hook({'hook_event_name': 'Stop', 'stop_hook_active': True}, root=self.root, lint=self.fake(1))
-        self.assertEqual(again, {})
-        self.assertEqual(lint.hook({'hook_event_name': 'Stop'}, root=self.root, lint=self.fake(0)), {})
+        self.assertEqual(self.seen, [(['a.py'], False)])
+        self.assertEqual(self.hook({'hook_event_name': 'Stop', 'stop_hook_active': True}), {})
+
+    def test_a_clean_file_is_not_checked_again_until_it_changes(self):
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        self.assertEqual(self.hook({'hook_event_name': 'Stop'}, status=0), {})
+        self.assertEqual(self.hook({'hook_event_name': 'Stop'}), {})
+        (self.root / 'a.py').write_text('A = 2\n')
+        self.assertEqual(self.hook({'hook_event_name': 'Stop'})['decision'], 'block')
+        self.assertEqual(self.seen, [(['a.py'], False), (['a.py'], False)])
+
+    def test_an_owners_file_the_session_edits_becomes_the_sessions(self):
+        self.start()
+        (self.root / 'owners.py').write_text('UNFINISHED = 2\n')
+        self.hook({'hook_event_name': 'Stop'})
+        self.assertEqual(self.seen, [(['owners.py'], False)])
+
+    def test_a_resumed_session_keeps_its_start(self):
+        self.start()
+        (self.root / 'a.py').write_text('A = 1\n')
+        self.start(source='resume')
+        self.hook({'hook_event_name': 'Stop'})
+        self.assertEqual(self.seen, [(['a.py'], False)])
+
+    def test_without_a_start_every_changed_file_is_checked_and_none_written(self):
+        reply = self.hook({'hook_event_name': 'PostToolUse', 'tool_input': {}})
+        self.assertEqual(self.seen, [(['owners.py'], False)])
+        self.assertIn('problems remain', reply['hookSpecificOutput']['additionalContext'])
 
     def test_a_missing_tool_does_not_hold_the_agent_back(self):
         status = lint.run(
-            ['a.py'], root=self.root, out=lambda line: None, is_available=lambda step, root: False, require=False
+            ['owners.py'], root=self.root, out=lambda line: None, is_available=lambda step, root: False, require=False
         )
         self.assertEqual(status, 0)
 

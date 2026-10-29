@@ -1,21 +1,26 @@
 """`./bin/shaffy lint`: one formatter and linter per language, over the checkout (STYLE.md).
 
 The tools come from the checkout's development tools (mise.dev.toml, run through
-`mise exec` with MISE_ENV=dev), except fish_indent, which comes with fish. Templates
-(`*.tmpl`, and everything in `home/.chezmoitemplates/`) are left out: no formatter reads their template syntax, and the sandboxed
-render checks what they produce. So are the files REUSE.toml attributes to another
-project, which keep their upstream's form. Without --fix nothing is written; with it the
-formatters and the linters' safe fixes rewrite the files first. Each tool's output is
-cut to a bounded number of lines, and the exit status says whether anything remains.
+`mise exec` with MISE_ENV=dev), except fish_indent, which comes with fish. It lints the
+files Git tracks or would track. Templates (`*.tmpl`, and all of
+`home/.chezmoitemplates/`) are left out: no formatter reads their template syntax, and
+the sandboxed render checks what they produce. So are the files REUSE.toml attributes to
+another project, which keep their upstream's form. Without --fix nothing is written;
+with it the formatters and the linters' safe fixes rewrite the files first. Each tool's
+output is cut to a bounded number of lines, and the exit status says whether anything
+remains.
 
 `--hook` reads a Claude Code or Codex hook event on stdin and answers in their JSON.
-After an edit it fixes and checks the edited file, and tells the agent when it
-reformatted it; after any other tool, and when the agent stops, it checks the files
-that differ from HEAD without writing. What remains goes back to the agent, and a
-stop is held back once. A tool that is not installed is skipped there, not reported.
+At the session's start it records which files already differ from HEAD, so the owner's
+unfinished work is never touched. After an edit to a file it fixes and checks that file;
+after a tool that names no file, such as Codex's apply_patch, it does the same for every
+file the session changed; it tells the agent which files it reformatted. When the agent
+stops it checks the session's changed files once more, without writing, and holds the
+stop back once while problems remain. A tool that is not installed is skipped there.
 """
 
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -23,8 +28,6 @@ import shutil
 import subprocess
 import sys
 import tomllib
-
-from .source import _files
 
 ROOT = Path(__file__).resolve().parents[2]
 LINES = 40
@@ -95,15 +98,25 @@ def third_party(root=ROOT):
     return paths
 
 
+def _git(root, *arguments):
+    """The paths a git listing prints, or None outside a Git checkout."""
+    result = subprocess.run(['git', '-C', str(root), *arguments, '-z'], capture_output=True, text=True, check=False)
+    return [path for path in result.stdout.split('\0') if path] if result.returncode == 0 else None
+
+
+def files(root=ROOT):
+    """The files Git tracks, and the untracked ones it does not ignore."""
+    listed = _git(root, 'ls-files', '--cached', '--others', '--exclude-standard')
+    if listed is None:
+        raise SystemExit(f'shaffy lint: {root} is not a Git checkout Git can read')
+    return sorted(set(listed))
+
+
 def changed(root=ROOT):
     """Files that differ from HEAD, and untracked ones Git does not ignore."""
-
-    def listing(*arguments):
-        result = subprocess.run(['git', '-C', str(root), *arguments, '-z'], capture_output=True, text=True, check=False)
-        return [path for path in result.stdout.split('\0') if path]
-
     return sorted(
-        set(listing('diff', '--name-only', 'HEAD')) | set(listing('ls-files', '--others', '--exclude-standard'))
+        set(_git(root, 'diff', '--name-only', 'HEAD') or [])
+        | set(_git(root, 'ls-files', '--others', '--exclude-standard') or [])
     )
 
 
@@ -178,27 +191,67 @@ def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_availabl
     return 1 if failed else 0
 
 
-def hook(event, root=ROOT, lint=run):
+def _digest(root, path):
+    return hashlib.sha256((root / path).read_bytes()).hexdigest()
+
+
+def _state_file(event):
+    """The session's record of what differed from HEAD when it started."""
+    base = os.environ.get('XDG_RUNTIME_DIR') or os.path.expanduser('~/.cache')
+    session = hashlib.sha256(str(event.get('session_id')).encode()).hexdigest()[:24]
+    return Path(base) / 'shaffy/lint-sessions' / f'{session}.json'
+
+
+def _save(path, state):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(state))
+    temporary.replace(path)
+
+
+def hook(event, root=ROOT, lint=run, state_file=None):
     """Claude Code or Codex hook: the JSON reply, or {} when there is nothing to say."""
     name = event.get('hook_event_name')
+    state_file = state_file or _state_file(event)
+    lintable = [path for path in changed(root) if language(path, root)]
+    if name == 'SessionStart':
+        # A resumed or compacted session keeps the record of its first start.
+        if not (event.get('source') in ('resume', 'compact') and state_file.exists()):
+            _save(state_file, {'start': {path: _digest(root, path) for path in lintable}, 'clean': {}})
+        return {}
     if name == 'Stop' and event.get('stop_hook_active'):
         return {}
+    state = json.loads(state_file.read_text()) if state_file.exists() else None
+    # Without a record of the start, every changed file may be the owner's: check, never write.
+    session = [p for p in lintable if state is None or _digest(root, p) != state['start'].get(p)]
     edited = (event.get('tool_input') or {}).get('file_path')
-    report, notes = [], []
     if name == 'PostToolUse' and edited:
         path = os.path.relpath(Path(edited).resolve(), root)
-        if path.startswith('..') or not language(path, root):
+        outside = path.startswith('..')
+        if (
+            outside
+            or not language(path, root)
+            or subprocess.run(['git', '-C', str(root), 'check-ignore', '-q', path], check=False).returncode == 0
+        ):
             return {}
-        before = (root / path).read_bytes()
-        status = lint([path], fix=True, root=root, out=report.append, require=False)
-        if (root / path).read_bytes() != before:
-            notes.append(f'Formatted {path}; read it again before the next edit.')
+        targets, fix = [path], True
+    elif name == 'PostToolUse':
+        targets, fix = session, state is not None
     else:
-        files = [path for path in changed(root) if language(path, root)]
-        status = lint(files, root=root, out=report.append, require=False) if files else 0
+        clean = state['clean'] if state else {}
+        targets, fix = [p for p in session if clean.get(p) != _digest(root, p)], False
+    if not targets:
+        return {}
+    before = {path: _digest(root, path) for path in targets}
+    report = []
+    status = lint(targets, fix=fix, root=root, out=report.append, require=False)
+    notes = [f'Formatted {p}; read it again before the next edit.' for p in targets if _digest(root, p) != before[p]]
     if status:
         notes += [line for line in report if not line.endswith((' clean', 'Nothing to lint.'))]
         notes.append('Fix these, or say why one stays (STYLE.md); `./bin/shaffy lint --fix PATH` formats.')
+    elif name == 'Stop' and state is not None:
+        # A file checked clean is not checked again at the next stop until it changes.
+        _save(state_file, dict(state, clean=dict(state['clean'], **before)))
     if not notes:
         return {}
     text = '\n'.join(notes)
@@ -213,10 +266,10 @@ def main(args):
         if reply:
             print(json.dumps(reply))
         return 0
+    everything = files(ROOT)
     if args.paths:
         named = [os.path.relpath(Path(p).resolve(), ROOT) for p in args.paths]
-        everything = _files(ROOT)
         paths = [f for f in everything if any(f == n or f.startswith(n.rstrip('/') + '/') or n == '.' for n in named)]
     else:
-        paths = changed() if args.changed else _files(ROOT)
+        paths = changed() if args.changed else everything
     return run(paths, fix=args.fix)

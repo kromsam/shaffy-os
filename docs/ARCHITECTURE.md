@@ -264,8 +264,10 @@ work; the retained capture is.
 
 Captures and copies live only in the private run directory, `runs/<op>/`, and
 failure output goes to the journal. The wrapper never writes under the
-checkout; the one exception is `./bin/shaffy selftest`, which creates the
-untracked `artifacts/` directory some tests need.
+checkout on its own: `./bin/shaffy selftest` creates the untracked
+`artifacts/` directory some tests need, where ruff also keeps its cache, and
+`./bin/shaffy lint --fix` and the agents' edit hook rewrite the source files
+they are given, as STYLE.md asks.
 
 ## The home apply
 

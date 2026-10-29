@@ -4,6 +4,8 @@
 # they differ, and scripts/refresh-pins.py raises it.
 target-version = "py314"
 line-length = 120
+# With the other untracked scratch files, never beside the sources.
+cache-dir = "artifacts/ruff"
 
 [format]
 quote-style = "single"
