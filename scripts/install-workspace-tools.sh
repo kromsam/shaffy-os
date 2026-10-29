@@ -22,7 +22,7 @@ if tools[0] != tools[1]:
 PY
 
 # Zotero MCP was a uv tool until 2026-10; mise installs it now, so remove that copy.
-# Remove after 2027-01-28.
+# Remove after 2027-01-28, with the Zotero MCP paragraph in docs/WORKSPACE-TOOLS.md.
 if command -v uv >/dev/null && uv tool list 2>/dev/null | grep -q '^zotero-mcp-server '; then
   uv tool uninstall zotero-mcp-server
 fi

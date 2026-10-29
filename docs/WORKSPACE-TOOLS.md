@@ -55,8 +55,12 @@ that is younger once, run the script as
 pstack refreshes from upstream `main` through both hosts' native
 plugin managers; home apply never downloads it. Use this install path instead of
 the tools' own update commands, so mise keeps ownership of its binaries and the
-other tools retain their declared versions. Zotero MCP was a `uv tool` until
-2026-10; the script removes that copy before mise installs the server.
+other tools retain their declared versions.
+
+<!-- Remove after 2027-01-28, with the uv tool removal in the script. -->
+Zotero MCP was a `uv tool` until 2026-10; the script removes that copy before
+mise installs the server.
+
 <!-- Remove after 2027-01-29, with the agent-browser retirement in the script. -->
 agent-browser was Compound Engineering's browser fallback until 2026-10; the
 script uninstalls it and deletes the browsers it downloaded to `~/.agent-browser`.
