@@ -128,7 +128,7 @@ class PinTests(unittest.TestCase):
         def nvim(command, env, **kwargs):
             config = Path(env['XDG_CONFIG_HOME']) / 'nvim'
             self.assertEqual(env['SHAFFY_LAZY_REFRESH'], '1')
-            self.assertTrue((config / '.neoconf.json').exists())  # dot_ names become dotfiles
+            self.assertTrue((config / '.markdownlint-cli2.yaml').exists())  # dot_ names become dotfiles
             self.assertNotIn(str(Path.home()), env['XDG_DATA_HOME'])
             (config / 'lazy-lock.json').write_text(json.dumps(moved, indent=2) + '\n')
             return subprocess.CompletedProcess(command, 0, '', '')

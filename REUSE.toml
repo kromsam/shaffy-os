@@ -40,7 +40,6 @@ path = [
   "home/dot_config/nvim/init.lua",
   "home/dot_config/nvim/lua/config/keymaps.lua",
   "home/dot_config/nvim/stylua.toml",
-  "home/dot_config/nvim/dot_neoconf.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Folke Lemaitre and LazyVim contributors"
