@@ -32,7 +32,11 @@ def markers(root):
             continue
         for number, line in enumerate(text.splitlines(), 1):
             for match in MARKER.finditer(line):
-                found.append((path, number, datetime.date.fromisoformat(match.group(1)), line.strip()))
+                try:
+                    date = datetime.date.fromisoformat(match.group(1))
+                except ValueError:  # no such day: due at once, so the line is seen and corrected
+                    date = datetime.date.min
+                found.append((path, number, date, line.strip()))
     return found
 
 

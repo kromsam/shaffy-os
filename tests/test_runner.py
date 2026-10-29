@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import types
 import unittest
 
 HERE = Path(__file__).resolve().parent
@@ -123,6 +124,21 @@ class RunnerTests(unittest.TestCase):
         parallel, serial = runner.units(tests)
         self.assertEqual(parallel, [[tests[0].id()], [tests[1].id()], [tests[2].id(), tests[3].id()]])
         self.assertEqual(serial, [[tests[4].id()]])
+
+    def test_a_module_with_its_own_fixture_stays_whole(self):
+        module = types.ModuleType('synthetic_module_fixture')
+        module.setUpModule = lambda: None
+        sys.modules[module.__name__] = module
+        self.addCleanup(sys.modules.pop, module.__name__)
+        first = type('First', (unittest.TestCase,), {'__module__': module.__name__, 'test_a': lambda self: None})
+        second = type('Second', (unittest.TestCase,), {'__module__': module.__name__, 'test_b': lambda self: None})
+        tests = [first('test_a'), second('test_b')]
+        self.assertEqual(runner.units(tests), ([[tests[0].id(), tests[1].id()]], []))
+
+    def test_a_run_without_tests_fails_as_unittest_does(self):
+        result = self.run_suite('import unittest\n')
+        self.assertEqual(result.returncode, 5, result.stdout + result.stderr)
+        self.assertIn('No tests ran.', result.stdout)
 
     def test_a_passing_suite_succeeds(self):
         result = self.run_suite(

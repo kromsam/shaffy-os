@@ -1,6 +1,7 @@
 """Invariants of the repository itself: the Git boundary of the private supplement,
 licences and attribution, no personal literals in the public tree, no unreferenced
-script or document, Markdown links that resolve, and one interpreter per language."""
+script or document, Markdown links that resolve, role files that name their role, and one
+interpreter per language."""
 
 from pathlib import Path
 import re
@@ -252,6 +253,18 @@ class TidinessTests(unittest.TestCase):
                 self.assertTrue(resolved.exists(), f'{path}: {target} does not exist')
                 if anchor and resolved.suffix == '.md':
                     self.assertIn(anchor, heading_slugs(resolved.read_text()), f'{path}: {target}')
+
+    def test_every_file_a_role_writes_names_its_role(self):
+        for path in sorted(self.files):
+            parts = Path(path).parts
+            if (
+                parts[0] == 'roles'
+                and len(parts) > 3
+                and parts[2] in ('files', 'templates')
+                and parts[-1] != 'daemon.json'
+            ):
+                head = self.files[path].splitlines()[:3]
+                self.assertTrue(any(f'Managed by Shaffy OS (the {parts[1]} role)' in line for line in head), path)
 
     def test_scripts_name_the_system_interpreter(self):
         # The system Python has the packages Shaffy OS installs; `env python3` may find mise's.

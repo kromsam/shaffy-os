@@ -47,16 +47,18 @@ jobs:
           '
       - name: Lint (STYLE.md)
         run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy lint
+      # The checks after the lint run also after a failure, so one run reports them all.
       - name: Run the tests as an unprivileged user
-        # Also after a lint failure, so one run reports both.
         if: ${{ !cancelled() }}
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
         run: runuser -u tester -- env HOME=/home/tester mise exec ansible-core -- ./bin/shaffy selftest --skip-host -v
       - name: Scan the history for secrets
+        if: ${{ !cancelled() }}
         run: runuser -u tester -- gitleaks git --redact --no-banner .
       - name: Check copyright and licence information
+        if: ${{ !cancelled() }}
         run: runuser -u tester -- reuse lint
 
   system:

@@ -20,6 +20,9 @@ def blocks(lines):
     """Each entry line with whether the comment block above it names a removal date."""
     marked, previous_was_comment = False, False
     for line in lines:
+        if not line.strip():  # a blank line ends the block
+            marked, previous_was_comment = False, False
+            continue
         comment = line.lstrip().startswith('#')
         if comment and not previous_was_comment:
             marked = False
@@ -40,20 +43,29 @@ class ScannerTests(unittest.TestCase):
         (self.repo / 'old.py').write_text('"""A migration.\n\nRemove after 2027-01-16.\n"""\n')
         (self.repo / 'new.md').write_text('<!-- Remove after 2027-03-01, with old.py. -->\n')
         (self.repo / 'tests/test_old.py').write_text("MARKER = '# Remove after 2000-01-01'\n")
+        (self.repo / 'typo.md').write_text('<!-- Remove after 2027-02-30. -->\n')
 
     def test_markers_are_found_outside_the_tests_and_due_after_their_date(self):
         self.assertEqual(
             [(path, number, str(date)) for path, number, date, _ in sunset.markers(self.repo)],
-            [('new.md', 1, '2027-03-01'), ('old.py', 3, '2027-01-16')],
+            [('new.md', 1, '2027-03-01'), ('old.py', 3, '2027-01-16'), ('typo.md', 1, '0001-01-01')],
         )
-        self.assertEqual(sunset.due(self.repo, datetime.date(2027, 1, 16)), [])
-        self.assertEqual([path for path, *_ in sunset.due(self.repo, datetime.date(2027, 2, 1))], ['old.py'])
+        # A day that does not exist is due at once, so its line shows up to be corrected.
+        self.assertEqual([path for path, *_ in sunset.due(self.repo, datetime.date(2027, 1, 16))], ['typo.md'])
+        self.assertEqual([path for path, *_ in sunset.due(self.repo, datetime.date(2027, 2, 1))], ['old.py', 'typo.md'])
 
     def test_outdated_names_each_due_marker(self):
+        (self.repo / 'typo.md').unlink()
         section = removal_section(self.repo, datetime.date(2027, 2, 1))
         self.assertEqual(section.summary, '1 past their date; delete them on dev')
         self.assertEqual(section.lines, ['old.py:3: Remove after 2027-01-16.'])
         self.assertEqual(removal_section(self.repo, datetime.date(2027, 1, 1)).summary, 'none due')
+
+
+class BlockTests(unittest.TestCase):
+    def test_an_entry_after_a_blank_line_needs_its_own_date(self):
+        lines = ['# Retired x. Remove after 2027-01-01.', 'a', 'b', '', 'c', '# Retired y.', 'd']
+        self.assertEqual(list(blocks(lines)), [('a', True), ('b', True), ('c', False), ('d', False)])
 
 
 class RetirementsCarryADateTests(unittest.TestCase):
@@ -81,6 +93,9 @@ class RetirementsCarryADateTests(unittest.TestCase):
             while above and above[-1].lstrip().startswith('#'):
                 comments.append(above.pop())
             self.assertTrue(any(sunset.MARKER.search(line) for line in comments), f'{path}: {name}')
+
+    def test_every_removal_date_is_a_real_day(self):
+        self.assertEqual([m for m in sunset.markers(ROOT) if m[2] == datetime.date.min], [])
 
     def test_every_migration_runbook(self):
         for runbook in sorted((ROOT / 'docs').glob('MIGRATING-*.md')):

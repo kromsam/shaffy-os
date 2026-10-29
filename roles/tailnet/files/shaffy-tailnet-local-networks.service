@@ -1,3 +1,4 @@
+# Managed by Shaffy OS (the tailnet role); the next system apply restores it.
 # Tailscale consults its own table 52, which holds the accepted subnet routes, at rule
 # priority 5270, before the main table. A subnet route that covers the network this
 # machine is on would then carry that network's traffic through the Tailnet. This rule,

@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# Managed by Shaffy OS (the login_keyring_migration role); the next system apply restores it.
 """Promote the encrypted default keyring to the `login` collection before its daemon first starts.
 
 GNOME Keyring's PAM module unlocks only the collection whose file is

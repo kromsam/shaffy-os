@@ -36,4 +36,5 @@ Beyond the tools:
 - Comments say why, not what. Prose is plain British English, and headings are
   in sentence case.
 - Ansible: one tag per role, role-prefixed variables, `changed_when` on every
-  command, and a header naming the source in every file a role writes.
+  command, and, where the format has comments, a `Managed by Shaffy OS` header
+  naming the role in every file a role writes. The self-test checks the header.

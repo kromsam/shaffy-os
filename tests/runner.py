@@ -1,9 +1,9 @@
 """The parallel test runner behind `./bin/shaffy selftest`.
 
 The tests stay plain unittest tests. Each process discovers the same suite, and a pool of
-workers takes it in units: a class with its own setUpClass or tearDownClass, or any class of a
-module with setUpModule, runs whole in one worker, and every other test is a unit of its own,
-so the long end-to-end classes spread over all workers. A test marked with `support.serial`,
+workers takes it in units: a module with setUpModule or tearDownModule runs whole in one
+worker, so does a class with its own setUpClass or tearDownClass, and every other test is a
+unit of its own, so the long end-to-end classes spread over all workers. A test marked with `support.serial`,
 such as a latency measurement that a busy machine would skew, runs afterwards on its own.
 A passing test's output is discarded; a failing one's is shown with its traceback.
 """
@@ -37,13 +37,17 @@ def _load():
     return TESTS
 
 
-def _shares_fixtures(test):
+def _fixture(test):
+    """What the test shares a fixture with, its module or its class, or None."""
     cls = type(test)
+    module = sys.modules.get(cls.__module__)
+    if hasattr(module, 'setUpModule') or hasattr(module, 'tearDownModule'):
+        return cls.__module__
     overridden = any(
         getattr(cls, name).__func__ is not getattr(unittest.TestCase, name).__func__
         for name in ('setUpClass', 'tearDownClass')
     )
-    return overridden or hasattr(sys.modules.get(cls.__module__), 'setUpModule')
+    return cls if overridden else None
 
 
 def _serial(test):
@@ -56,10 +60,11 @@ def units(tests):
     parallel, serial, classes = [], [], {}
     for test in tests:
         target = serial if _serial(test) else parallel
-        if not _shares_fixtures(test):
+        fixture = _fixture(test)
+        if fixture is None:
             target.append([test.id()])
             continue
-        key = (target is serial, type(test))
+        key = (target is serial, fixture)
         if key not in classes:
             classes[key] = []
             target.append(classes[key])
@@ -178,6 +183,9 @@ def main(argv=None):
     details = ', '.join(f'{label}={statuses[status]}' for status, label in labels if statuses[status])
     failed = statuses['FAIL'] or statuses['ERROR'] or statuses['unexpected success']
     print(('FAILED' if failed else 'OK') + (f' ({details})' if details else ''))
+    if not count:
+        print('No tests ran.')
+        return 5  # as unittest exits when it finds none
     return 1 if failed else 0
 
 
