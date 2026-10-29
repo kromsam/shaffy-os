@@ -9,6 +9,8 @@ import subprocess
 import sys
 import unittest
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 RECORD = json.loads((ROOT / 'tests/tool-versions.json').read_text())
 COMMANDS = {
@@ -49,6 +51,13 @@ class ToolVersionTests(unittest.TestCase):
             check=True,
         ).stdout.strip()
         self.assertIn(f'\ntarget-version = "py{system}"\n', (ROOT / 'ruff.toml').read_text())
+
+    def test_the_supplement_workflow_sees_the_shaffy_os_releases(self):
+        # A supplement's minimum_release is checked against the release tags HEAD contains;
+        # a shallow checkout has none, and every supplement that sets one fails.
+        steps = yaml.safe_load((ROOT / '.github/workflows/supplement.yml').read_text())['jobs']['supplement']['steps']
+        checkout = next(step for step in steps if step.get('with', {}).get('repository') == 'kromsam/shaffy-os')
+        self.assertEqual(checkout['with']['fetch-depth'], 0)
 
     def test_ci_uses_the_recorded_container(self):
         for name in ('selftest.yml', 'supplement.yml'):

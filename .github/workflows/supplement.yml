@@ -37,6 +37,7 @@ jobs:
           repository: kromsam/shaffy-os
           ref: ${{ inputs.shaffy-ref }}
           path: shaffy-os
+          fetch-depth: 0 # the release tags, which a supplement's minimum_release is checked against
           # The run's own token reads only the supplement's repository.
           token: ${{ secrets.SHAFFY_OS_TOKEN || github.token }}
       # runuser without -l keeps the step's directory.
