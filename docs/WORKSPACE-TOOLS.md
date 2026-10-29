@@ -15,7 +15,7 @@ before mise activates in a shell.
 | Codex CLI | mise `codex = "latest"` |
 | Proton Pass CLI (`pass-cli`) | mise `"aqua:protonpass/pass-cli" = "latest"`; needs a paid Pass plan |
 | workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
-| Bun | mise `bun = "latest"`, for JavaScript tooling |
+| Bun | mise `bun = "latest"`, for pstack's PR watcher, orchestration store and statechart scripts |
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
 | pstack | Native Claude Code and Codex plugin from `michael-denyer/pstack-claude`, tracking `main` |
 | Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |

@@ -5,6 +5,7 @@
 [tools]
 claude = "latest"
 codex = "latest"
+# pstack's PR watcher, orchestration store and statechart scripts run on Bun.
 bun = "latest"
 ruby = "latest"
 "aqua:protonpass/pass-cli" = "latest"
