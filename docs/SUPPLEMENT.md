@@ -436,6 +436,7 @@ Edit the supplement, never the deployed files, then review and apply:
 
 ```sh
 ./bin/shaffy check                        # validate the settings and a sandboxed render
+./bin/shaffy lint --supplement [--fix]    # its scripts, tests and documents (STYLE.md)
 ./bin/shaffy diff                         # what the home apply would change
 ./bin/shaffy apply --home
 ./bin/shaffy apply --system --tags ROLE   # for a setting a system role applies
@@ -443,6 +444,25 @@ Edit the supplement, never the deployed files, then review and apply:
 
 A second apply should change nothing. Commit the change in the supplement's own
 repository, new fragments and assets included.
+
+### The same checks as this repository
+
+A supplement's own files, its tools, tests, launchers and notes, follow
+[STYLE.md](../STYLE.md) like this repository's. It needs no configuration of its
+own for that:
+
+- `./bin/shaffy lint --supplement` lints the bound supplement, or the one named
+  after it, giving every tool this checkout's configuration.
+- While a supplement is bound, the home apply adds a hook to Claude Code's and
+  Codex's user settings, after any hooks already there. In a session inside the
+  supplement it formats each file the agent edits and hands what the linters
+  find back to it, as this repository's own hooks do; anywhere else it does
+  nothing.
+- `.github/workflows/supplement.yml` is a reusable workflow that checks a
+  supplement in its own repository against the released `main`: the settings
+  and the home they render, the lint, the supplement's tests under `tests/` and
+  a secret scan of its history. Copy `supplement.example/.github/workflows/shaffy.yml`
+  into the supplement to call it on every push.
 
 Never bring deployed files back into the public `home/` source. `chezmoi add`
 and `chezmoi re-add` write the rendered file, private values included, into

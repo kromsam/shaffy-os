@@ -1,0 +1,65 @@
+# Checks a private supplement against a Shaffy OS release, as this repository checks
+# itself: its settings and the home they render, `shaffy lint --supplement`, the
+# supplement's own tests and a secret scan of its history. A supplement calls it from a
+# workflow of its own (supplement.example/.github/workflows/shaffy.yml); it runs in the
+# supplement's repository, so its private files never reach this one.
+name: supplement
+on:
+  workflow_call:
+    inputs:
+      shaffy-ref:
+        description: The Shaffy OS branch or tag to check against
+        type: string
+        default: main
+permissions:
+  contents: read
+jobs:
+  supplement:
+    runs-on: ubuntu-latest
+    container:
+      image: cachyos/cachyos@sha256:f645eba0ce0240b6a26c273b4542d463e734cc68bbd50d988964e3edbb037e5f
+    steps:
+      - name: Install the toolset
+        run: >-
+          pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
+          chezmoi lua niri noctalia fish tmux base-devel wayland libxkbcommon
+          mise uv gitleaks xdg-user-dirs
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: supplement
+          fetch-depth: 0 # gitleaks scans every commit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kromsam/shaffy-os
+          ref: ${{ inputs.shaffy-ref }}
+          path: shaffy-os
+      # runuser without -l keeps the step's directory.
+      - name: Install the development tools (mise.dev.toml)
+        working-directory: shaffy-os
+        run: |
+          useradd --create-home tester
+          chown -R tester: "$GITHUB_WORKSPACE"
+          runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
+            mise trust mise.toml
+            mise trust mise.dev.toml
+            mise install
+          '
+      - name: Validate the settings and render the home
+        working-directory: shaffy-os
+        env:
+          # The container is disposable, so the home render runs without bubblewrap.
+          SHAFFY_RENDER_DIRECT: '1'
+        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy check --supplement ../supplement
+      # The checks after the first run also after a failure, so one run reports them all.
+      - name: Lint (STYLE.md)
+        if: ${{ !cancelled() }}
+        working-directory: shaffy-os
+        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy lint --supplement ../supplement
+      - name: Run the supplement's own tests
+        if: ${{ !cancelled() && hashFiles('supplement/tests/test_*.py') != '' }}
+        working-directory: supplement
+        run: runuser -u tester -- python3 -m unittest discover -s tests -v
+      - name: Scan the history for secrets
+        if: ${{ !cancelled() }}
+        working-directory: supplement
+        run: runuser -u tester -- gitleaks git --redact --no-banner .

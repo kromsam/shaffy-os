@@ -173,20 +173,24 @@ def yabridge(root, upstream):
     ]
 
 
+# The workflows that run in the CI container: this repository's and the one supplements call.
+WORKFLOWS = ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml')
+
+
 def ci_container(root, upstream):
-    workflow = '.github/workflows/selftest.yml'
+    workflow = WORKFLOWS[0]
     current = re.search(r'cachyos/cachyos@(sha256:[0-9a-f]{64})', (root / workflow).read_text()).group(1)
     tag = upstream.json('https://hub.docker.com/v2/repositories/cachyos/cachyos/tags/latest')
     pin = Pin('CI container cachyos/cachyos:latest', current[7:19], tag['digest'][7:19])
     pin.raise_to = lambda: [
-        _edit(root, workflow, current, tag['digest'], 1),
+        *(_edit(root, path, current, tag['digest'], 1) for path in WORKFLOWS),
         _edit(root, 'tests/tool-versions.json', current, tag['digest'], 1),
     ]
     return [pin]
 
 
 def actions_checkout(root, upstream):
-    workflow = '.github/workflows/selftest.yml'
+    workflow = WORKFLOWS[0]
     commit, current = re.search(r'actions/checkout@([0-9a-f]{40}) # (v[0-9.]+)', (root / workflow).read_text()).groups()
     refs = upstream.refs('https://github.com/actions/checkout.git', 'refs/tags/v*')
     releases = {
@@ -198,10 +202,11 @@ def actions_checkout(root, upstream):
     pin.raise_to = lambda: [
         _edit(
             root,
-            workflow,
+            path,
             f'actions/checkout@{commit} # {current}',
             f'actions/checkout@{releases[pin.latest]} # {pin.latest}',
         )
+        for path in WORKFLOWS
     ]
     return [pin]
 

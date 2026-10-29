@@ -101,6 +101,30 @@ class WorkspaceToolsTests(unittest.TestCase):
         app_format = json.dumps(output, separators=(',', ':'))
         self.assertEqual(merge['merge_claude'](app_format, {'zotero': {'command': 'new'}}), app_format)
 
+    def test_supplement_hooks_follow_every_other_hook_and_leave_them_alone(self):
+        workmux = {'hooks': [{'type': 'command', 'command': 'workmux set-window-status done'}]}
+        original = json.dumps({'theme': 'light', 'hooks': {'Stop': [workmux]}}, indent=2) + '\n'
+        hooks = merge['supplement_hooks'](Path('/checkout'))
+        merged = merge['merge_claude_settings'](original, True, hooks)
+        settings = json.loads(merged)
+        self.assertEqual(settings['theme'], 'light')
+        # Appended: the existing hooks keep their places, which Codex's trust records name.
+        self.assertEqual(settings['hooks']['Stop'], [workmux, hooks['Stop']])
+        self.assertEqual(settings['hooks']['PostToolUse'], [hooks['PostToolUse']])
+        command = '"/checkout/bin/shaffy" lint --hook --supplement'
+        self.assertEqual(hooks['PostToolUse']['hooks'][0]['command'], command)
+        self.assertEqual(merge['merge_claude_settings'](merged, True, hooks), merged)
+        # Another checkout replaces the entries; unbinding the supplement removes them.
+        moved = json.loads(merge['merge_claude_settings'](merged, True, merge['supplement_hooks'](Path('/moved'))))
+        self.assertEqual(len(moved['hooks']['Stop']), 2)
+        unbound = json.loads(merge['merge_claude_settings'](merged, True, {}))
+        self.assertEqual(unbound['hooks'], {'Stop': [workmux]})
+
+    def test_codex_gets_the_supplement_hooks_for_its_patches(self):
+        merged = json.loads(merge['merge_codex_hooks']('', merge['supplement_hooks'](Path('/c'), codex=True)))
+        self.assertEqual(merged['hooks']['PostToolUse'][0]['matcher'], '^(apply_patch|Edit|Write)$')
+        self.assertEqual(merge['merge_codex_hooks']('', {}), '')
+
     def test_workmux_default_panes_follow_omarchy_tdl_geometry(self):
         config = yaml.safe_load((HOME / 'dot_config/workmux/config.yaml').read_text())
         self.assertEqual(config['agent'], 'claude')

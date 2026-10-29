@@ -1,5 +1,6 @@
 """`./bin/shaffy lint`: which files each tool sees, and what it reports (lib/shaffy/lint.py)."""
 
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,8 @@ class LintTests(unittest.TestCase):
         files = {
             'lib/a.py': 'A = 1\n',
             'bin/tool': '#!/usr/bin/python3\nprint(1)\n',
+            'bin/old': '#!/usr/bin/env python3\nprint(1)\n',
+            'bin/glue': '#!/usr/bin/env bash\ntrue\n',
             'scripts/run.sh': 'echo hi\n',
             'home/launcher': '#!/bin/sh\nexec true\n',
             'home/config.toml.tmpl': '#!/usr/bin/python3\n{{ .x }}\n',
@@ -47,7 +50,7 @@ class LintTests(unittest.TestCase):
 
         def call(command, **_):
             self.calls.append(command)
-            return (results or {}).get(command[3] if command[0] == 'mise' else command[0], Finished())
+            return (results or {}).get(command[0], Finished())
 
         status = lint.run(
             paths,
@@ -65,6 +68,8 @@ class LintTests(unittest.TestCase):
             for path in (
                 'lib/a.py',
                 'bin/tool',
+                'bin/old',
+                'bin/glue',
                 'scripts/run.sh',
                 'home/launcher',
                 'home/config.toml.tmpl',
@@ -81,6 +86,8 @@ class LintTests(unittest.TestCase):
             {
                 'lib/a.py': 'python',
                 'bin/tool': 'python',
+                'bin/old': 'python',
+                'bin/glue': 'shell',
                 'scripts/run.sh': 'shell',
                 'home/launcher': 'shell',
                 'home/config.toml.tmpl': None,
@@ -96,27 +103,57 @@ class LintTests(unittest.TestCase):
     def test_fix_rewrites_before_it_checks_and_a_project_tool_gets_no_files(self):
         status, lines = self.lint(['lib/a.py', 'bin/tool', 'site.yml', 'vendored.lua'], fix=True)
         self.assertEqual(status, 0)
+        config = ['--config', str(ROOT / 'ruff.toml')]
         self.assertEqual(
             self.calls,
             [
-                ['mise', 'exec', '--', 'ruff', 'check', '--fix', 'lib/a.py', 'bin/tool'],
-                ['mise', 'exec', '--', 'ruff', 'check', 'lib/a.py', 'bin/tool'],
-                ['mise', 'exec', '--', 'ruff', 'format', 'lib/a.py', 'bin/tool'],
-                ['mise', 'exec', '--', 'ruff', 'format', '--check', 'lib/a.py', 'bin/tool'],
-                ['mise', 'exec', '--', 'ansible-lint'],
+                ['ruff', 'check', '--fix', *config, 'lib/a.py', 'bin/tool'],
+                ['ruff', 'check', *config, 'lib/a.py', 'bin/tool'],
+                ['ruff', 'format', *config, 'lib/a.py', 'bin/tool'],
+                ['ruff', 'format', '--check', *config, 'lib/a.py', 'bin/tool'],
+                ['ansible-lint'],
             ],
         )
         self.assertEqual(
-            lines, ['ruff check: 2 file(s) clean', 'ruff format: 2 file(s) clean', 'ansible-lint: the playbooks clean']
+            lines,
+            [
+                'interpreter: 2 file(s) clean',
+                'ruff check: 2 file(s) clean',
+                'ruff format: 2 file(s) clean',
+                'ansible-lint: the playbooks clean',
+            ],
         )
+
+    def test_an_env_shebang_is_reported_and_fix_names_the_system_interpreter(self):
+        status, lines = self.lint(['bin/old', 'bin/glue'])
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            lines[:3],
+            [
+                'interpreter: 2 file(s), problems remain',
+                '  bin/old:1: #!/usr/bin/env python3 should be #!/usr/bin/python3',
+                '  bin/glue:1: #!/usr/bin/env bash should be #!/bin/bash',
+            ],
+        )
+        self.assertEqual(self.lint(['bin/old', 'bin/glue'], fix=True)[0], 0)
+        self.assertEqual((self.root / 'bin/old').read_text(), '#!/usr/bin/python3\nprint(1)\n')
+        self.assertEqual((self.root / 'bin/glue').read_text(), '#!/bin/bash\ntrue\n')
+
+    def test_every_tool_gets_this_checkouts_configuration(self):
+        # shfmt's flags are .editorconfig's [*] section: two spaces, indented case branches.
+        self.assertEqual(lint.options('shfmt'), ['--indent', '2', '--case-indent'])
+        self.assertEqual(lint.options('stylua'), ['--config-path', str(ROOT / 'stylua.toml')])
+        self.assertEqual(lint.options('markdownlint-cli2'), ['--config', str(ROOT / '.markdownlint-cli2.yaml')])
 
     def test_problems_are_bounded_and_fail_the_run(self):
         output = '\n'.join(f'run.sh:{n}: SC2086' for n in range(1, 101))
         status, lines = self.lint(['scripts/run.sh'], results={'shellcheck': Finished(1, output)})
         self.assertEqual(status, 1)
-        self.assertEqual(lines[0], 'shfmt: 1 file(s) clean')
-        self.assertEqual(lines[1], 'shellcheck: 1 file(s), problems remain')
-        self.assertEqual(len(lines), 2 + lint.LINES + 1)
+        self.assertEqual(
+            lines[:3],
+            ['interpreter: 1 file(s) clean', 'shfmt: 1 file(s) clean', 'shellcheck: 1 file(s), problems remain'],
+        )
+        self.assertEqual(len(lines), 3 + lint.LINES + 1)
         self.assertIn('60 more lines', lines[-1])
 
     def test_a_missing_tool_fails_and_says_how_to_install_it(self):
@@ -135,6 +172,36 @@ class LintTests(unittest.TestCase):
                 self.assertTrue(
                     any(name == step.tool or name.endswith(':' + step.tool) for name in declared), step.tool
                 )
+
+
+class SupplementTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.supplement = Path(self.temporary.name) / 'supplement'
+        self.supplement.mkdir()
+        (self.supplement / 'config.yaml').write_text('schema_version: 1\nsupplement_id: t\n')
+        self.runtime = Path(self.temporary.name) / 'runtime'
+
+    def hook(self, cwd):
+        event = {'hook_event_name': 'SessionStart', 'session_id': 's', 'cwd': str(cwd)}
+        env = {'HOME': self.temporary.name, 'PATH': '/usr/bin:/bin', 'XDG_RUNTIME_DIR': str(self.runtime)}
+        return subprocess.run(
+            [str(ROOT / 'bin/shaffy'), 'lint', '--hook', '--supplement', str(self.supplement)],
+            input=json.dumps(event),
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+    def test_the_home_hook_acts_only_inside_the_supplement(self):
+        outside = self.hook(ROOT)
+        self.assertEqual((outside.returncode, outside.stdout, outside.stderr), (0, '', ''))
+        self.assertFalse(self.runtime.exists())
+        inside = self.hook(self.supplement)
+        self.assertEqual(inside.returncode, 0, inside.stderr)
+        self.assertEqual(len(list((self.runtime / 'shaffy/lint-sessions').glob('*.json'))), 1)
 
 
 class HookTests(unittest.TestCase):

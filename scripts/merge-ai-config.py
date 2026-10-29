@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Merge owned MCP and CE entries, preserving unrelated agent configuration."""
+"""Merge owned MCP, CE and hook entries, preserving unrelated agent configuration."""
 
 import copy
 import json
@@ -14,6 +14,8 @@ sys.path.insert(0, str(REPO / 'lib'))
 CE_REPOSITORY = 'EveryInc/compound-engineering-plugin'
 CE_MARKETPLACE = 'compound-engineering-plugin'
 CE_PLUGIN = f'compound-engineering@{CE_MARKETPLACE}'
+# What marks the hooks this script owns, whichever checkout they name.
+SUPPLEMENT_HOOK = 'lint --hook --supplement'
 
 
 def merge_tables(text, namespace, entries):
@@ -102,13 +104,58 @@ def merge_claude(text, servers, typed=True):
     return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
 
 
-def merge_claude_settings(text, compound_engineering):
+def supplement_hooks(checkout, codex=False):
+    """The hooks that format and lint the bound supplement in an agent session there; they say
+    nothing in any other directory (lib/shaffy/lint.py)."""
+    command = f'"{checkout}/bin/shaffy" {SUPPLEMENT_HOOK}'
+
+    def group(timeout, matcher=None):
+        hooks = {'hooks': [{'type': 'command', 'command': command, 'timeout': timeout}]}
+        return {'matcher': matcher, **hooks} if matcher else hooks
+
+    edits = '^(apply_patch|Edit|Write)$' if codex else 'Edit|Write|MultiEdit'
+    return {'SessionStart': group(60), 'PostToolUse': group(120, edits), 'Stop': group(300)}
+
+
+def merge_hooks(settings, hooks):
+    """Replace this script's own hook groups, append them after every other one, which keeps
+    the others' places (Codex trusts a hook by its place), and drop them when `hooks` is empty."""
+    events = settings.get('hooks', {})
+    for event in sorted(set(events) | set(hooks)):
+        groups = [
+            group
+            for group in events.get(event, [])
+            if not any(SUPPLEMENT_HOOK in hook.get('command', '') for hook in group.get('hooks', []))
+        ]
+        groups += [hooks[event]] if event in hooks else []
+        if groups:
+            events[event] = groups
+        else:
+            events.pop(event, None)
+    if events:
+        settings['hooks'] = events
+    else:
+        settings.pop('hooks', None)
+    return settings
+
+
+def merge_codex_hooks(text, hooks):
+    result = json.loads(text) if text.strip() else {}
+    original = copy.deepcopy(result)
+    merge_hooks(result, hooks)
+    if result == original:
+        return text
+    return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
+
+
+def merge_claude_settings(text, compound_engineering, hooks=None):
     result = json.loads(text) if text.strip() else {}
     original = copy.deepcopy(result)
     result.setdefault('enabledPlugins', {})[CE_PLUGIN] = compound_engineering
     result.setdefault('extraKnownMarketplaces', {})[CE_MARKETPLACE] = {
         'source': {'source': 'github', 'repo': CE_REPOSITORY}
     }
+    merge_hooks(result, hooks or {})
     if result == original and text.strip():
         return text
     return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
@@ -137,10 +184,15 @@ if __name__ == '__main__':
     try:
         from shaffy.fastload import load_data
 
-        enabled = load_data(REPO)['shaffy']['settings']['ai'].get('compound_engineering', {}).get('enabled')
+        data = load_data(REPO)['shaffy']
+        enabled = data['settings']['ai'].get('compound_engineering', {}).get('enabled')
         servers = mcp_servers()
+        # The supplement's hooks exist only while a supplement is bound.
+        bound = data['selection']['mode'] == 'supplement'
         if sys.argv[1] == 'claude-settings':
-            output = merge_claude_settings(text, enabled)
+            output = merge_claude_settings(text, enabled, supplement_hooks(REPO) if bound else {})
+        elif sys.argv[1] == 'codex-hooks':
+            output = merge_codex_hooks(text, supplement_hooks(REPO, codex=True) if bound else {})
         elif sys.argv[1] == 'codex':
             output = merge_codex(text, servers, enabled)
         elif sys.argv[1] == 'claude':
@@ -148,7 +200,7 @@ if __name__ == '__main__':
         elif sys.argv[1] == 'claude-desktop':
             output = merge_claude(text, servers, typed=False)
         else:
-            raise ValueError('expected claude, claude-desktop, claude-settings or codex')
+            raise ValueError('expected claude, claude-desktop, claude-settings, codex or codex-hooks')
     except Exception as error:  # refuse to rewrite the file on invalid settings
         sys.exit(f'merge-ai-config: cannot read the Shaffy OS settings: {error}')
     sys.stdout.write(output)

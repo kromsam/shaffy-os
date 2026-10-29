@@ -108,7 +108,7 @@ comments whose date has passed; delete them on dev with everything they name.
 ## Check, review, apply
 
 ```sh
-./bin/shaffy lint [--fix]                   # formatters and linters (STYLE.md); --fix rewrites
+./bin/shaffy lint [--fix] [--supplement]    # formatters and linters (STYLE.md), here or in the supplement
 ./bin/shaffy check                          # settings, a sandboxed render, prerequisites; changes nothing
 ./bin/shaffy diff                           # what a home apply would change
 ./bin/shaffy apply --home

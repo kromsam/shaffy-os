@@ -51,8 +51,9 @@ class ToolVersionTests(unittest.TestCase):
         self.assertIn(f'\ntarget-version = "py{system}"\n', (ROOT / 'ruff.toml').read_text())
 
     def test_ci_uses_the_recorded_container(self):
-        workflow = (ROOT / '.github/workflows/selftest.yml').read_text()
-        self.assertIn(f'image: {RECORD["ci_container"]}', workflow)
+        for name in ('selftest.yml', 'supplement.yml'):
+            workflow = (ROOT / '.github/workflows' / name).read_text()
+            self.assertIn(f'image: {RECORD["ci_container"]}', workflow, name)
 
 
 if __name__ == '__main__':

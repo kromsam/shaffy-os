@@ -24,7 +24,9 @@ right until the next apply restores the source.
    account, or adapts the desktop to this installation, belongs in the
    supplement: its `config.yaml`, its native `overrides` or its `assets`. A
    change to the product's defaults belongs in the checkout. Read
-   `{{ $checkout }}/CLAUDE.md` before changing either.
+   `{{ $checkout }}/CLAUDE.md` before changing either. In the checkout,
+   `./bin/shaffy check` validates the supplement and
+   `./bin/shaffy lint --supplement` holds its files to the checkout's style.
 3. Apply from the checkout. Show `./bin/shaffy diff`, then propose
    `./bin/shaffy apply --home` and let the owner run or approve it. A system
    apply needs sudo in the owner's terminal: propose

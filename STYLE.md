@@ -26,7 +26,8 @@ Beyond the tools:
 
 - A script names the system interpreter: `#!/usr/bin/python3`, `#!/bin/bash` or
   `#!/bin/sh`, never `env`. The system Python has the packages Shaffy OS
-  installs; `env python3` may find mise's. The self-test checks it.
+  installs; `env python3` may find mise's. `shaffy lint` checks it, and
+  `--fix` rewrites the shebang.
 - Shell is for short glue. A script that grows past about a hundred lines, or
   needs data structures, is written in Python, as `restic-home` and
   `shaffy-desktop` are. Python stays on the standard library unless a package

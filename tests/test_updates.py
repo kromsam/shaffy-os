@@ -26,6 +26,7 @@ PINNED = (
     'docs/OMARCHY-IMPLEMENTATION.md',
     'scripts/build-audio-bridge.sh',
     '.github/workflows/selftest.yml',
+    '.github/workflows/supplement.yml',
     'tests/tool-versions.json',
     'ruff.toml',
 )
@@ -101,8 +102,9 @@ class PinTests(unittest.TestCase):
             self.assertIn('30.04.1ubuntu', text[path])
             self.assertIn(yaru, text[path])
         self.assertIn('refs/tags/30.04.1ubuntu.tar.gz', text['README.md'])
-        self.assertEqual(text['.github/workflows/selftest.yml'].count(f'actions/checkout@{"2" * 40} # v9.1.0'), 2)
-        for path in ('.github/workflows/selftest.yml', 'tests/tool-versions.json'):
+        for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml'):
+            self.assertEqual(text[path].count(f'actions/checkout@{"2" * 40} # v9.1.0'), 2, path)
+        for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml', 'tests/tool-versions.json'):
             self.assertIn(f'cachyos/cachyos@{DIGEST}', text[path])
         self.assertIn('target-version = "py399"', text['ruff.toml'])
         # yabridge is a reviewed source: reported, never rewritten.

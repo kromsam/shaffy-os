@@ -1,14 +1,20 @@
 """`./bin/shaffy lint`: one formatter and linter per language, over the checkout (STYLE.md).
 
-The tools come from the checkout's development tools (mise.dev.toml, run through
-`mise exec` with MISE_ENV=dev), except fish_indent, which comes with fish. It lints the
+The tools come from the checkout's development tools (mise.dev.toml, found through `mise
+env` with MISE_ENV=dev in the checkout), except fish_indent, which comes with fish. It lints the
 files Git tracks or would track. Templates (`*.tmpl`, and all of
 `home/.chezmoitemplates/`) are left out: no formatter reads their template syntax, and
 the sandboxed render checks what they produce. So are the files REUSE.toml attributes to
 another project, which keep their upstream's form. Without --fix nothing is written;
 with it the formatters and the linters' safe fixes rewrite the files first. Each tool's
 output is cut to a bounded number of lines, and the exit status says whether anything
-remains.
+remains. Beside the tools, it holds every script to the system interpreter (STYLE.md),
+and --fix rewrites an `env` shebang.
+
+With --supplement it lints the bound supplement, or the one named, by the same rules:
+every tool is given this checkout's configuration, so the supplement needs none of its
+own. The home apply installs the agents' hooks for the supplement (`--hook
+--supplement`), and the supplement's CI runs .github/workflows/supplement.yml.
 
 `--hook` reads a Claude Code or Codex hook event on stdin and answers in their JSON.
 At the session's start it records which files already differ from HEAD, so the owner's
@@ -80,11 +86,56 @@ def language(path, root=ROOT):
         return named[suffix]
     with open(target, 'rb') as file:
         first = file.readline(64)
-    if first.startswith(b'#!/usr/bin/python3'):
+    if first.startswith((b'#!/usr/bin/python3', b'#!/usr/bin/env python3')):
         return 'python'
-    if first.startswith((b'#!/bin/bash', b'#!/bin/sh')):
+    if first.startswith((b'#!/bin/bash', b'#!/bin/sh', b'#!/usr/bin/env bash', b'#!/usr/bin/env sh')):
         return 'shell'
     return None
+
+
+# The system interpreter for each `env` shebang (STYLE.md): its Python has the packages
+# Shaffy OS installs, where `env python3` may find mise's.
+INTERPRETERS = {
+    '#!/usr/bin/env python3': '#!/usr/bin/python3',
+    '#!/usr/bin/env bash': '#!/bin/bash',
+    '#!/usr/bin/env sh': '#!/bin/sh',
+}
+
+
+def interpreters(root, paths, fix=False):
+    """The scripts whose shebang goes through `env`; --fix rewrites them instead."""
+    found = []
+    for path in paths:
+        first, newline, rest = (root / path).read_text().partition('\n')
+        wanted = INTERPRETERS.get(first.strip())
+        if wanted and fix:
+            (root / path).write_text(wanted + newline + rest)
+        elif wanted:
+            found.append(f'{path}:1: {first.strip()} should be {wanted}')
+    return found
+
+
+def options(tool):
+    """This checkout's configuration for a tool, given explicitly so a supplement uses it too."""
+    if tool == 'ruff':
+        return ['--config', str(ROOT / 'ruff.toml')]
+    if tool == 'stylua':
+        return ['--config-path', str(ROOT / 'stylua.toml')]
+    if tool == 'markdownlint-cli2':
+        return ['--config', str(ROOT / '.markdownlint-cli2.yaml')]
+    if tool == 'shfmt':
+        # As flags from .editorconfig's [*] section; with flags, shfmt reads no .editorconfig.
+        section, settings = None, {}
+        for line in (ROOT / '.editorconfig').read_text().splitlines():
+            line = line.strip()
+            if line.startswith('['):
+                section = line
+            elif section == '[*]' and '=' in line and not line.startswith('#'):
+                key, value = (part.strip() for part in line.split('=', 1))
+                settings[key] = value
+        flags = ['--indent', settings.get('indent_size', '0')]
+        return flags + (['--case-indent'] if settings.get('switch_case_indent') == 'true' else [])
+    return []
 
 
 def third_party(root=ROOT):
@@ -120,24 +171,28 @@ def changed(root=ROOT):
     )
 
 
+_ENVIRONMENT = {}
+
+
 def _environment():
-    return dict(os.environ, MISE_ENV='dev')
+    """The environment with the checkout's development tools on PATH, wherever a tool runs."""
+    if not _ENVIRONMENT:
+        _ENVIRONMENT.update(os.environ, MISE_ENV='dev')
+        if shutil.which('mise'):
+            listed = subprocess.run(
+                ['mise', 'env', '--json'], cwd=ROOT, env=dict(_ENVIRONMENT), capture_output=True, text=True, check=False
+            )
+            if listed.returncode == 0:
+                _ENVIRONMENT.update(json.loads(listed.stdout))
+    return dict(_ENVIRONMENT)
 
 
 def available(step, root=ROOT):
-    if step.system:
-        return shutil.which(step.tool) is not None
-    if shutil.which('mise') is None:
-        return False
-    result = subprocess.run(
-        ['mise', 'which', step.tool], cwd=root, env=_environment(), capture_output=True, check=False
-    )
-    return result.returncode == 0
+    return shutil.which(step.tool, path=_environment().get('PATH')) is not None
 
 
 def _command(step, arguments, files):
-    command = [step.tool, *arguments, *([] if step.project else files)]
-    return command if step.system else ['mise', 'exec', '--', *command]
+    return [step.tool, *arguments, *options(step.tool), *([] if step.project else files)]
 
 
 def _bounded(text):
@@ -158,6 +213,17 @@ def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_availabl
         out('Nothing to lint.')
         return 0
     failed = False
+    scripts = by_language.get('python', []) + by_language.get('shell', [])
+    wrong = interpreters(root, scripts, fix)
+    if scripts:
+        out(
+            f'interpreter: {len(scripts)} file(s), problems remain'
+            if wrong
+            else f'interpreter: {len(scripts)} file(s) clean'
+        )
+        for line in wrong:
+            out(f'  {line}')
+        failed = bool(wrong)
     for step in STEPS:
         files = by_language.get(step.language)
         if not files:
@@ -260,16 +326,34 @@ def hook(event, root=ROOT, lint=run, state_file=None):
     return {'hookSpecificOutput': {'hookEventName': name, 'additionalContext': text}}
 
 
+def supplement_root(path=None):
+    """The named supplement, or the bound one; None when the installation has none."""
+    from .selection import resolve
+
+    selection = resolve(ROOT, supplement=path or None)
+    return Path(selection['path']) if selection['mode'] == 'supplement' else None
+
+
 def main(args):
+    root = ROOT
+    if args.supplement is not None:
+        root = supplement_root(args.supplement)
+        if root is None and not args.hook:
+            raise SystemExit('shaffy lint: no supplement is bound; name one with --supplement PATH')
     if args.hook:
-        reply = hook(json.load(sys.stdin))
+        event = json.load(sys.stdin)
+        cwd = Path(event.get('cwd') or os.getcwd()).resolve()
+        # The home's hook for the supplement says nothing outside it.
+        if root is None or (cwd != root and root not in cwd.parents):
+            return 0
+        reply = hook(event, root=root)
         if reply:
             print(json.dumps(reply))
         return 0
-    everything = files(ROOT)
+    everything = files(root)
     if args.paths:
-        named = [os.path.relpath(Path(p).resolve(), ROOT) for p in args.paths]
+        named = [os.path.relpath(Path(p).resolve(), root) for p in args.paths]
         paths = [f for f in everything if any(f == n or f.startswith(n.rstrip('/') + '/') or n == '.' for n in named)]
     else:
-        paths = changed() if args.changed else everything
-    return run(paths, fix=args.fix)
+        paths = changed(root) if args.changed else everything
+    return run(paths, fix=args.fix, root=root)

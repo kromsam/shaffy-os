@@ -4,7 +4,7 @@
 # can never be listed here, since an entry would publish the value.
 home-path	tests/*	/home/tester	the synthetic target user of the sandbox, CI and container tests
 home-path	lib/shaffy/sandbox.py	/home/tester	the render sandbox's synthetic home
-home-path	.github/workflows/selftest.yml	/home/tester	CI's unprivileged user
+home-path	.github/workflows/*.yml	/home/tester	CI's unprivileged user, in this repository's and the supplements' workflows
 home-path	tests/test_records.py	/home/someone	a record for another target user
 home-path	tests/test_system.py	/home/second	a second target user
 home-path	tests/test_system.py	/home/u	a minimal record

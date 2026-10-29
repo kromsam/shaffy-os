@@ -815,6 +815,13 @@ def main(argv):
     tidy.add_argument('--fix', action='store_true', help='let the formatters and safe fixes rewrite the files')
     tidy.add_argument('--changed', action='store_true', help='only the files that differ from HEAD')
     tidy.add_argument('--hook', action='store_true', help='read a Claude Code or Codex hook event on stdin')
+    tidy.add_argument(
+        '--supplement',
+        nargs='?',
+        const='',
+        metavar='PATH',
+        help='lint the bound supplement, or the one named, by the same rules',
+    )
     tidy.set_defaults(run=lint)
     validate = commands.add_parser('check', help='validate the settings and a sandboxed render; changes nothing')
     _selection_arguments(validate)
