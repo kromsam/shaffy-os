@@ -4,7 +4,8 @@
 diff to review before a release. Like mise's `latest`, a release counts only once it is
 three days old where the upstream records a date, as Galaxy does; git tags and the CI
 image's tag carry none. yabridge is a reviewed source: it is reported, and its revision
-changes by hand. Tools mise installs follow `latest` and have no pin here.
+changes by hand. ruff's target follows the system Python. Tools mise installs follow
+`latest` and have no pin here.
 """
 
 from collections.abc import Callable
@@ -43,7 +44,7 @@ class Pin:
 
 
 class Upstream:
-    """The network reads, in one place so the tests can replace them."""
+    """The reads from outside the checkout, in one place so the tests can replace them."""
 
     def __init__(self, now=None):
         self.now = now or datetime.datetime.now(datetime.UTC)
@@ -69,6 +70,16 @@ class Upstream:
             if peeled or ref not in refs:
                 refs[ref] = commit
         return refs
+
+    def python(self):
+        """The system Python as a ruff target, such as py314: the newest the distribution ships."""
+        result = subprocess.run(
+            ['/usr/bin/python3', '-c', 'import sys; print(f"py{sys.version_info[0]}{sys.version_info[1]}")'],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
 
     def old_enough(self, stamp):
         when = datetime.datetime.fromisoformat(stamp.replace('Z', '+00:00'))
@@ -259,7 +270,16 @@ def refresh_lazyvim(root, run=subprocess.run):
     return ['home/dot_config/nvim/lazy-lock.json', *changes]
 
 
-FAMILIES = (collections, yaru, yabridge, ci_container, actions_checkout, lazyvim)
+def ruff_target(root, upstream):
+    current = re.search(r'^target-version = "(py[0-9]+)"', (root / 'ruff.toml').read_text(), re.M).group(1)
+    pin = Pin('ruff target, the system Python', current, upstream.python())
+    pin.raise_to = lambda: [
+        _edit(root, 'ruff.toml', f'target-version = "{current}"', f'target-version = "{pin.latest}"', 1)
+    ]
+    return [pin]
+
+
+FAMILIES = (collections, yaru, yabridge, ci_container, actions_checkout, lazyvim, ruff_target)
 
 
 def check(root, upstream=None):

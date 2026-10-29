@@ -27,6 +27,7 @@ PINNED = (
     'scripts/build-audio-bridge.sh',
     '.github/workflows/selftest.yml',
     'tests/tool-versions.json',
+    'ruff.toml',
 )
 DIGEST = 'sha256:' + 'ab' * 32
 YARU = b'yaru archive'
@@ -48,6 +49,9 @@ class FakeUpstream(pins.Upstream):
         if url.startswith('https://hub.docker.com/'):
             return {'digest': DIGEST}
         raise AssertionError(url)
+
+    def python(self):
+        return 'py399'
 
     def read(self, url):
         assert url == 'https://github.com/ubuntu/yaru/archive/refs/tags/30.04.1ubuntu.tar.gz', url
@@ -82,6 +86,7 @@ class PinTests(unittest.TestCase):
         self.assertEqual(found['Yaru icons'].latest, '30.04.1ubuntu')  # the pinned …ubuntu line
         self.assertEqual(found['GitHub action actions/checkout'].latest, 'v9.1.0')
         self.assertEqual(found['CI container cachyos/cachyos:latest'].latest, 'ab' * 6)
+        self.assertEqual(found['ruff target, the system Python'].latest, 'py399')
         self.assertTrue(all(not pin.error for pin in found.values()), found)
 
     def test_raising_every_pin_rewrites_each_place_it_appears(self):
@@ -99,6 +104,7 @@ class PinTests(unittest.TestCase):
         self.assertEqual(text['.github/workflows/selftest.yml'].count(f'actions/checkout@{"2" * 40} # v9.1.0'), 2)
         for path in ('.github/workflows/selftest.yml', 'tests/tool-versions.json'):
             self.assertIn(f'cachyos/cachyos@{DIGEST}', text[path])
+        self.assertIn('target-version = "py399"', text['ruff.toml'])
         # yabridge is a reviewed source: reported, never rewritten.
         self.assertEqual(text['scripts/build-audio-bridge.sh'], old['scripts/build-audio-bridge.sh'])
         self.assertTrue(self.found()['yabridge (new-wine10-embedding)'].behind)

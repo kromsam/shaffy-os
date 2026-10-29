@@ -1,5 +1,7 @@
 # Python's lint rules and format (STYLE.md). Single quotes and 120 columns are the code's
 # existing look; the rules are an explicit selection, never ALL.
+# Always the system Python, the newest the distribution ships: the self-test fails when
+# they differ, and scripts/refresh-pins.py raises it.
 target-version = "py314"
 line-length = 120
 

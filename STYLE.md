@@ -7,7 +7,7 @@ checkout with `mise trust mise.dev.toml` and `MISE_ENV=dev mise install`.
 
 | Language | Authority | Settings |
 | --- | --- | --- |
-| Python | ruff format and ruff check | `ruff.toml`: single quotes, 120 columns, an explicit rule list |
+| Python | ruff format and ruff check | `ruff.toml`: single quotes, 120 columns, an explicit rule list, the system Python as target |
 | Shell | shfmt and ShellCheck | `.editorconfig`: two spaces, indented `case` branches |
 | Fish | fish_indent | |
 | Lua | StyLua | `stylua.toml`: two spaces, 120 columns |

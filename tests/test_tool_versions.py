@@ -1,4 +1,5 @@
-"""Installed tools meet the recorded minimum versions; CI uses the recorded container."""
+"""Installed tools meet the recorded minimum versions, ruff targets the system Python and CI
+uses the recorded container."""
 
 import json
 from pathlib import Path
@@ -37,6 +38,17 @@ class ToolVersionTests(unittest.TestCase):
                 found = re.search(r'(\d+\.\d+(?:\.\d+)?)', output)
                 self.assertIsNotNone(found, f'no version in {output!r}')
                 self.assertGreaterEqual(version_tuple(found.group(1)), version_tuple(RECORD['minimum'][tool]))
+
+    def test_ruff_targets_the_system_python(self):
+        # CI upgrades its packages first, so this fails as soon as CachyOS ships a newer Python;
+        # scripts/refresh-pins.py raises the target.
+        system = subprocess.run(
+            ['/usr/bin/python3', '-c', 'import sys; print(*sys.version_info[:2], sep="")'],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        self.assertIn(f'\ntarget-version = "py{system}"\n', (ROOT / 'ruff.toml').read_text())
 
     def test_ci_uses_the_recorded_container(self):
         workflow = (ROOT / '.github/workflows/selftest.yml').read_text()
