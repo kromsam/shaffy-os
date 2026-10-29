@@ -41,11 +41,6 @@ under `~/.local/state/shaffy/runs/` and prints how to undo it; a run interrupted
 halfway is finished by running it again. Start Zotero once to check the library,
 then run `./bin/shaffy integration zotero adopt`.
 
-## Publishing tools
-
-Quarto is a mise tool, which `scripts/install-workspace-tools.sh` installs and
-updates. qpdf is a package of the `writing` group.
-
 ## Synchronization
 
 Nextcloud and Syncthing keep four things apart:

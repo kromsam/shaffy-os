@@ -225,7 +225,7 @@ def steps(root, home):
             cwd=root,
         ),
         Step(
-            'mise tools (Quarto and Zotero MCP among them) and pstack',
+            'mise tools (Zotero MCP among them) and pstack',
             ['bash', str(root / 'scripts/install-workspace-tools.sh')],
         ),
         Step(

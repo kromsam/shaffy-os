@@ -9,7 +9,6 @@ codex = "latest"
 bun = "latest"
 ruby = "latest"
 "aqua:protonpass/pass-cli" = "latest"
-"aqua:quarto-dev/quarto-cli" = "latest"
 "github:raine/workmux" = "latest"
 # Zotero MCP with semantic search and PDF reading, on the system Python and CPU-only PyTorch.
 "pypi:zotero-mcp-server" = { version = "latest", extras = "semantic,pdf", uvx_args = "--torch-backend cpu --python /usr/bin/python3" }

@@ -19,7 +19,6 @@ before mise activates in a shell.
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
 | pstack | Native Claude Code and Codex plugin from `michael-denyer/pstack-claude`, tracking `main` |
 | Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |
-| Quarto | mise `"aqua:quarto-dev/quarto-cli" = "latest"` |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
 Project-specific runtime choices belong in a project's `mise.toml` or the

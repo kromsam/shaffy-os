@@ -40,7 +40,7 @@ one and run it again. A step with nothing to do is skipped.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.
 5. **mise tools and pstack**: `scripts/install-workspace-tools.sh`,
-   for every tool of the mise configuration, Quarto and Zotero MCP among them.
+   for every tool of the mise configuration, Zotero MCP among them.
    mise's `latest` is the newest release that is at least three days old
    ([workspace tools](WORKSPACE-TOOLS.md)).
 6. **Yaru icons**: downloads and installs the pinned release, only when the
