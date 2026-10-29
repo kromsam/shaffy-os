@@ -1,23 +1,10 @@
 {{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
 {{- $home := .chezmoi.homeDir -}}
 {{- $folders := includeTemplate "folders.json" . | fromJson -}}
-# Plugins come from Noctalia's official and community sources and Noctalia keeps
-# them updated; this repository ships no plugin code.
+# Plugins come from Noctalia's built-in official and community sources, and
+# Noctalia keeps them updated; this repository ships no plugin code.
 [plugins]
 enabled = ["rylos/tailnet", "rylos/syncthing", "icefish/phone-connect", "rylos/remmina", "noctalia/screen_recorder", "noctalia/timer", "noctalia/world_clock"]
-auto_update = "all"
-
-[[plugins.source]]
-name = "official"
-kind = "git"
-location = "https://github.com/noctalia-dev/official-plugins"
-enabled = true
-
-[[plugins.source]]
-name = "community"
-kind = "git"
-location = "https://github.com/noctalia-dev/community-plugins"
-enabled = true
 
 [plugin_settings."rylos/tailnet"]
 {{- with dig "tailnet" "login_server" "" $s }}

@@ -461,13 +461,20 @@ class RenderTests(unittest.TestCase):
             self.assertFalse((home / '.config/user-dirs.dirs').exists())
 
     def test_plugins_come_from_noctalia_sources_not_this_repository(self):
-        """The rendered [plugins] table validates with the sources enabled."""
+        """Noctalia resolves the rendered fragments to its official and community sources, enabled
+        and updating every plugin."""
         import tomllib
 
-        with tempfile.TemporaryDirectory() as keep:
+        with tempfile.TemporaryDirectory() as keep, tempfile.TemporaryDirectory() as scratch:
             self.assertClean(render(ROOT, without=True, keep=keep))
             home = Path(keep) / 'home'
-            plugins = tomllib.loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())['plugins']
+            env = {'PATH': os.environ['PATH'], 'HOME': scratch, 'XDG_CONFIG_HOME': str(home / '.config')}
+            for kind in ('STATE', 'DATA', 'CACHE'):
+                env[f'XDG_{kind}_HOME'] = scratch
+            exported = subprocess.run(
+                ['noctalia', 'config', 'export', 'full'], env=env, capture_output=True, text=True, check=True
+            )
+            plugins = tomllib.loads(exported.stdout)['plugins']
             self.assertEqual(plugins['auto_update'], 'all')
             self.assertEqual(
                 {s['name']: s['enabled'] for s in plugins['source']}, {'official': True, 'community': True}

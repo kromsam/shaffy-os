@@ -1,6 +1,5 @@
 # Noctalia owns generated colors; chezmoi owns the application includes/settings.
 [theme.templates]
-enable_builtin_templates = true
 builtin_ids = ["alacritty", "btop", "gtk3", "gtk4", "kcolorscheme"]
 
 [theme.templates.user.niri]

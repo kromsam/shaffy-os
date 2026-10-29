@@ -5,7 +5,6 @@
 # mode. Managed by Shaffy OS; personal paths come from the settings.
 [theme]
 mode = "light"
-source = "builtin"
 builtin = "Rosé Pine"
 
 [shell]
@@ -20,18 +19,12 @@ polkit_agent = true
 
 [shell.panel]
 shadow = false
-transparency_mode = "solid"
-launcher_placement = "floating"
-launcher_position = "center"
-clipboard_placement = "floating"
-clipboard_position = "center"
 session_placement = "floating"
 session_position = "center"
 wallpaper_placement = "floating"
 wallpaper_position = "center"
 
 [shell.launcher]
-app_grid = false
 compact = true
 categories = false
 show_app_origin_indicator = false
@@ -43,15 +36,11 @@ global = true
 [shell.screenshot]
 annotate = true
 directory = {{ printf "%s/Screenshots" $folders.pictures | toJson }}
-save_to_file = true
-copy_to_clipboard = true
 
 [bar.default]
-position = "top"
 thickness = 26
 font_scale = 0.857142857
 margin_ends = 0
-margin_edge = 0
 padding = 10
 radius = 0
 radius_top_left = 0
@@ -60,7 +49,6 @@ radius_bottom_left = 0
 radius_bottom_right = 0
 shadow = false
 concave_edge_corners = false
-background_opacity = 1.0
 widget_spacing = 8
 start = ["launcher", "workspaces"]
 center = ["recorder", "timer", "clock", "keyboard_layout"]
@@ -128,14 +116,10 @@ right = "panel-toggle session"
 [control_center]
 sidebar = "full"
 sidebar_section = "full"
-show_shortcut_labels = true
 
 [control_center.calendar]
 show_week_numbers = true
 show_events_card = false
-
-[dock]
-enabled = false
 
 [lockscreen]
 wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_screen.image) | toJson }}
@@ -148,6 +132,8 @@ wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_
 behavior_order = ["lock", "screen-off"]
 pre_action_fade_seconds = 3.0
 
+# A behaviour set here replaces Noctalia's built-in one of that name instead of
+# merging with it, so each names its action even where the built-in one has it.
 [idle.behavior.lock]
 action = "lock"
 timeout = 300
@@ -164,7 +150,6 @@ background_opacity = 1.0
 max_visible = 3
 
 [osd]
-background_opacity = 0.97
 position = "bottom_center"
 offset_y = 67
 
@@ -173,20 +158,10 @@ enabled = true
 blur_intensity = 0.0
 tint_intensity = 0.5
 
-# Force controls on-demand temperature; the schedule remains disabled.
-[nightlight]
-enabled = false
-force = false
-temperature_day = 6500
-temperature_night = 4000
-
 [wallpaper]
 directory = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.wallpaper.directory) | toJson }}
 transition = ["fade"]
 transition_duration = 300.0
-
-[wallpaper.automation]
-enabled = false
 
 [wallpaper.default]
 path = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.wallpaper.image) | toJson }}

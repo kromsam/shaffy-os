@@ -251,21 +251,15 @@ def booted():
 
 
 def noctalia_config():
-    """The merged top-level [plugins] of the rendered fragments, in Noctalia's file order."""
+    """The effective [plugins] table as Noctalia resolves it, its built-in sources included."""
     import tomllib
-    enabled, sources = None, {}
-    for path in sorted((HOME / '.config/noctalia').glob('*.toml')):
-        try:
-            data = tomllib.loads(path.read_text())
-        except (OSError, ValueError) as error:
-            say('FAIL', f'{path} does not parse: {error}')
-            continue
-        plugins = data.get('plugins', {})
-        if 'enabled' in plugins:
-            enabled = plugins['enabled']
-        for source in plugins.get('source', []):
-            sources[source.get('name')] = source
-    return enabled or [], [name for name, s in sources.items() if s.get('enabled', True)]
+    result = subprocess.run(['noctalia', 'config', 'export', 'full'], capture_output=True, text=True, check=False)
+    try:
+        plugins = tomllib.loads(result.stdout).get('plugins', {})
+    except ValueError as error:
+        say('FAIL', f'noctalia config export full does not parse: {error}')
+        return [], []
+    return plugins.get('enabled', []), [s['name'] for s in plugins.get('source', []) if s.get('enabled', True)]
 
 
 def noctalia(*arguments):
