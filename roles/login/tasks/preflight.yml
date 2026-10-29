@@ -4,12 +4,12 @@
 - name: Read the Niri session definition
   ansible.builtin.stat:
     path: /usr/share/wayland-sessions/niri.desktop
-  register: niri_session
+  register: login_niri_session
   when: login_autologin or (login_keyring_migrating | default(false))
 
 - name: Require Niri to be installed
   ansible.builtin.assert:
-    that: niri_session.stat.isreg | default(false)
+    that: login_niri_session.stat.isreg | default(false)
     fail_msg: Niri's session file is missing; install Niri before configuring its automatic login.
   when: login_autologin or (login_keyring_migrating | default(false))
 
@@ -32,26 +32,28 @@
   loop:
     - /usr/lib/security/pam_systemd_loadkey.so
     - /usr/lib/security/pam_gnome_keyring.so
-  register: keyring_modules
+  register: login_keyring_modules
   when: login_autologin or (login_keyring_migrating | default(false))
 
 - name: Require both supported PAM modules
   ansible.builtin.assert:
     that: item.stat.isreg | default(false)
-  loop: '{{ keyring_modules.results }}'
+  loop: '{{ login_keyring_modules.results }}'
   when: login_autologin or (login_keyring_migrating | default(false))
 
 - name: Read the existing SDDM automatic login PAM stack
   ansible.builtin.slurp:
     src: /etc/pam.d/sddm-autologin
-  register: sddm_autologin_pam
+  register: login_sddm_autologin_pam
   when: login_autologin or (login_keyring_migrating | default(false))
 
 - name: Require the existing optional keyring hooks before editing PAM
+  vars:
+    login_autologin_stack: "{{ login_sddm_autologin_pam.content | b64decode }}"
   ansible.builtin.assert:
     that:
-      - "(sddm_autologin_pam.content | b64decode | regex_findall('(?m)^-?auth[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]*$') | length) == 1"
-      - "(sddm_autologin_pam.content | b64decode | regex_findall('(?m)^-?session[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]+auto_start[ \\t]*$') | length) == 1"
+      - "(login_autologin_stack | regex_findall('(?m)^-?auth[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]*$') | length) == 1"
+      - "(login_autologin_stack | regex_findall('(?m)^-?session[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]+auto_start[ \\t]*$') | length) == 1"
   when: login_autologin or (login_keyring_migrating | default(false))
 
 - name: Read the target user's keyrings

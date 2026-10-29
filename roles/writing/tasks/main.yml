@@ -17,11 +17,11 @@
       - '{{ playbook_dir }}/scripts/configure-libreoffice.py'
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
   check_mode: false
-  register: libreoffice_layout
+  register: writing_libreoffice_layout
   changed_when: >-
-    'configuration_changed: 1' in libreoffice_layout.stdout or
-    (ansible_check_mode and 'LibreOffice layout needs attention' in libreoffice_layout.stderr)
+    'configuration_changed: 1' in writing_libreoffice_layout.stdout or
+    (ansible_check_mode and 'LibreOffice layout needs attention' in writing_libreoffice_layout.stderr)
   failed_when: >-
-    libreoffice_layout.rc != 0 and not
-    (ansible_check_mode and libreoffice_layout.rc == 1 and
-    'LibreOffice layout needs attention' in libreoffice_layout.stderr)
+    writing_libreoffice_layout.rc != 0 and not
+    (ansible_check_mode and writing_libreoffice_layout.rc == 1 and
+    'LibreOffice layout needs attention' in writing_libreoffice_layout.stderr)

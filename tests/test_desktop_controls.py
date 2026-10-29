@@ -82,7 +82,7 @@ class DesktopControlsTests(unittest.TestCase):
 
     def test_ocr_reads_every_installed_language_english_first(self):
         def listing(*names):
-            output = 'List of available languages in "/usr/share/tessdata/" (%d):\n' % len(names) + '\n'.join(names)
+            output = f'List of available languages in "/usr/share/tessdata/" ({len(names)}):\n' + '\n'.join(names)
             return subprocess.CompletedProcess([], 0, output + '\n', '')
 
         for names, expected in ((('deu', 'eng', 'osd'), 'eng+deu'), (('nld', 'osd'), 'nld'), (('osd',), 'eng')):

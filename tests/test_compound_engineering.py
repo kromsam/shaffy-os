@@ -85,6 +85,24 @@ class CompoundEngineeringTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     INSTALL['declared'](home, not enabled)
 
+    def native_run(self, claude, codex, applied, fail):
+        """The plugin managers and the home apply, as the refresh calls them."""
+
+        def run(command, **kwargs):
+            if command[0] == str(ROOT / 'bin/shaffy'):
+                applied.append(command)
+                self.assertEqual(kwargs['cwd'], ROOT)
+                claude.write_text(MERGE['merge_claude_settings'](claude.read_text(), False))
+                codex.write_text(MERGE['merge_codex'](codex.read_text(), {}, False))
+            elif 'install' in command:
+                claude.write_text(MERGE['merge_claude_settings'](claude.read_text(), True))
+            elif 'add' in command:
+                codex.write_text(MERGE['merge_codex'](codex.read_text(), {}, True))
+                if fail:
+                    raise subprocess.CalledProcessError(1, command)
+
+        return run
+
     def test_refresh_reapplies_opt_in_after_success_and_native_failure(self):
         for fail in (False, True):
             with self.subTest(fail=fail), tempfile.TemporaryDirectory() as directory:
@@ -100,20 +118,7 @@ class CompoundEngineeringTests(unittest.TestCase):
                 registry.write_text(json.dumps({MARKETPLACE: {}}))
                 original = INSTALL['settings_snapshot'](home)
                 applied = []
-
-                def native_run(command, **kwargs):
-                    if command[0] == str(ROOT / 'bin/shaffy'):
-                        applied.append(command)
-                        self.assertEqual(kwargs['cwd'], ROOT)
-                        claude.write_text(MERGE['merge_claude_settings'](claude.read_text(), False))
-                        codex.write_text(MERGE['merge_codex'](codex.read_text(), {}, False))
-                    elif 'install' in command:
-                        claude.write_text(MERGE['merge_claude_settings'](claude.read_text(), True))
-                    elif 'add' in command:
-                        codex.write_text(MERGE['merge_codex'](codex.read_text(), {}, True))
-                        if fail:
-                            raise subprocess.CalledProcessError(1, command)
-
+                native_run = self.native_run(claude, codex, applied, fail)
                 with mock.patch.object(INSTALL['subprocess'], 'run', side_effect=native_run):
                     if fail:
                         with self.assertRaises(subprocess.CalledProcessError):

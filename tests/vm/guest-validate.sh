@@ -23,7 +23,7 @@ EXAMPLE=$PROJECTS/example-supplement
 SUPPLEMENT=$PROJECTS/vm-supplement
 export PAGER=cat GIT_PAGER=cat SYSTEMD_PAGER=cat
 
-STAGE= STAGE_DIR= STEP=0 PASSES=0 FAILS=0 NOTES=0 LAST= NEXT= OUTPUT=
+STAGE='' STAGE_DIR='' STEP=0 PASSES=0 FAILS=0 NOTES=0 LAST='' NEXT='' OUTPUT=''
 OPS=()
 
 usage() {
@@ -390,6 +390,7 @@ py_report() { # py_report NAME CHECK ARGS...: run a Python check and record its 
   local name=$1 kind text
   shift
   evidence_file "$name" python3 check "$@"
+  # shellcheck disable=SC2094 # both streams append to the step's log on purpose
   while IFS= read -r line; do
     kind=${line%% *}
     text=${line#* }
@@ -543,6 +544,7 @@ stage_bootstrap() {
     fail "the checkout at $CHECKOUT has local changes; it is left as it is"
   else
     # The bundle's HEAD, not a branch: the share may since have been built from another branch.
+    # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
     check "fast-forwarded the checkout to the share's commit" capture update \
       bash -c 'git -C "$1" fetch origin HEAD && git -C "$1" merge --ff-only "$2"' bash "$CHECKOUT" "$commit"
   fi
@@ -563,6 +565,7 @@ stage_bootstrap() {
     elif grep -q 'not trusted' "$LAST"; then
       note "mise asked to trust mise.toml, as README says it may; trusting it"
       keep mise-toml cat "$CHECKOUT/mise.toml"
+      # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
       capture mise-trust bash -c 'cd "$1" && mise trust mise.toml' bash "$CHECKOUT"
       check "README: $line (after mise trust)" \
         capture "readme-$number-again" bash -c "cd \"\$1\" && $line" bash "$CHECKOUT"
@@ -570,6 +573,7 @@ stage_bootstrap() {
       fail "README: $line"
     fi
   done
+  # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
   keep versions bash -c 'pacman -Q mise uv chezmoi python-yaml python-jsonschema snapper git bubblewrap niri noctalia
     cd "$1" && mise exec ansible-core -- ansible --version' bash "$CHECKOUT"
   if capture check-after shaffy check; then
@@ -748,6 +752,7 @@ begin() {
   STAGE_DIR=$EVIDENCE/$STAGE-$(date -u +%Y%m%dT%H%M%SZ)
   mkdir -p "$STAGE_DIR" || die "cannot write $STAGE_DIR"
   printf 'Stage %s; evidence in %s\n\n' "$STAGE" "$STAGE_DIR"
+  # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
   keep context bash -c 'date -u; id; hostnamectl 2>/dev/null; echo; cat "$1"
     git -C "$2" log -1 --format="checkout %H %s" 2>/dev/null' bash "$SHARE/SHARE-INFO" "$CHECKOUT"
 }

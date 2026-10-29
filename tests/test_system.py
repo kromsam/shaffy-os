@@ -113,7 +113,7 @@ class RootStepTests(unittest.TestCase):
         self.assertEqual(record['last_completed_op'], 'op-1')
         self.assertEqual(record['phases']['system']['op'], 'op-1')
         self.assertEqual(self.events()[-2:], ['phase-done', 'complete'])
-        log = [json.loads(l) for l in (self.state / 'targets/fake-snapshots.jsonl').read_text().splitlines()]
+        log = [json.loads(line) for line in (self.state / 'targets/fake-snapshots.jsonl').read_text().splitlines()]
         self.assertEqual(
             [(e['config'], e['type'], e['pre']) for e in log],
             [('root', 'pre', None), ('home', 'pre', None), ('root', 'post', 1), ('home', 'post', 2)],

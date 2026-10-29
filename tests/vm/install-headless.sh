@@ -26,7 +26,7 @@ esac
 [[ -d /run/archiso ]] || refuse 'this is not the installer'"'"'s live session'
 [[ -b /dev/vda ]] || refuse 'there is no /dev/vda to install to'
 disks=$(lsblk -dn -o NAME,TYPE | awk '$2 == "disk" && $1 !~ /^(loop|sr|zram)/ {print $1}')
-[[ $disks == vda ]] || refuse "expected one disk, vda; found: $(echo $disks)"
+[[ $disks == vda ]] || refuse "expected one disk, vda; found: ${disks//$'\n'/ }"
 command -v cachyos-installer >/dev/null || refuse 'cachyos-installer is missing from this image'
 [[ $here == /run/shaffy-share ]] || refuse "mount the share at /run/shaffy-share (vm-install.json names its post_install step there); it is at $here"
 

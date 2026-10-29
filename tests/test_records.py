@@ -176,7 +176,6 @@ class SupplementCommandTests(unittest.TestCase):
 
     def test_adoption_ignores_the_path_but_not_the_supplement_id(self):
         supplement = ROOT / 'supplement.example'
-        selection = json.loads(self.shaffy('data', '--supplement', str(supplement)).stdout)['shaffy']['selection']
         self.root_record({'mode': 'supplement', 'path': '/where/it/was', 'supplement_id': 'another-id'})
         refused = self.shaffy('supplement', 'attach', '--supplement', str(supplement), '--adopt-system-record')
         self.assertEqual(refused.returncode, 1)

@@ -35,11 +35,11 @@
       - '{{ playbook_dir }}/scripts/configure-office-apps.sh'
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
   check_mode: false
-  register: office_result
+  register: browser_office_result
   changed_when: >-
-    'configuration_changed: 1' in office_result.stdout or
-    (ansible_check_mode and 'Office defaults need attention' in office_result.stderr)
+    'configuration_changed: 1' in browser_office_result.stdout or
+    (ansible_check_mode and 'Office defaults need attention' in browser_office_result.stderr)
   failed_when: >-
-    office_result.rc != 0 and not
-    (ansible_check_mode and office_result.rc == 1 and
-    'Office defaults need attention' in office_result.stderr)
+    browser_office_result.rc != 0 and not
+    (ansible_check_mode and browser_office_result.rc == 1 and
+    'Office defaults need attention' in browser_office_result.stderr)

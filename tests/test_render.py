@@ -549,12 +549,13 @@ class SandboxIsolationTests(unittest.TestCase):
             lines = result.stdout.splitlines()
             # Only the synthetic home and the render's own temporary files are writable.
             self.assertEqual(
-                [l for l in lines if l.startswith('wrote')], ['wrote /var/tmp', 'wrote /dev/shm', 'wrote /home/tester']
+                [line for line in lines if line.startswith('wrote')],
+                ['wrote /var/tmp', 'wrote /dev/shm', 'wrote /home/tester'],
             )
             self.assertTrue((root / 'home' / marker).exists())
         for host in ('/var/tmp', '/dev/shm'):
             self.assertFalse(os.path.lexists(Path(host) / marker), f'the sandbox wrote the host {host}')
-        processes = int(next(l for l in lines if l.startswith('processes')).split()[1])
+        processes = int(next(line for line in lines if line.startswith('processes')).split()[1])
         self.assertLess(processes, 10, 'the sandbox sees host processes')  # its own pipeline only
         self.assertEqual(lines[-2:], ['4242', 'synthetic-host'])
 

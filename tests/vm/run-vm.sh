@@ -1,4 +1,6 @@
 #!/bin/bash
+# shellcheck disable=SC2054,SC2174 # QEMU separates an option's values with commas; only the
+# last directory of each mkdir -p needs 0700.
 # The host half of the VM validation (tests/vm/README.md): a CachyOS guest in QEMU
 # with KVM, UEFI firmware and a virtio-vga-gl display, so Niri gets a render device.
 # A read-only 9p share carries a Git bundle of this checkout, the guest script and
@@ -48,7 +50,7 @@ DRY_RUN=0
 HEADLESS=0
 SSH_PORT=2222
 COMMAND=
-iso_given= sha_given=
+iso_given='' sha_given=''
 
 die() {
   printf 'run-vm: %s\n' "$*" >&2
@@ -118,6 +120,7 @@ if [[ -n $iso_given || -n $sha_given ]]; then
   ISO=$iso_given
   ISO_SHA256=${sha_given,,}
 fi
+# shellcheck disable=SC2015 # both are tests: the block runs when either fails
 [[ $MEMORY =~ ^[0-9]+$ ]] && ((MEMORY >= 2048)) || {
   printf 'run-vm: --memory takes MiB, at least 2048\n' >&2
   exit 2
@@ -129,6 +132,7 @@ if [[ -z $CPUS ]]; then
   if ((CPUS > 4)); then CPUS=4; fi
   if ((CPUS > HOST_CPUS)); then CPUS=$HOST_CPUS; fi
 fi
+# shellcheck disable=SC2015 # both are tests: the block runs when either fails
 [[ $CPUS =~ ^[0-9]+$ ]] && ((CPUS >= 1 && CPUS <= HOST_CPUS)) || {
   printf 'run-vm: --cpus takes 1 to %s\n' "$HOST_CPUS" >&2
   exit 2
@@ -291,12 +295,12 @@ build_share() {
   say "the share holds commit $head (${branch:-detached}) at $SHARE"
 }
 
-problems=$(host_problems)
-if [[ -n $problems ]]; then
+found=$(host_problems)
+if [[ -n $found ]]; then
   if ((DRY_RUN)); then
-    while IFS= read -r line; do say "note: a real run would refuse: $line"; done <<<"$problems"
+    while IFS= read -r line; do say "note: a real run would refuse: $line"; done <<<"$found"
   else
-    while IFS= read -r line; do say "$line"; done <<<"$problems"
+    while IFS= read -r line; do say "$line"; done <<<"$found"
     exit 1
   fi
 fi

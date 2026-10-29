@@ -100,7 +100,7 @@ run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2
 failed=$?
 run ./bin/shaffy apply --resume >/dev/null 2>&1
 resumed=$?
-abandon=$(run ./bin/shaffy apply --abandon 2>&1)
+run ./bin/shaffy apply --abandon >/dev/null 2>&1
 abandoned=$?
 set -e
 echo "RESULT failing apply=$failed resume=$resumed abandon=$abandoned $(state)"
@@ -145,11 +145,13 @@ runuser -u tester -- git -C "$aur/shaffy-probe.git" init -q
 runuser -u tester -- git -C "$aur/shaffy-probe.git" add PKGBUILD
 runuser -u tester -- git -C "$aur/shaffy-probe.git" -c user.name=t -c user.email=t@example.invalid \
   -c commit.gpgsign=false commit -q -m probe
+# shellcheck disable=SC2174 # only the operation directory needs 0700
 mkdir -p -m 0700 /var/lib/shaffy/ops/test-aur-package
 for attempt in first second; do
   recap=$(run env ANSIBLE_ROLES_PATH=/home/tester/checkout/roles mise exec ansible-core -- ansible-playbook \
     -i localhost, tests/container/aur-package.yml 2>&1 | grep -E '^localhost +:' | tr -s ' ')
   echo "RESULT aur-$attempt $recap"
 done
+# shellcheck disable=SC2012 # a listing for the log
 echo "RESULT aur-installed $(pacman -Q shaffy-probe 2>&1) copy=$(ls /var/lib/shaffy/ops/test-aur-package/packages/ | tr '\n' ' ')\
 build=$(ls /home/tester/.cache/shaffy/build/shaffy-probe/out/ | tr '\n' ' ')"

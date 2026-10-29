@@ -22,9 +22,10 @@
     owner: root
     group: root
     mode: '0644'
-  register: keyring_override
+  register: login_keyring_override
 
+# Now rather than in a handler: an apply stopped before the handlers would leave the change unloaded.
 - name: Load the next-boot configuration without restarting the desktop
   ansible.builtin.systemd_service:
     daemon_reload: true
-  when: keyring_override.changed
+  when: login_keyring_override.changed  # noqa: no-handler

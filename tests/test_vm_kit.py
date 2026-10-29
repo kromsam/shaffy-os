@@ -193,7 +193,7 @@ class HostScriptTests(unittest.TestCase):
         if git('rev-parse', '--is-shallow-repository').stdout.strip() == 'true':
             self.skipTest('a shallow clone has no history to bundle')
         vm = self.home.parent / 'vm'
-        for attempt in ('first', 'again'):  # the second replaces the contents in place
+        for _attempt in ('first', 'again'):  # the second replaces the contents in place
             result = self.host('--dir', str(vm), 'share')
             self.assertEqual(result.returncode, 0, result.stderr)
         share = vm / 'share'

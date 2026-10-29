@@ -75,7 +75,11 @@ def state_file(name):
 def choose(title, entries):
     """Only a displayed, fixed choice can dispatch an action. Escape is a no-op."""
     result = subprocess.run(
-        ['noctalia', 'dmenu', '--prompt', title], input='\n'.join(entries) + '\n', text=True, capture_output=True
+        ['noctalia', 'dmenu', '--prompt', title],
+        input='\n'.join(entries) + '\n',
+        text=True,
+        capture_output=True,
+        check=False,
     )
     return result.stdout.rstrip('\n') if result.returncode == 0 else ''
 
@@ -225,13 +229,15 @@ def clipboard(operation):
 
 def ocr_languages():
     """Every installed Tesseract language, English first; supplements install more."""
-    listed = subprocess.run(['tesseract', '--list-langs'], capture_output=True, text=True).stdout.splitlines()
+    listed = subprocess.run(
+        ['tesseract', '--list-langs'], capture_output=True, text=True, check=False
+    ).stdout.splitlines()
     languages = {line.strip() for line in listed[1:]} - {'', 'osd', 'equ'}  # the first line is a header
     return '+'.join(sorted(languages, key=lambda name: (name != 'eng', name))) or 'eng'
 
 
 def capture_text(mode):
-    selection = subprocess.run(['slurp'], capture_output=True, text=True)
+    selection = subprocess.run(['slurp'], capture_output=True, text=True, check=False)
     if selection.returncode or not selection.stdout.strip():
         return
     with tempfile.TemporaryDirectory(prefix='shaffy-capture-') as directory:
@@ -242,7 +248,7 @@ def capture_text(mode):
             if mode == 'ocr'
             else ['zbarimg', '--quiet', '--raw', str(picture)]
         )
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         if result.returncode or not result.stdout.strip():
             notify('No text found.' if mode == 'ocr' else 'No QR/barcode found.')
             return
@@ -251,7 +257,7 @@ def capture_text(mode):
 
 
 def color():
-    result = subprocess.run(['niri', 'msg', '--json', 'pick-color'], capture_output=True, text=True)
+    result = subprocess.run(['niri', 'msg', '--json', 'pick-color'], capture_output=True, text=True, check=False)
     if result.returncode:
         return
     value = json.loads(result.stdout)
@@ -265,7 +271,10 @@ def color():
 
 def transcode():
     selected = subprocess.run(
-        ['zenity', '--file-selection', '--title=Choose an image or video to convert'], capture_output=True, text=True
+        ['zenity', '--file-selection', '--title=Choose an image or video to convert'],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if selected.returncode:
         return

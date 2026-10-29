@@ -16,36 +16,36 @@
   ansible.builtin.stat:
     path: '{{ shaffy_target_home }}/.local/share/keyrings/{{ item }}'
   loop: [default, login.keyring]
-  register: keyring_files
+  register: login_keyring_migration_files
 
 - name: Require a keyring to migrate or a finished migration
   ansible.builtin.assert:
-    that: keyring_files.results[0].stat.isreg | default(false) or keyring_files.results[1].stat.exists
+    that: login_keyring_migration_files.results[0].stat.isreg | default(false) or login_keyring_migration_files.results[1].stat.exists
     fail_msg: '{{ shaffy_target_home }}/.local/share/keyrings has no default keyring; a first login creates
       the login keyring directly, and there is nothing to migrate.'
 
 - name: Read which keyring is the default
   ansible.builtin.slurp:
     src: '{{ shaffy_target_home }}/.local/share/keyrings/default'
-  register: keyring_default_name
-  when: keyring_files.results[0].stat.isreg | default(false)
+  register: login_keyring_migration_default_name
+  when: login_keyring_migration_files.results[0].stat.isreg | default(false)
 
 # Finished means login.keyring is the default (or the only keyring), as the helper checks.
 - name: Decide whether the migration is finished
   ansible.builtin.set_fact:
-    keyring_migrated: >-
-      {{ keyring_files.results[1].stat.exists and (keyring_default_name is skipped
-         or (keyring_default_name.content | b64decode | trim) == 'login') }}
+    login_keyring_migration_done: >-
+      {{ login_keyring_migration_files.results[1].stat.exists and (login_keyring_migration_default_name is skipped
+         or (login_keyring_migration_default_name.content | b64decode | trim) == 'login') }}
 
 - name: Refuse a half-finished migration
   ansible.builtin.assert:
-    that: keyring_migrated | bool or not keyring_files.results[1].stat.exists
+    that: login_keyring_migration_done | bool or not login_keyring_migration_files.results[1].stat.exists
     fail_msg: login.keyring exists, but the default keyring is another one, so the migration is
       half-finished and the helper refuses it. Review ~/.local/share/keyrings with the keyring daemon
       stopped before running this again (docs/LOGIN-KEYRING.md).
 
 - name: Prepare the migration for the next boot
-  when: not keyring_files.results[1].stat.exists
+  when: not login_keyring_migration_files.results[1].stat.exists
   block:
     - name: Create the helper directory
       ansible.builtin.file:
@@ -93,7 +93,7 @@
           again to remove the migration unit.
 
 - name: Remove the migration once the login collection is the default
-  when: keyring_migrated | bool
+  when: login_keyring_migration_done | bool
   block:
     - name: Remove the migration unit, its ordering and its helper
       ansible.builtin.file:
@@ -103,9 +103,10 @@
         - /etc/systemd/system/sddm.service.d/21-shaffy-keyring-migration.conf
         - /etc/systemd/system/shaffy-login-keyring.service
         - /usr/local/lib/shaffy/prepare-login-keyring.py
-      register: migration_removed
+      register: login_keyring_migration_removed
 
+    # Now rather than in a handler: an apply stopped before the handlers would leave the change unloaded.
     - name: Load the configuration without the migration
       ansible.builtin.systemd_service:
         daemon_reload: true
-      when: migration_removed.changed
+      when: login_keyring_migration_removed.changed  # noqa: no-handler

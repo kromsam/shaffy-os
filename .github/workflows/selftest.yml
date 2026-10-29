@@ -29,12 +29,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # gitleaks scans every commit
+      # Each step starts in the workspace, and runuser without -l keeps that directory.
       - name: Install the declared Ansible controller and collections
         run: |
           useradd --create-home tester
           chown -R tester: "$GITHUB_WORKSPACE"
           runuser -u tester -- env HOME=/home/tester sh -eu -c '
-            cd "$GITHUB_WORKSPACE"
             mise trust mise.toml
             mise install ansible-core
             mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
@@ -42,25 +42,22 @@ jobs:
       - name: Install the development tools (mise.dev.toml)
         run: |
           runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
-            cd "$GITHUB_WORKSPACE"
             mise trust mise.dev.toml
             mise install
           '
       - name: Lint (STYLE.md)
-        run: runuser -u tester -- env HOME=/home/tester sh -c 'cd "$GITHUB_WORKSPACE" && ./bin/shaffy lint'
+        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy lint
       - name: Run the tests as an unprivileged user
         # Also after a lint failure, so one run reports both.
         if: ${{ !cancelled() }}
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
-        run: |
-          runuser -u tester -- env HOME=/home/tester sh -c \
-            'cd "$GITHUB_WORKSPACE" && mise exec ansible-core -- ./bin/shaffy selftest --skip-host -v'
+        run: runuser -u tester -- env HOME=/home/tester mise exec ansible-core -- ./bin/shaffy selftest --skip-host -v
       - name: Scan the history for secrets
-        run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && gitleaks git --redact --no-banner .'
+        run: runuser -u tester -- gitleaks git --redact --no-banner .
       - name: Check copyright and licence information
-        run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && reuse lint'
+        run: runuser -u tester -- reuse lint
 
   system:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository

@@ -184,7 +184,7 @@ class Backup:
             not self.settings.get('repository_id'),
             'The settings already name a repository; init creates a new one only before that',
         )
-        exists = subprocess.run([*self.command, 'cat', 'config'], env=self.env, capture_output=True)
+        exists = subprocess.run([*self.command, 'cat', 'config'], env=self.env, capture_output=True, check=False)
         require(exists.returncode != 0, 'A repository already exists there; use restic-home inspect to adopt it')
         self.run('init', stdout=subprocess.DEVNULL)
         print(
@@ -314,7 +314,9 @@ class Backup:
         if dry_run:
             args.append('--dry-run')
         with stdout.open('w') as out, stderr.open('w') as err:
-            result = subprocess.run([*self.command, *args, str(self.home)], env=self.env, stdout=out, stderr=err)
+            result = subprocess.run(
+                [*self.command, *args, str(self.home)], env=self.env, stdout=out, stderr=err, check=False
+            )
         require(
             result.returncode == 0,
             f'Backup did not complete cleanly (exit {result.returncode}); inspect private {stderr}',
@@ -437,4 +439,4 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError, KeyError) as error:
-        raise SystemExit(f'STOP: {error}')
+        raise SystemExit(f'STOP: {error}') from None

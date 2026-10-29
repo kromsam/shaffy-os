@@ -65,7 +65,7 @@ def exclusive_database(database):
 
 @contextmanager
 def paused_service():
-    result = subprocess.run(['systemctl', '--user', 'is-active', SERVICE], capture_output=True, text=True)
+    result = subprocess.run(['systemctl', '--user', 'is-active', SERVICE], capture_output=True, text=True, check=False)
     if result.returncode not in (0, 3, 4):
         raise ValueError('Cannot determine the GBrain service state')
     active = result.returncode == 0

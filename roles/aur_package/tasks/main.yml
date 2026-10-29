@@ -11,14 +11,14 @@
   failed_when: aur_package_installed.rc not in [0, 1]
   check_mode: false
 
-- name: Build and install {{ aur_package.name }} from the AUR when it is missing
+- name: Build and install a missing AUR package, {{ aur_package.name }}
   when: aur_package_installed.rc == 1
   vars:
     # Where the build must have put it: runuser sets HOME from the target user's account.
     aur_package_out: "{{ shaffy_target_home }}/.cache/shaffy/build/{{ aur_package.name }}/out"
     aur_package_script: "{{ shaffy_system.checkout }}/scripts/build-aur-package.sh"
   block:
-    - name: Fetch the AUR recipe of {{ aur_package.name }} as the target user
+    - name: Fetch the AUR recipe as the target user, of {{ aur_package.name }}
       ansible.builtin.command:
         argv: ['runuser', '--user', '{{ shaffy_target_user }}', '--', '/usr/bin/bash',
                '{{ aur_package_script }}', 'fetch', '{{ aur_package.name }}']
@@ -36,7 +36,7 @@
         extra_args: --asdeps
       when: aur_package_recipe.depends | length > 0
 
-    - name: Build {{ aur_package.name }} as the target user
+    - name: Build the package as the target user, {{ aur_package.name }}
       ansible.builtin.command:
         argv: ['runuser', '--user', '{{ shaffy_target_user }}', '--', '/usr/bin/bash',
                '{{ aur_package_script }}', 'build', '{{ aur_package.name }}', '{{ aur_package_recipe.commit }}']
@@ -78,7 +78,7 @@
         group: root
         mode: '0700'
 
-    - name: Copy {{ aur_package.name }} into the operation directory
+    - name: Copy the package into the operation directory, {{ aur_package.name }}
       ansible.builtin.copy:
         src: '{{ aur_package_built.path }}'
         dest: '{{ shaffy_op_dir }}/packages/{{ aur_package_built.path | basename }}'

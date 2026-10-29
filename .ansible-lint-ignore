@@ -1,0 +1,6 @@
+# The operation and settings roles define the play's own namespace, `shaffy` and
+# `shaffy_*`, which every role reads; a role prefix there would hide that they are shared.
+roles/operation/defaults/main.yml var-naming[no-role-prefix]
+roles/operation/tasks/begin.yml var-naming[no-role-prefix]
+roles/operation/tasks/records.yml var-naming[no-role-prefix]
+roles/settings/tasks/main.yml var-naming[no-role-prefix]

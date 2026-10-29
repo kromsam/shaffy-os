@@ -17,7 +17,10 @@ PAYLOAD = b'appimage'
 DIGEST = base64.b64encode(hashlib.sha512(PAYLOAD).digest()).decode()
 
 
-def manifest(url='https://beeper-desktop.download.beeper.com/builds/Beeper-9.9.9-x86_64.AppImage', size=len(PAYLOAD)):
+SIZE = len(PAYLOAD)
+
+
+def manifest(url='https://beeper-desktop.download.beeper.com/builds/Beeper-9.9.9-x86_64.AppImage', size=SIZE):
     return f'version: 9.9.9\nfiles:\n  - url: {url}\n    sha512: {DIGEST}\n    size: {size}\n'
 
 

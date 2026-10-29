@@ -121,6 +121,7 @@ AFTERBREAKMARKER
                     capture_output=True,
                     text=True,
                     timeout=240,
+                    check=False,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr[-6000:])
                 if kind == 'docx':

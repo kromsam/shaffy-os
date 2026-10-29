@@ -15,7 +15,10 @@ PAYLOAD = b'appimage'
 DIGEST = base64.b64encode(hashlib.sha512(PAYLOAD).digest()).decode()
 
 
-def manifest(url='/electron/artifacts/9.9.9/linux/x64/SilverBullet-9.9.9-linux-x86_64.AppImage', size=len(PAYLOAD)):
+SIZE = len(PAYLOAD)
+
+
+def manifest(url='/electron/artifacts/9.9.9/linux/x64/SilverBullet-9.9.9-linux-x86_64.AppImage', size=SIZE):
     return f'version: 9.9.9\nfiles:\n  - url: {url}\n    sha512: {DIGEST}\n    size: {size}\n'
 
 

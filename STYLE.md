@@ -18,8 +18,9 @@ checkout with `mise trust mise.dev.toml` and `MISE_ENV=dev mise install`.
 Templates (`*.tmpl`) are not formatted; the sandboxed render checks what they
 produce. Files copied from other projects, which `REUSE.toml` attributes to
 them, keep their upstream's form. A finding that stays gets an inline directive
-with its reason (`# noqa: B008 — …`, `# shellcheck disable=SC2086 # …`), never a
-rule switched off for the whole repository.
+with its reason (`# noqa: B008 — …`, `# shellcheck disable=SC2086 # …`), or, for
+a whole Ansible file, a line in `.ansible-lint-ignore` under a comment that says
+why; never a rule switched off for the whole repository.
 
 Beyond the tools:
 

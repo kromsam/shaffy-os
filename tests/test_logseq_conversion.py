@@ -85,7 +85,7 @@ class LogseqConversionTests(unittest.TestCase):
             (graph / name).write_text(textwrap.dedent(text))
         before = {p: p.read_bytes() for p in graph.rglob('*') if p.is_file()}
         result = subprocess.run(
-            [sys.executable, '-I', str(SCRIPT), str(graph), str(space)], capture_output=True, text=True
+            [sys.executable, '-I', str(SCRIPT), str(graph), str(space)], capture_output=True, text=True, check=False
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual({p: p.read_bytes() for p in graph.rglob('*') if p.is_file()}, before, 'the graph is only read')
@@ -200,7 +200,7 @@ class LogseqConversionTests(unittest.TestCase):
             graph = Path(directory) / 'graph'
             (graph / 'pages').mkdir(parents=True)
             result = subprocess.run(
-                [sys.executable, '-I', str(SCRIPT), str(graph), directory], capture_output=True, text=True
+                [sys.executable, '-I', str(SCRIPT), str(graph), directory], capture_output=True, text=True, check=False
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('exists', result.stderr)
