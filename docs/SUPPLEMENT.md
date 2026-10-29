@@ -31,7 +31,9 @@ and `assets`; only the denylist test also reads `denylist.txt`.
 supplement works. A reference is relative to the supplement's root and must
 resolve inside it after links are followed, so a link that leads out of the
 supplement is refused. Nothing else in the directory, `tools/`, `tests/` and
-`docs/` included, is read, captured or copied by an apply.
+`docs/` included, is read, captured or copied by an apply. A supplement's
+`tools/` may change the machine where no setting reaches, such as its boot
+configuration; they run only by hand, and an apply never starts them.
 
 Keep the supplement beside the checkout, for example `~/Projects/shaffy-os` and
 `~/Projects/my-supplement`, and start from the synthetic example:

@@ -151,8 +151,9 @@ Anything that writes outside this working tree changes the machine:
 `./bin/shaffy supplement attach` and `rebind`,
 `./bin/shaffy integration NAME adopt` and `release`, the helpers in
 `scripts/` that install, build or configure something or run with `--apply` or
-`--resume`, `restic-home init`, `backup` and `maintenance` (which prunes the
-repository), `sudo`, package installs and `mise install`.
+`--resume`, a supplement's own `tools/` run with `--apply` or as root,
+`restic-home init`, `backup` and `maintenance` (which prunes the repository),
+`sudo`, package installs and `mise install`.
 Propose those and let the owner of the machine run or approve them; do not
 reach into `$HOME` to make a change land faster. A system apply asks for the
 sudo password in a terminal and refuses without one, so an agent never starts
