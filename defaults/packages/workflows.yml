@@ -5,15 +5,6 @@ packages:
   - docker-buildx
   - mise
   - base-devel
-  - libyaml
-  - libffi
-  - openssl
-  - readline
-  - gmp
-  - rustup
-  - postgresql-libs
-  - mariadb-libs
-  - libvips
   - reaper
   # Wine and the dependencies of the reviewed yabridge source, for Windows audio plugins in REAPER.
   - wine-staging
