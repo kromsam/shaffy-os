@@ -41,11 +41,6 @@ cp -r ~/Projects/shaffy-os/supplement.example ~/Projects/my-supplement
 git -C ~/Projects/my-supplement init
 ```
 
-A clone at `supplement/` inside the checkout also works, and Git ignores that
-path, but `git worktree remove` deletes an ignored nested repository together
-with its uncommitted files (see
-[the architecture](ARCHITECTURE.md#public-repository-and-private-supplement)).
-
 ### Credentials and the denylist
 
 The supplement holds identifiers and trust material, such as host names, a
@@ -94,8 +89,8 @@ supplement_id: my-desktop
 - The comment lets an editor with the YAML language server check and complete
   the file against `schema/supplement.schema.json`, the schema the loader
   validates with. The path is relative to `config.yaml`:
-  `../shaffy-os/schema/…` beside a checkout named `shaffy-os`, `../schema/…`
-  for `supplement/` inside the checkout. Shaffy OS itself ignores the comment.
+  `../shaffy-os/schema/…` beside a checkout named `shaffy-os`. Shaffy OS itself
+  ignores the comment.
 - `schema_version` is `1`. A version this Shaffy OS does not know is refused.
 - `supplement_id` names these settings wherever they live: lowercase letters,
   digits and hyphens, starting with a letter or digit, at most 63 characters.

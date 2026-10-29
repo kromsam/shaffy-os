@@ -206,7 +206,7 @@ def _effective_problems(settings):
 def load(checkout, supplement=None, without=False, home=None):
     """Resolve, parse, validate and merge. Raises SelectionError or SettingsError."""
     checkout = Path(checkout)
-    selection = resolve(checkout, supplement, without, home)
+    selection = resolve(supplement, without, home)
     schema = json.loads((checkout / 'schema/supplement.schema.json').read_text())
     defaults_path = checkout / 'defaults/config.yaml'
     defaults = parse(defaults_path)

@@ -22,11 +22,7 @@ repository with its own history. The loader reads only `config.yaml` and the
 files it references, so the supplement may also hold notes or tools of its own.
 It is selected by path and remembered by a binding, not included as a
 submodule. Keep it beside the checkout, for example `~/Projects/shaffy-os` and
-`~/Projects/my-supplement`. A clone or link at `supplement/` inside the
-checkout also works, and Git ignores that path, but `git worktree remove`
-deletes an ignored nested repository together with its uncommitted files, and a
-link puts private files within reach of every tool that works in the public
-checkout.
+`~/Projects/my-supplement`.
 
 A supplement holds identifiers and trust material, never credential values, and
 must stay private. Its native fragments are trusted configuration and may run
@@ -149,10 +145,9 @@ defaults or searches elsewhere:
 1. An explicit `--supplement PATH` or `--without-supplement`; the two exclude
    each other.
 2. The binding recorded in `~/.local/state/shaffy/binding.json`.
-3. Only for an unbound installation: the checkout's `supplement/` when that path
-   exists, even as a dangling link; otherwise the public defaults.
+3. Otherwise the public defaults.
 
-A selected, bound or discovered supplement that is missing, is not a directory,
+A selected or bound supplement that is missing, is not a directory,
 has no readable `config.yaml` or fails validation is an error. A bound
 supplement that has moved names `./bin/shaffy supplement rebind --path`. No
 environment variable selects a supplement.

@@ -164,7 +164,7 @@ def render(
     `user_dirs` can seed synthetic installer-owned XDG entries for validation.
     """
     checkout = Path(checkout).resolve()
-    selection = resolve(checkout, supplement, without, home)
+    selection = resolve(supplement, without, home)
     direct = _direct(allow_direct)
     if not direct and shutil.which('bwrap') is None:
         raise RenderError('bubblewrap (bwrap) is needed to render in a sandbox')

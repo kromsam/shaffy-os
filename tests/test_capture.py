@@ -132,21 +132,21 @@ class MarkerTests(_Case):
         manifest = capture(ROOT, self.selection, state, 'op-5', load)
         with self.marker('apply', 'op-5', manifest['directory'], 'apply'):
             with self.assertRaisesRegex(SelectionError, 'not the unfinished operation'):
-                resolve(ROOT, home=home)
+                resolve(home=home)
             (state / 'binding.json').write_text(
                 json.dumps({'record_version': 1, 'pending': {'op': 'op-5', 'capture': manifest['directory']}})
             )
-            selection = resolve(ROOT, home=home)
+            selection = resolve(home=home)
         self.assertEqual(selection['source'], 'capture')
         self.assertEqual(selection['path'], str(Path(manifest['directory']) / 'supplement'))
 
     def test_preview_marker_is_read_only(self):
         manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-6', load)
         with self.marker('preview', 'op-6', manifest['directory'], 'diff'):
-            self.assertEqual(resolve(ROOT, home=self.tmp)['source'], 'capture')
+            self.assertEqual(resolve(home=self.tmp)['source'], 'capture')
         with self.marker('preview', 'op-6', manifest['directory'], 'apply'):
             with self.assertRaisesRegex(SelectionError, 'never applied'):
-                resolve(ROOT, home=self.tmp)
+                resolve(home=self.tmp)
 
 
 @unittest.skipUnless(shutil.which('chezmoi'), 'needs chezmoi')

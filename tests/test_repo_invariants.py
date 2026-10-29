@@ -1,7 +1,7 @@
-"""Invariants of the repository itself: the Git boundary of the private supplement,
-licences and attribution, no personal literals in the public tree, no unreferenced
-script or document, Markdown links that resolve and role files that name their role.
-`./bin/shaffy lint` holds scripts to the system interpreter."""
+"""Invariants of the repository itself: licences and attribution, no personal
+literals in the public tree, no unreferenced script or document, Markdown links that
+resolve and role files that name their role. `./bin/shaffy lint` holds scripts to the
+system interpreter."""
 
 from pathlib import Path
 import re
@@ -20,29 +20,6 @@ ALLOW = 'tests/public-literals.allow'
 
 def git(*args):
     return subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True, check=False)
-
-
-@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
-class SupplementBoundaryTests(unittest.TestCase):
-    def test_gitignore_ignores_the_supplement_directory_and_symlink(self):
-        # No trailing slash: a trailing slash would miss a symlink named supplement.
-        lines = (ROOT / '.gitignore').read_text().splitlines()
-        self.assertIn('/supplement', lines)
-        self.assertNotIn('/supplement/', lines)
-
-    def test_no_tracked_supplement_path(self):
-        tracked = git('ls-files', '-z').stdout.split('\0')
-        self.assertEqual([p for p in tracked if p == 'supplement' or p.startswith('supplement/')], [])
-
-    def test_no_gitlink_anywhere_and_no_symlink_at_supplement(self):
-        entries = [line.split(None, 3) for line in git('ls-files', '-s').stdout.splitlines()]
-        self.assertEqual([e[3] for e in entries if e[0] == '160000'], [], 'gitlinks are not allowed')
-        self.assertEqual([e[3] for e in entries if e[0] == '120000' and e[3] == 'supplement'], [])
-
-    def test_only_the_supplement_is_ignored_not_the_example(self):
-        self.assertEqual(git('check-ignore', '-q', 'supplement/config.yaml').returncode, 0)
-        self.assertEqual(git('check-ignore', '-q', 'supplement').returncode, 0)
-        self.assertEqual(git('check-ignore', '-q', 'supplement.example/config.yaml').returncode, 1)
 
 
 def tracked():

@@ -50,7 +50,7 @@ class ExportDenylistTests(unittest.TestCase):
             self.skipTest('needs the bound supplement of this machine')
         from shaffy.selection import resolve
 
-        selection = resolve(ROOT)  # a broken binding fails here instead of skipping
+        selection = resolve()  # a broken binding fails here instead of skipping
         if selection['mode'] != 'supplement':
             self.skipTest('no supplement is bound')
         self.supplement = Path(selection['path'])

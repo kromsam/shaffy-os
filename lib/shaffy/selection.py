@@ -1,4 +1,4 @@
-"""Which settings apply: explicit choice, recorded binding, discovery or defaults.
+"""Which settings apply: explicit choice, recorded binding or defaults.
 
 Checked in that order (docs/ARCHITECTURE.md, "Selection and binding"). Standard
 library only, because the cached settings path imports it on every chezmoi
@@ -46,9 +46,8 @@ def _from_marker(mode, home):
     return {'mode': 'supplement', 'path': str(capture / 'supplement'), 'source': 'capture'}
 
 
-def resolve(checkout, supplement=None, without=False, home=None):
+def resolve(supplement=None, without=False, home=None):
     """Return {'mode': 'supplement'|'none', 'path', 'source'} or raise SelectionError."""
-    checkout = Path(checkout)
     mode = os.environ.get('SHAFFY_OP_MODE')
     if mode in ('apply', 'preview') and not supplement and not without:
         return _from_marker(mode, home)
@@ -66,9 +65,6 @@ def resolve(checkout, supplement=None, without=False, home=None):
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise SelectionError(f'the recorded binding {binding} is unreadable: {error}') from error
         return bound_supplement(record)
-    nested = checkout / 'supplement'
-    if os.path.lexists(nested):
-        return _supplement(nested, 'discovered')
     return {'mode': 'none', 'path': None, 'source': 'default'}
 
 
@@ -86,7 +82,7 @@ def bound_supplement(binding):
 
 
 def _supplement(path, source):
-    label = {'explicit': 'the selected', 'binding': 'the bound', 'discovered': 'the discovered'}[source]
+    label = {'explicit': 'the selected', 'binding': 'the bound'}[source]
     if not path.exists():
         dangling = ' (a dangling symlink)' if os.path.islink(path) else ''
         raise SelectionError(f'{label} supplement {path} does not exist{dangling}')

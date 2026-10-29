@@ -729,7 +729,7 @@ def diff(args):
     env = dict(os.environ)
     if args.supplement or args.without_supplement:
         try:
-            selection = resolve(ROOT, args.supplement, args.without_supplement)
+            selection = resolve(args.supplement, args.without_supplement)
             op = operation_id()
             Records().append(op, 'preview', selection=selection)
             manifest = capture(ROOT, selection, state_dir(), op, load)

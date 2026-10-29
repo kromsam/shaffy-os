@@ -3,7 +3,6 @@
 import json
 import os
 from pathlib import Path
-import shutil
 import statistics
 import subprocess
 import sys
@@ -307,18 +306,6 @@ class SelectionTests(LoaderCase):
     def test_missing_explicit_supplement_never_falls_back(self):
         with self.assertRaisesRegex(SelectionError, 'does not exist'):
             self.load(supplement=self.tmp / 'absent')
-
-    def test_discovered_supplement_must_be_valid(self):
-        checkout = self.tmp / 'checkout'
-        shutil.copytree(ROOT / 'defaults', checkout / 'defaults')
-        shutil.copytree(ROOT / 'schema', checkout / 'schema')
-        (checkout / 'supplement').symlink_to(self.tmp / 'gone')
-        with self.assertRaisesRegex(SelectionError, 'dangling symlink'):
-            load(checkout, home=self.home)
-        (checkout / 'supplement').unlink()
-        (checkout / 'supplement').mkdir()
-        with self.assertRaisesRegex(SelectionError, 'no config.yaml'):
-            load(checkout, home=self.home)
 
     def test_missing_bound_supplement_fails(self):
         state = self.home / '.local/state/shaffy'

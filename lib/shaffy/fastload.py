@@ -75,7 +75,7 @@ def _store(directory, entry, payload):
 def load_data(checkout, supplement=None, without=False, home=None, directory=None):
     """Return the normalized settings, validating fully only when inputs changed."""
     checkout = Path(checkout).resolve()
-    selection = resolve(checkout, supplement, without, home)
+    selection = resolve(supplement, without, home)
     directory = Path(directory) if directory else cache_dir()
     key = _digest(checkout, selection)
     entry = directory / f'{key}.json'

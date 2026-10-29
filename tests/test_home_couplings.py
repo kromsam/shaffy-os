@@ -86,12 +86,15 @@ class ApplyingCheckoutTests(unittest.TestCase):
                 '      command: "/only/in/this/checkout"\n      args: []\n'
             )
             if supplement:
-                (source / 'supplement').mkdir()
-                (source / 'supplement/config.yaml').write_text('schema_version: 1\nsupplement_id: test\n' + supplement)
+                (root / 'supplement').mkdir()
+                (root / 'supplement/config.yaml').write_text('schema_version: 1\nsupplement_id: test\n' + supplement)
+                binding = {'binding': {'mode': 'supplement', 'path': str(root / 'supplement')}}
+                (dest / '.local/state/shaffy').mkdir(parents=True)
+                (dest / '.local/state/shaffy/binding.json').write_text(json.dumps(binding))
             shim = source / 'home' / source_name
             shim.parent.mkdir(parents=True)
             shutil.copy(HOME / source_name, shim)
-            (dest / target).parent.mkdir(parents=True)
+            (dest / target).parent.mkdir(parents=True, exist_ok=True)
             (dest / target).write_text(existing)
             config = root / 'chezmoi.toml'
             config.write_text(f'persistentState = "{root / "state.boltdb"}"\n')

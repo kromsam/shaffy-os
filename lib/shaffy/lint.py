@@ -326,7 +326,7 @@ def supplement_root(path=None):
     """The named supplement, or the bound one; None when the installation has none."""
     from .selection import resolve
 
-    selection = resolve(ROOT, supplement=path or None)
+    selection = resolve(supplement=path or None)
     return Path(selection['path']) if selection['mode'] == 'supplement' else None
 
 
