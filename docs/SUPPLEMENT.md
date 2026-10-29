@@ -174,7 +174,7 @@ in [home folders](HOME-FOLDERS.md).
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
-| `ai.compound_engineering.enabled` | Global CE activation for Claude Code and Codex (default true). False keeps the plugin installed and requires native project opt-in; new repos start off. | Public default applies. | home |
+| `ai.pstack.enabled` | Global pstack activation for Claude Code and Codex (default true). False keeps the plugin installed and requires native project opt-in; new repos start off. | Public default applies. | home |
 | `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}` or, for a streamable HTTP server that runs on its own, `{enabled, url}`, merged into `~/.claude.json`, Claude Desktop's `~/.config/Claude/claude_desktop_config.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from every client. Claude Desktop's file takes no `url` servers. A leading `~/` in `command` means the home. A name the defaults already have (`beeper`, `zotero`) is changed key by key; a new enabled name needs a `command` or a `url`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `beeper` and `zotero` servers. | home |
 
 ### tailnet

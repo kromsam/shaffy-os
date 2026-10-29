@@ -205,8 +205,6 @@ class WorkspaceToolsTests(unittest.TestCase):
                 if 'mise exec ' in line:
                     tools = (' ' + line.partition('mise exec ')[2]).partition(' -- ')[0]
                     self.assertNotIn('@', tools, f'{path.name}: {line}')
-        browser = (HOME / 'private_dot_local/bin/executable_agent-browser').read_text()
-        self.assertIn('exec /usr/bin/mise exec npm:agent-browser -- agent-browser ', browser)
 
     def test_tmux_configuration_matches_omarchy_prefix_and_bar(self):
         conf = (HOME / 'dot_config/tmux/tmux.conf').read_text()

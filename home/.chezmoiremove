@@ -11,6 +11,9 @@
 # Retired with the official qpdf zip: qpdf is the writing group's package now.
 # Remove after 2027-01-28.
 .local/bin/qpdf
+# Retired with agent-browser, Compound Engineering's browser fallback, when pstack
+# replaced CE. Remove after 2027-01-29, with its block in scripts/install-workspace-tools.sh.
+.local/bin/agent-browser
 # Retired memory integration. Private data and recovery copies remain untouched.
 # Remove after 2027-01-16.
 .local/bin/gbrain

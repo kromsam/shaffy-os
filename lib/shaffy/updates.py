@@ -105,7 +105,7 @@ def lazyvim(home):
 
 def self_updating(home):
     present = [name for name, path in SELF_UPDATING if (home / path).exists()]
-    return Section('Updates itself', ', '.join(present + ['Compound Engineering']))
+    return Section('Updates itself', ', '.join(present + ['pstack']))
 
 
 def shaffy_release(root):
@@ -225,7 +225,7 @@ def steps(root, home):
             cwd=root,
         ),
         Step(
-            'mise tools (Quarto and Zotero MCP among them) and Compound Engineering',
+            'mise tools (Quarto and Zotero MCP among them) and pstack',
             ['bash', str(root / 'scripts/install-workspace-tools.sh')],
         ),
         Step(

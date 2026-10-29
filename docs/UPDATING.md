@@ -39,7 +39,7 @@ one and run it again. A step with nothing to do is skipped.
 3. **Ansible controller**: `mise upgrade ansible-core` in the checkout.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.
-5. **mise tools and Compound Engineering**: `scripts/install-workspace-tools.sh`,
+5. **mise tools and pstack**: `scripts/install-workspace-tools.sh`,
    for every tool of the mise configuration, Quarto and Zotero MCP among them.
    mise's `latest` is the newest release that is at least three days old
    ([workspace tools](WORKSPACE-TOOLS.md)).
@@ -59,7 +59,7 @@ use.
 
 - **Applications that update themselves**: SilverBullet Desktop and Beeper
   Desktop download new AppImages themselves, Spotify's launcher updates the
-  client, and Claude Code and Codex refresh Compound Engineering through their
+  client, and Claude Code and Codex refresh pstack through their
   plugin managers. `outdated` lists which of them are installed.
 - **yabridge**: a reviewed source, rebuilt by hand ([maintenance](MAINTENANCE.md)).
   `outdated` reports a build whose revision differs from the pin.

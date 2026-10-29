@@ -40,15 +40,15 @@
             "$ref": "#/$defs/mcp_server"
           }
         },
-        "compound_engineering": {
-          "description": "Compound Engineering's native plugin in Claude Code and Codex, following upstream main.",
+        "pstack": {
+          "description": "pstack's native plugin in Claude Code and Codex, from the michael-denyer/pstack-claude port, following its main branch.",
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Global plugin activation in both agent hosts. False keeps CE installed but off unless a project explicitly enables it; other plugins are preserved."
+              "description": "Global plugin activation in both agent hosts. False keeps pstack installed but off unless a project explicitly enables it; other plugins are preserved."
             }
           }
         }

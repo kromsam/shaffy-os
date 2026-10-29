@@ -2,7 +2,7 @@
 # Shaffy OS public defaults. A supplement overrides these; see supplement.example/.
 schema_version: 1
 ai:
-  compound_engineering:
+  pstack:
     enabled: true
   mcp_servers:
     # Retirement marker: absence alone would retain an existing client entry.

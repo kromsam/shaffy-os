@@ -26,7 +26,16 @@ PY
 if command -v uv >/dev/null && uv tool list 2>/dev/null | grep -q '^zotero-mcp-server '; then
   uv tool uninstall zotero-mcp-server
 fi
+# agent-browser was Compound Engineering's browser fallback until 2026-10, and pstack does
+# not use it: remove it and the browsers it downloaded, unless the supplement's mise
+# fragment still asks for it. Remove after 2027-01-29, with its .chezmoiremove entry and
+# the agent-browser paragraph in docs/WORKSPACE-TOOLS.md.
+agent_browser() { (cd "$HOME" && mise ls "$1" npm:agent-browser 2>/dev/null) | grep -q .; }
+if agent_browser --installed && ! agent_browser --current; then
+  rm -rf "$HOME/.agent-browser/browsers"
+  rmdir "$HOME/.agent-browser" 2>/dev/null || true
+  (cd "$HOME" && mise uninstall --all npm:agent-browser)
+fi
 (cd "$HOME" && mise install -y "${tools[@]}")
 
-mise exec -- agent-browser install
-/usr/bin/python3 "$repo/scripts/install-compound-engineering.py"
+/usr/bin/python3 "$repo/scripts/install-pstack.py"

@@ -1,2 +1,0 @@
-#!/bin/sh
-exec /usr/bin/mise exec npm:agent-browser -- agent-browser "$@"

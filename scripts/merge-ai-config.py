@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Merge owned MCP, CE and hook entries, preserving unrelated agent configuration."""
+"""Merge owned MCP, pstack and hook entries, preserving unrelated agent configuration."""
 
 import copy
 import json
@@ -11,7 +11,12 @@ import tomllib
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'lib'))
-CE_REPOSITORY = 'EveryInc/compound-engineering-plugin'
+PSTACK_REPOSITORY = 'michael-denyer/pstack-claude'
+PSTACK_MARKETPLACE = 'pstack-claude'
+PSTACK_PLUGIN = f'pstack@{PSTACK_MARKETPLACE}'
+# Compound Engineering, which pstack replaced: its entries are dropped, and
+# scripts/install-pstack.py uninstalls it. Remove after 2027-01-29, with the CE parts
+# of both scripts and of tests/test_pstack.py.
 CE_MARKETPLACE = 'compound-engineering-plugin'
 CE_PLUGIN = f'compound-engineering@{CE_MARKETPLACE}'
 # What marks the hooks this script owns, whichever checkout they name.
@@ -73,15 +78,15 @@ def toml_table(header, values):
     return text
 
 
-def merge_codex(text, servers, compound_engineering=None):
+def merge_codex(text, servers, pstack=None):
     text = merge_tables(text, 'mcp_servers', servers)
-    if compound_engineering is None:
+    if pstack is None:
         return text
     existing = tomllib.loads(text)
-    plugin = {**existing.get('plugins', {}).get(CE_PLUGIN, {}), 'enabled': compound_engineering}
-    text = merge_tables(text, 'plugins', {CE_PLUGIN: plugin})
-    marketplace = {'source_type': 'git', 'source': f'https://github.com/{CE_REPOSITORY}.git', 'ref': 'main'}
-    return merge_tables(text, 'marketplaces', {CE_MARKETPLACE: marketplace})
+    plugin = {**existing.get('plugins', {}).get(PSTACK_PLUGIN, {}), 'enabled': pstack}
+    text = merge_tables(text, 'plugins', {PSTACK_PLUGIN: plugin, CE_PLUGIN: None})
+    marketplace = {'source_type': 'git', 'source': f'https://github.com/{PSTACK_REPOSITORY}.git', 'ref': 'main'}
+    return merge_tables(text, 'marketplaces', {PSTACK_MARKETPLACE: marketplace, CE_MARKETPLACE: None})
 
 
 def merge_claude(text, servers, typed=True):
@@ -148,13 +153,15 @@ def merge_codex_hooks(text, hooks):
     return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
 
 
-def merge_claude_settings(text, compound_engineering, hooks=None):
+def merge_claude_settings(text, pstack, hooks=None):
     result = json.loads(text) if text.strip() else {}
     original = copy.deepcopy(result)
-    result.setdefault('enabledPlugins', {})[CE_PLUGIN] = compound_engineering
-    result.setdefault('extraKnownMarketplaces', {})[CE_MARKETPLACE] = {
-        'source': {'source': 'github', 'repo': CE_REPOSITORY}
+    result.setdefault('enabledPlugins', {})[PSTACK_PLUGIN] = pstack
+    result['enabledPlugins'].pop(CE_PLUGIN, None)
+    result.setdefault('extraKnownMarketplaces', {})[PSTACK_MARKETPLACE] = {
+        'source': {'source': 'github', 'repo': PSTACK_REPOSITORY}
     }
+    result['extraKnownMarketplaces'].pop(CE_MARKETPLACE, None)
     merge_hooks(result, hooks or {})
     if result == original and text.strip():
         return text
@@ -185,7 +192,7 @@ if __name__ == '__main__':
         from shaffy.fastload import load_data
 
         data = load_data(REPO)['shaffy']
-        enabled = data['settings']['ai'].get('compound_engineering', {}).get('enabled')
+        enabled = data['settings']['ai'].get('pstack', {}).get('enabled')
         servers = mcp_servers()
         # The supplement's hooks exist only while a supplement is bound.
         bound = data['selection']['mode'] == 'supplement'

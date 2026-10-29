@@ -17,8 +17,7 @@ before mise activates in a shell.
 | workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
 | Bun | mise `bun = "latest"`, for JavaScript tooling |
 | Ruby | mise `ruby = "latest"`, for LazyVim's Ruby language tools and formatters |
-| Compound Engineering | Native Claude Code and Codex plugin from `EveryInc/compound-engineering-plugin`, tracking `main` |
-| agent-browser | mise `"npm:agent-browser" = "latest"`, CE browser fallback |
+| pstack | Native Claude Code and Codex plugin from `michael-denyer/pstack-claude`, tracking `main` |
 | Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |
 | Quarto | mise `"aqua:quarto-dev/quarto-cli" = "latest"` |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
@@ -32,7 +31,7 @@ supplement's mise fragment (`overrides.mise`), which renders as
 ```sh
 ./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, gh, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
-bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, Compound Engineering and its browser fallback
+bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP and pstack
 ./bin/shaffy status
 ```
 
@@ -53,11 +52,14 @@ time. The public file wins over the supplement's mise fragment; to take a fix
 that is younger once, run the script as
 `MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
 
-Compound Engineering refreshes from upstream `main` through both hosts' native
+pstack refreshes from upstream `main` through both hosts' native
 plugin managers; home apply never downloads it. Use this install path instead of
 the tools' own update commands, so mise keeps ownership of its binaries and the
 other tools retain their declared versions. Zotero MCP was a `uv tool` until
 2026-10; the script removes that copy before mise installs the server.
+<!-- Remove after 2027-01-29, with the agent-browser retirement in the script. -->
+agent-browser was Compound Engineering's browser fallback until 2026-10; the
+script uninstalls it and deletes the browsers it downloaded to `~/.agent-browser`.
 
 The Proton Pass CLI comes from mise's aqua backend, which checks each release
 against the checksum Proton publishes beside it.
@@ -241,34 +243,50 @@ sources the rendered `tmux.conf` on a private tmux server
 workmux's configuration. The home apply keeps a copy of every file it changes
 under `~/.local/state/shaffy/runs/`.
 
-## Compound Engineering
+## pstack
 
-[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin)
-is the default workflow plugin for Claude Code and Codex. Public settings declare
-`ai.compound_engineering.enabled: true`; a supplement may set it to false.
-This is global activation, not repository creation: no CE files are added to new
-repositories. With false, new repositories start with CE off unless native
-project settings explicitly enable it. Linked worktrees follow the host-specific
-settings rules described below.
+[pstack](https://github.com/cursor/plugins/tree/main/pstack), Lauren Tan's skill
+stack, is the default workflow plugin for Claude Code and Codex, through Michael
+Denyer's [port](https://github.com/michael-denyer/pstack-claude) for both hosts.
+Public settings declare `ai.pstack.enabled: true`; a supplement may set it to
+false. This is global activation: no pstack files are added to repositories.
+With false, repositories start with pstack off unless native project settings
+explicitly enable it. Linked worktrees follow the host-specific settings rules
+described below.
 The home apply merges the plugin and marketplace entries into Claude's
 `~/.claude/settings.json` and Codex's `~/.codex/config.toml`, preserving other
 plugins, hooks, permissions and MCP servers. Their native registries and caches
 remain application data.
 
 After home apply, the workspace installer materializes or refreshes the declared
-plugin in both hosts. `scripts/install-compound-engineering.py` can refresh only
-CE; it refuses until the declared settings have been applied. The install record
-at `~/.local/state/shaffy/compound-engineering/installed.json` captures the hosts'
-reported versions for diagnosis. Upstream `main` advances on explicit refresh;
-there is no private fork or exported duplicate skill tree. Restart sessions to
-load the updated plugin.
+plugin in both hosts. `scripts/install-pstack.py` can refresh only pstack; it
+refuses until the declared settings have been applied. The install record at
+`~/.local/state/shaffy/pstack/installed.json` captures the hosts' reported
+versions for diagnosis. Upstream `main` advances on explicit refresh; there is
+no private fork or exported duplicate skill tree. Restart sessions to load the
+updated plugin.
 
-For opt-in, set `ai.compound_engineering.enabled: false` in the private supplement.
-CE remains installed. Native installers enable it globally, so the refresh helper
+The plugin's SessionStart hook tells each session to route work that spans
+files, involves a design choice or has an unknown cause through
+`pstack:poteto-mode`. A project's `CLAUDE.md` or `AGENTS.md` takes precedence
+over pstack's own rules, so a repository's contract still governs applies,
+commits, shipping and deployment. Codex runs the hook only once it is trusted
+through `/hooks`; trust it after the first install and whenever Codex asks
+again.
+
+Without a model sheet, pstack uses its own defaults, a panel of Claude models in
+Claude Code. `setup-pstack` writes model choices and a `session hook` line
+(`off` stops the routing) to `~/.claude/pstack-models.md` and an `@` line that
+includes it in `~/.claude/CLAUDE.md` (Codex: `~/.codex/pstack-models.md` and
+`~/.codex/AGENTS.md`). Those choices are personal: declare the files as private
+supplement assets instead of letting the skill write them.
+
+For opt-in, set `ai.pstack.enabled: false` in the private supplement. pstack
+remains installed. Native installers enable it globally, so the refresh helper
 reapplies the declared policy through `./bin/shaffy apply --home`, including when
 an installation command fails. Close agent sessions before refreshing.
 
-Enable CE for one local checkout with these native settings. Declare personal
+Enable pstack for one local checkout with these native settings. Declare personal
 files as private supplement assets, and ignore them through a supplement-owned
 `~/.config/git/ignore` or the repository's local Git excludes. Keep any existing
 settings and permission rules when bringing a file under management.
@@ -276,7 +294,7 @@ settings and permission rules when bringing a file under management.
 ```json
 {
   "enabledPlugins": {
-    "compound-engineering@compound-engineering-plugin": true
+    "pstack@pstack-claude": true
   }
 }
 ```
@@ -285,30 +303,27 @@ The JSON goes in `.claude/settings.local.json`. Codex reads this TOML from
 `.codex/config.toml`:
 
 ```toml
-[plugins."compound-engineering@compound-engineering-plugin"]
+[plugins."pstack@pstack-claude"]
 enabled = true
 ```
 
 Codex only reads project configuration in trusted projects. Do not grant trust
-automatically to activate CE. Claude Code uses the main checkout's local settings
-for linked worktrees on supported versions; Codex needs its project configuration
-in each opted-in worktree. A tracked `.claude/settings.json` can also explicitly
-enable CE. Native project enablement is separate from CE's artifact configuration.
-The plugin is off in work repositories without any project enablement or CE files.
-See [Claude settings](https://code.claude.com/docs/en/settings) and
+automatically to activate pstack. Claude Code uses the main checkout's local
+settings for linked worktrees on supported versions; Codex needs its project
+configuration in each opted-in worktree. A tracked `.claude/settings.json` can
+also explicitly enable pstack. See
+[Claude settings](https://code.claude.com/docs/en/settings) and
 [Codex project plugins](https://developers.openai.com/plugins/build/plugins).
 
-Use CE's brainstorm, plan, work, simplify, code-review and compound skills.
-Project contracts still govern tests, permissions, shipping and deployment.
-Lessons belong in the project's artifact root, normally `docs/solutions/`.
-A tracked `.compound-engineering/config.yaml` may set `docs_root` when `docs/`
-already holds authored material. Never migrate personal profiles or unverified
-memory directly into project instructions.
-
-CE selects the host's approved browser first and uses `agent-browser` as a
-fallback. The workspace installer downloads its browser runtime. Keep one driver
-per run and record authentication failures or skipped flows. Credentials and
-browser profiles remain private application data.
+<!-- Remove after 2027-01-29, with retire_compound_engineering in scripts/install-pstack.py. -->
+pstack replaced Compound Engineering in 2026-10. The home apply drops CE's plugin
+and marketplace entries, and the workspace installer uninstalls the user's CE
+from both hosts and deletes its install record. A project that installs CE in
+its own `.claude/settings.json` keeps it, and Claude keeps CE's marketplace for
+it. Lessons CE wrote under a project's `docs/solutions/` stay with the project.
+A supplement that set `ai.compound_engineering.enabled` renames it to
+`ai.pstack.enabled`: the apply refuses the old key, and deleting it instead turns
+pstack on.
 
 <!-- Remove after 2027-01-16, with the gbrain marker in defaults/config.yaml. -->
 The GBrain integration is retired. Its MCP entry is explicitly disabled by the

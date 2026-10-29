@@ -8,10 +8,14 @@ retired GBrain launchers, proxy, service and MCP entries. It preserves private
 application data and unrelated agent settings. The workspace installer supplies
 CE and agent-browser; it never installs Garry Tan's Gstack.
 
+Since 2026-10 pstack has replaced CE and agent-browser is retired
+([workspace tools](WORKSPACE-TOOLS.md#pstack)). Read CE below as the workflow
+plugin, now pstack, and its setting as `ai.pstack.enabled`.
+
 ## Prepare the sources
 
 Keep changes in reviewed branches. Remove ai.gbrain and integrations.gbrain from
-the private supplement; keep any desired ai.compound_engineering.enabled value.
+the private supplement; keep any desired ai.pstack.enabled value.
 For project opt-in, set it to false and declare native enablement only in selected
 personal checkouts; see WORKSPACE-TOOLS.md. Work repositories then need no CE files.
 The public ai.mcp_servers.gbrain.enabled: false marker removes a previously
