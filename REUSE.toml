@@ -16,7 +16,6 @@ path = [
   "home/dot_config/nvim/lua/config/remote_clipboard.lua",
   "home/dot_config/nvim/lua/plugins/disable-news-alert.lua",
   "home/dot_config/nvim/lua/plugins/snacks-animated-scrolling-off.lua",
-  "home/dot_config/noctalia/palettes/OmarchyMatteBlack.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "David Heinemeier Hansson"

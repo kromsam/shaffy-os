@@ -159,7 +159,7 @@ package that a group still installs.
 
 - **Palette.** Omarchy installs Tokyo Night by default and ships Matte Black as an
   alternative [O1], [O2]; Shaffy OS reproduces behaviour and geometry, not those
-  theme colours. The Matte Black palette remains selectable in Noctalia.
+  theme colours.
 - **Alt+Tab already exists.** Niri's recent-windows switcher has its own default
   bindings, which do not appear in `keybinds.kdl.tmpl`. It is a functional
   equivalent with different switching and previews [N1].

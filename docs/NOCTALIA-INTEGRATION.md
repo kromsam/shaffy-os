@@ -43,9 +43,10 @@ monospace font in GSettings. Qt's GTK3 platform theme reads the same settings. T
 
 Neovim's `RRethy/base16-nvim` is pinned to
 `44fc7a0d7ad878f90b04ffe8fa58c99c19007509` in its plugin specification and in
-`lazy-lock.json`. Matte Black (`tahayvr/matteblack.nvim`) is the fallback until
-Noctalia has written the first palette. On focus or resume the editor reloads a
-changed palette, unless another colour scheme has been selected in it.
+`lazy-lock.json`. Until Noctalia has written the first palette, base16's own
+Rosé Pine Dawn, the light variant of the default palette, stands in. On focus or
+resume the editor reloads a changed palette, unless another colour scheme has
+been selected in it.
 
 ## Searchable controls
 

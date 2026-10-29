@@ -176,8 +176,7 @@ attributes, not deployed names.
 ## Appearance and input
 
 - Noctalia's built-in Rosé Pine palette in light mode; Niri's borders, GTK, Qt,
-  Alacritty, btop and Neovim follow it. The custom Matte Black palette
-  (`palettes/OmarchyMatteBlack.json`) remains selectable in Noctalia.
+  Alacritty, btop and Neovim follow it.
 - JetBrainsMono Nerd Font for the shell, the terminal and the desktop monospace
   family.
 - Niri: 10 px gaps, square corners, 2 px borders in the palette's accent, no
@@ -364,5 +363,3 @@ References: [Noctalia configuration layers](https://docs.noctalia.dev/noctalia/c
 [built-in palettes](https://docs.noctalia.dev/noctalia/theming/),
 [Niri configuration](https://niri-wm.github.io/niri/Configuration:-Introduction.html),
 [chezmoi's file attributes](https://www.chezmoi.io/reference/source-state-attributes/).
-The Matte Black palette is Omarchy's, under its MIT licence; `THIRD-PARTY.md`
-lists it with the other adapted files.

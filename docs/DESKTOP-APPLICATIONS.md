@@ -185,7 +185,7 @@ clipboard, absolute line numbers and no animated scrolling. `lazy-lock.json`
 pins the plugins. Startup captures those versions before LazyVim's staged
 plugin discovery, so a first installation keeps the managed lock unchanged.
 The colours follow Noctalia's palette through a pinned
-base16 adapter, with Matte Black before the first palette exists; see
+base16 adapter, with its Rosé Pine Dawn before the first palette exists; see
 [theme and controls](NOCTALIA-INTEGRATION.md). Super+Shift+E opens LazyVim in
 Alacritty.
 
