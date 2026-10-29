@@ -30,8 +30,8 @@ profiles_path = {{ printf "%s/.local/share/remmina" $home | toJson }}
 show_group = true
 max_results = 30
 
-# Noctalia 5.1 has no generic Panels provider yet. These native config entries
-# open the two plugin panels that do not already have application launchers.
+# Neither plugin panel has an application launcher. These entries make them
+# findable by name from the launcher's main search.
 # Exec commands are fixed: typed input is never interpolated into a shell command.
 [shell.launcher.dmenu.entry.tailnet-panel]
 command = "printf '%s\\n' 'Tailnet — private network'"

@@ -203,9 +203,6 @@ the window name. Claude's hooks go to `~/.claude/settings.json`, Codex's to
 `~/.codex/hooks.json` with `hooks = true` in its configuration. Both are private
 files; the home apply's Codex merge keeps settings it does not own.
 
-Earlier versions deployed Zellij layouts (`tdl`, `tdlm` and `tsl`);
-`home/.chezmoiremove` deletes their configuration, scripts and generated layouts.
-
 ### Keys
 
 `home/dot_config/tmux/tmux.conf` is Omarchy's tmux configuration; only the `?`

@@ -30,9 +30,9 @@ commands.
 
 The wrapper's records, runs and ledger follow `$XDG_STATE_HOME` when it is set
 (`$XDG_STATE_HOME/shaffy/`); this document writes the default. chezmoi's state
-file does not follow it: the tracked configuration names
-`~/.local/state/shaffy/chezmoistate.boltdb` (see "chezmoi's state file" below
-for an installation from an earlier version).
+file does not follow it: the tracked `chezmoi.toml` names
+`~/.local/state/shaffy/chezmoistate.boltdb` with `persistentState`, so plain
+`chezmoi --config chezmoi.toml --source home status` reads the same file.
 
 ## Settings
 
@@ -268,8 +268,7 @@ they are given, as STYLE.md asks.
 `./bin/shaffy apply` (the same as `apply --home`) runs these steps in order:
 
 1. Take the user lock. Refuse without a binding, for another user, when the
-   user and root records disagree, when the move of chezmoi's state file is
-   interrupted or has diverged, or while an operation is unfinished (naming
+   user and root records disagree, or while an operation is unfinished (naming
    `apply --resume` and `--abandon`). Refuse a checkout other than the bound one
    unless `--checkout` names it.
 2. Capture the bound supplement. If its `supplement_id` changed, remove the
@@ -650,7 +649,6 @@ and changes nothing else.
 - the tracked `chezmoi.toml` keeps its hooks, leaves `[edit] apply` and `watch`
   unset, and makes `chezmoi dump-config` report
   `~/.local/state/shaffy/chezmoistate.boltdb`;
-- the move of chezmoi's state file has not diverged;
 - the selected settings load and validate;
 - assets have no conflict in the real home, the desktop key's build tools are
   installed, and a missing Git signing key is noted;
@@ -695,11 +693,3 @@ still supplies evidence for real snapper, boot, graphical sessions and hardware.
 templates and helpers could still reach the real home. `SHAFFY_RENDER_DIRECT=1` renders without bubblewrap only inside a
 disposable container whose account holds no binding, and never for the
 preflight of a real apply.
-
-## chezmoi's state file
-
-chezmoi records what it last wrote in
-`~/.local/state/shaffy/chezmoistate.boltdb`, beside Shaffy OS's own state. The
-tracked `chezmoi.toml` names it with `persistentState`, and `check` asserts that
-chezmoi resolves it there, so plain
-`chezmoi --config chezmoi.toml --source home status` reads the same file.

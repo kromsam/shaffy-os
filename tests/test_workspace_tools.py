@@ -213,16 +213,6 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertIn('bind -N "Split pane vertically" -n M-Enter', conf)
         self.assertNotIn('omarchy-', conf, 'Omarchy helper scripts are not installed here')
 
-    def test_zellij_is_retired_from_sources_packages_and_deployed_home(self):
-        packages = (REPO / 'defaults/packages/desktop_apps.yml').read_text().split()
-        self.assertIn('tmux', packages)
-        self.assertNotIn('zellij', packages)
-        for group in (REPO / 'defaults/packages').glob('*.yml'):
-            self.assertNotIn('zellij', group.read_text().split(), group.name)
-        self.assertFalse((HOME / 'dot_config/zellij').exists())
-        self.assertFalse((HOME / 'private_dot_local/bin/executable_tdl').exists())
-        self.assertNotIn('zellij', (HOME / 'dot_config/noctalia/92-app-themes.toml').read_text())
-
 
 if __name__ == '__main__':
     unittest.main()

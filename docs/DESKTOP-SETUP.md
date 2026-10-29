@@ -234,13 +234,10 @@ Reach the others from the launcher, **Super+Space**:
 | Phone Connect | Search `Phone Connect` (see [KDE Connect](KDE-CONNECT.md)) |
 | Saved Remmina connections | `/rmn` |
 
-The two panel entries and the [desktop controls](NOCTALIA-INTEGRATION.md#searchable-controls)
-use Noctalia's configurable dmenu providers with fixed commands; typed text is
-never interpolated into a shell. Noctalia 5.1 has no generic panel provider (panel
-search reached upstream's main branch after that release, in
-[PR #4442](https://github.com/noctalia-dev/noctalia/pull/4442)), and its
-control-centre shortcut list accepts only built-in types, so plugin panels cannot
-be placed there by configuration.
+The two panel entries make the Tailnet and Syncthing panels findable by name
+from the launcher's main search. Like the
+[desktop controls](NOCTALIA-INTEGRATION.md#searchable-controls), they run fixed
+commands.
 
 ## Wallpaper and lock screen
 

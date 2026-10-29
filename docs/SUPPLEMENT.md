@@ -256,12 +256,6 @@ ai:
 
 ### overrides
 
-Supplements contain values and native fragments, not a second Ansible
-application. Shared roles belong in this repository so their changes pass
-through the same validation, capture, snapshots and recovery. For example,
-`overrides.keyboard_hwdb` carries a private hardware mapping to the public
-`keyboard` role; no private copy of the role is needed.
-
 Where a setting is not enough, `overrides` names native fragments inside the
 supplement. They are trusted configuration and may run commands: a Fish
 fragment runs in every shell, and a Niri fragment can start programs.

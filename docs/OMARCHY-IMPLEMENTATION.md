@@ -1,7 +1,7 @@
 # Omarchy parity
 
 Shaffy OS reproduces the behaviour and geometry of Omarchy's Quattro desktop on
-Niri and Noctalia 5.1. It keeps Noctalia's built-in Rosé Pine palette in light
+Niri and Noctalia. It keeps Noctalia's built-in Rosé Pine palette in light
 mode rather than Omarchy's default Tokyo Night or its Matte Black theme, so the
 colours differ while the layout, controls and shortcuts follow the pinned
 reference (see [sources](#sources)). Direct launcher search on Super+Space,
@@ -20,7 +20,7 @@ departures from a fresh Omarchy installation. Everyday use is in
 | Terminal | Alacritty with JetBrainsMono Nerd Font 9, 14×14 padding, no decorations and its default steady block cursor. Shift+Return and Alt+Shift+Return send distinct CSI-u sequences; Ctrl+Insert and Shift+Insert copy and paste. |
 | Typography | JetBrainsMono Nerd Font for the shell and as the generic monospace family; the document font substitutions are separate. |
 | Bar and panels | 26 logical pixels high with a 12/14 font scale, square solid panels, and a 50% dark backdrop without blur. The recorder indicator hides while idle; the tray is a drawer, and Bluetooth and notifications show only when relevant. |
-| OSD | Bottom centre, 67 logical pixels from the edge, opacity 0.97. Noctalia 5.1 has no setting for Omarchy's 1200 ms display time. |
+| OSD | Bottom centre, 67 logical pixels from the edge, opacity 0.97. The display time stays at Noctalia's default (`osd.hide_delay_ms`), not Omarchy's 1200 ms. |
 | Icons | Yaru and Yaru-yellow from a checked upstream release, installed per user by `scripts/install-yaru-icons.py` (see [sources](#sources)). The GTK settings and GSettings both select Yaru-yellow. |
 | Applications | Noctalia's btop template, and the Niri, Alacritty, GTK, Qt and Neovim colours in [theme and controls](NOCTALIA-INTEGRATION.md). Super+Alt+Return opens tmux, as in Omarchy; tmux and workmux are described in [workspace tools](WORKSPACE-TOOLS.md). |
 | Input | Repeat after 250 ms at 40 per second, the pointer warps to focus, clickfinger, natural scrolling off and a touchpad scroll factor of 0.4. Omarchy's terminal-specific touchpad factors are not copied, because Niri's per-window factor would also change the mouse wheel. |
@@ -185,9 +185,10 @@ package that a group still installs.
   Niri's constraints.
 - **The shell is Noctalia's.** Its panel rendering, tray interaction, notification
   history and timeouts, OSD timing and lock screen are its own. There is no
-  dismiss-one notification (Noctalia 5.1 has no command for it), no
-  hover-revealed centre status group, CachyOS update badge, webcam overlay while
-  recording or list of reminders, and no Tensaku annotation workflow. Omarchy's
+  dismiss-one notification (Noctalia's `notification-clear-active` dismisses
+  them all), no hover-revealed centre status group, CachyOS update badge,
+  webcam overlay while recording or list of reminders, and no Tensaku
+  annotation workflow. Omarchy's
   QML shell cannot be loaded as Noctalia configuration or plugins; porting a
   component means implementing it against Noctalia's API.
 - **Idle.** Omarchy starts a screensaver after 150 s and locks after 300 s [O13].

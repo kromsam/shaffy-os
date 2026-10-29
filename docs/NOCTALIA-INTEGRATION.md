@@ -70,7 +70,7 @@ results to that entry:
 | World clocks | `/world-clock` | World clock panel |
 | Desktop tools | `/desktop-tools` | Tools menu: sharing, conversion, system monitor |
 
-`94-desktop-controls.toml` defines these with Noctalia 5.1's configurable dmenu
+`94-desktop-controls.toml` defines these with Noctalia's configurable dmenu
 providers. Every entry runs a fixed command; typed text is never interpolated
 into a shell. Application search and the plugins' own prefixes stay available,
 and no bar buttons are added. The Tailnet and Syncthing panel entries in

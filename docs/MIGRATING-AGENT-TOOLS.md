@@ -2,37 +2,32 @@
 
 <!-- Remove after 2027-01-16, with scripts/archive-gbrain.py. -->
 
-This change declares native Compound Engineering for Claude Code and Codex,
-tracking EveryInc/compound-engineering-plugin main. The home apply removes the
-retired GBrain launchers, proxy, service and MCP entries. It preserves private
-application data and unrelated agent settings. The workspace installer supplies
-CE and agent-browser; it never installs Garry Tan's Gstack.
-
-Since 2026-10 pstack has replaced CE and agent-browser is retired
-([workspace tools](WORKSPACE-TOOLS.md#pstack)). Read CE below as the workflow
-plugin, now pstack, and its setting as `ai.pstack.enabled`.
+The home apply removes the retired GBrain launchers, proxy, service and MCP
+entries. It preserves private application data and unrelated agent settings.
+The workflow plugin for Claude Code and Codex is pstack
+([workspace tools](WORKSPACE-TOOLS.md#pstack)), which the workspace installer
+supplies; it never installs Garry Tan's Gstack.
 
 ## Prepare the sources
 
-Keep changes in reviewed branches. Remove ai.gbrain and integrations.gbrain from
-the private supplement; keep any desired ai.pstack.enabled value.
-For project opt-in, set it to false and declare native enablement only in selected
-personal checkouts; see WORKSPACE-TOOLS.md. Work repositories then need no CE files.
-The public ai.mcp_servers.gbrain.enabled: false marker removes a previously
+Keep changes in reviewed branches. Remove `ai.gbrain` and `integrations.gbrain`
+from the private supplement; keep any desired `ai.pstack.enabled` value
+([workspace tools](WORKSPACE-TOOLS.md#pstack) describes project opt-in).
+The public `ai.mcp_servers.gbrain.enabled: false` marker removes a previously
 configured server. Do not remove that marker merely because the integration is
 no longer catalogued. Never copy private brain contents into this public repo.
 
-Use CE for browser QA, debugging, review and PR creation. Preserve each project's
+Use pstack for debugging, review and PR creation. Preserve each project's
 actual test and deployment gates. For PR consumers, explicitly supply the heading
 and checkbox format they parse. Existing Lighthouse and dependency scanners stay
 in their projects; a generic review skill is not an executable replacement for
 those scanners. Historical reports can retain old tool names as provenance.
 
 Read saved lessons against current code. Publish only verified engineering
-lessons, with source links and prevention steps, under the project's CE docs_root.
-Archive stale recommendations, personal profiles, telemetry and session transcripts.
-If docs/ contains authored work, set a separate tracked docs_root before running
-CE. Do not alter manuscripts while migrating engineering tooling.
+lessons, with source links and prevention steps, in the project's own
+documentation. Archive stale recommendations, personal profiles, telemetry and
+session transcripts. Do not alter manuscripts while migrating engineering
+tooling.
 
 ## Archive before cutover
 
@@ -91,19 +86,16 @@ bash scripts/install-workspace-tools.sh
 
 Check that the second diff is empty, both agent MCP lists omit GBrain, both native
 plugin lists match the chosen global policy, and restarted opted-in sessions expose
-CE skills. With opt-in, also check a work repository and a new repository: CE must be
-off. Native installation temporarily enables CE, so keep clients closed until the
-refresh helper has reapplied the source policy. Confirm
+pstack's skills. With opt-in, also check a work repository and a new repository:
+pstack must be off. Native installation temporarily enables pstack, so keep clients
+closed until the refresh helper has reapplied the source policy. Confirm
 existing Zotero, workmux hooks, permissions and unrelated plugins still work.
 The workspace refresh captures installed plugin versions in private state.
 
-Run authenticated browser QA against development using CE's selected driver.
-Exercise login, navigation and one representative interactive flow; preserve
-screenshots without credentials and record every skip. Verify that a generated
-PR body contains the project's literal Test plan heading and checkbox syntax,
-and that the downstream verifier consumes it. Do not publish a test PR merely to
-check formatting. Live authentication and native plugin loading need the owner's
-running environment; passing config tests alone does not establish them.
+Verify that a generated PR body contains the project's literal Test plan heading
+and checkbox syntax, and that the downstream verifier consumes it. Do not publish
+a test PR merely to check formatting. Native plugin loading needs the owner's
+running environment; passing config tests alone does not establish it.
 
 Remove only an identified GarryTan Gstack installation. A system executable named
 gstack may be GDB's unrelated stack-trace tool and must remain. Old ignored agent
@@ -122,5 +114,5 @@ original runtime, without an upstream database upgrade. Restart the old service
 only after its data and scoped client credentials are restored.
 
 Do not restore a frozen database over newer work. Do not initialize a new brain
-to silence a missing-data error. CE can be disabled through the supplement while
-its native cache and project lessons remain available for recovery.
+to silence a missing-data error. `ai.pstack.enabled: false` in the supplement
+turns pstack off and keeps it installed.

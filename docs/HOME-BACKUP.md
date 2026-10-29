@@ -101,8 +101,7 @@ a synthetic home, and check that verification restores the marker and random
 unchanged files but never hidden or excluded ones, that a file changed after the
 backup is not sampled, that retention selects only this home's snapshots, that
 corrupted samples, an unpinned or different repository and settings rendered for
-another home are refused, and that an earlier version's receipt counts until this
-version writes one.
+another home are refused, and that without a receipt there is no verified backup.
 
 References: [Restic backup behaviour](https://restic.readthedocs.io/en/stable/040_backup.html),
 [repository checks](https://restic.readthedocs.io/en/stable/045_working_with_repos.html),

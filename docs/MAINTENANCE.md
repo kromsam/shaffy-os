@@ -65,8 +65,7 @@ Nextcloud and Syncthing keep four things apart:
   folder mappings stay out of both repositories.
 - **Configuration** that is public (the Nextcloud autostart entry, Syncthing's
   user unit) comes from the `nextcloud` and `syncthing` integrations. A home
-  apply never edits the clients' own settings, so it never rewrites a mapping,
-  replays a path move or resumes a paused folder or device.
+  apply never edits the clients' own settings.
 - **Adoption** of a machine that already synchronizes records the clients'
   existing activation as managed:
 

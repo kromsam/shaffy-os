@@ -263,9 +263,10 @@ Without `writing.language` the exports set no language, and without
 Phone Connect and Remmina plugins, with the screen recorder, timer and world
 clock. They come from Noctalia's
 [official](https://github.com/noctalia-dev/official-plugins) and
-[community](https://github.com/noctalia-dev/community-plugins) sources with
-`auto_update = "all"`, so Noctalia installs and updates them. The fragment only
-enables them and declares their settings; this repository ships no plugin code.
+[community](https://github.com/noctalia-dev/community-plugins) sources, and
+Noctalia installs and updates them with its default `auto_update = "all"`. The
+fragment only enables them and declares their settings; this repository ships no
+plugin code.
 The home apply reloads a running Noctalia.
 
 - Tailnet's panel links to `tailnet.login_server` as its admin page and saves
