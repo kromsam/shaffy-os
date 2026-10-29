@@ -26,7 +26,6 @@ SENSITIVE = (
     'btrfs subvolume',
     'restic restore',
     'migration-staging',
-    'inspect-nextcloud-runtime',
 )
 
 
@@ -95,7 +94,7 @@ class RoutineApplyTests(unittest.TestCase):
         self.assertNotIn('login_keyring_migration', routine_roles())
 
     def test_every_sensitive_user_command_takes_a_snapshot_pair_first(self):
-        for script in ('move-zotero-profile.py', 'inspect-nextcloud-runtime.py'):
+        for script in ('move-zotero-profile.py',):
             with self.subTest(script=script):
                 self.assertIn('home_pair(', (ROOT / 'scripts' / script).read_text())
 

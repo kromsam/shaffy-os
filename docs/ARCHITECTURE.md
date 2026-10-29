@@ -434,11 +434,9 @@ Every pair Shaffy OS takes uses snapper's number cleanup and carries
 `important=yes`, so frequent ordinary pairs, such as those of package
 transactions, do not push it out first. A home apply takes one pair of the
 `home` configuration; a system apply takes one pair each of `root` and `home`.
-The home apply also keeps copies of what it changes in `runs/<op>/before/`. The
-commands that move or resume personal data outside an apply,
-`scripts/move-zotero-profile.py --apply` and
-`scripts/inspect-nextcloud-runtime.py --resume PATH`, take a `home` pair of
-their own around that step and refuse without one.
+The home apply also keeps copies of what it changes in `runs/<op>/before/`.
+`scripts/move-zotero-profile.py --apply`, which moves personal data outside an
+apply, takes a `home` pair of its own around that step and refuses without one.
 
 Recover selected files from a pair, never all of `/home`, which would also undo
 unrelated changes:

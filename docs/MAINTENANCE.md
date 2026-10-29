@@ -67,22 +67,13 @@ Nextcloud and Syncthing keep four things apart:
   user unit) comes from the `nextcloud` and `syncthing` integrations. A home
   apply never edits the clients' own settings, so it never rewrites a mapping,
   replays a path move or resumes a paused folder or device.
-- **Adoption** of a machine that already synchronizes: review the running
-  clients read-only, then record their activation as managed.
+- **Adoption** of a machine that already synchronizes records the clients'
+  existing activation as managed:
 
   ```sh
-  python3 scripts/inspect-nextcloud-runtime.py   # accounts, mappings, pause states
-  python3 scripts/inspect-sync-runtime.py        # device name, peers, folder health
   ./bin/shaffy integration nextcloud adopt
   ./bin/shaffy integration syncthing adopt
   ```
 
 - **Activation** is `managed` in the settings: the next apply links Syncthing's
-  service and Nextcloud's autostart entry. Resuming a folder paused for review is
-  a separate, deliberate step for exactly one folder, for example
-  `python3 scripts/inspect-nextcloud-runtime.py --resume ~/Documents`. It takes
-  a snapper pair (config `home`) first and refuses without one; to undo, pause
-  the folder again in Nextcloud and compare the pre snapshot with the home. In
-  Syncthing, resume folders and devices in its web interface.
-
-Both reports are written under `~/.local/state/shaffy/runs/sync-runtime/`.
+  service and Nextcloud's autostart entry.
