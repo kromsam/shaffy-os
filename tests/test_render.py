@@ -70,7 +70,7 @@ class RenderTests(unittest.TestCase):
     def assertClean(self, result):
         self.assertEqual(result['problems'], [])
         self.assertTrue(result['converged'])
-        self.assertGreaterEqual(result['files'], 80)  # the managed home; plugins come from Noctalia
+        self.assertGreaterEqual(result['files'], 70)  # the managed home; plugins come from Noctalia
 
     def test_public_defaults_render_validate_and_converge(self):
         result = render(ROOT, without=True)

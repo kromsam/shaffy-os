@@ -17,7 +17,7 @@ application's colours from it, as `92-app-themes.toml` configures:
 | Niri | Local template `templates/niri.kdl`, written to `~/.config/niri/noctalia.kdl`, which `config.kdl` includes after `cfg/`: borders and tab indicators in the palette's primary colour, with Omarchy's inactive border `#595959aa` | Niri's live configuration reload |
 | Alacritty | Built-in template, written to `themes/noctalia.toml`, the first of Alacritty's imports | Alacritty's live configuration reload |
 | btop | Built-in template; the seeded `btop.conf` selects the `noctalia` theme | Next launch |
-| GTK 3 and GTK 4 | Built-in CSS, imported by each `gtk.css`, plus the local `gtk-settings.ini` template, which selects adw-gtk3 or adw-gtk3-dark and the Yaru-yellow icons | Reopen applications that keep the old colours |
+| GTK 3 and GTK 4 | Built-in CSS, which the template's own hook imports into each `gtk.css`, plus the local `gtk-settings.ini` template, which selects adw-gtk3 or adw-gtk3-dark and the Yaru-yellow icons | Reopen applications that keep the old colours |
 | Qt and KDE | Qt's GTK3 platform theme (`QT_QPA_PLATFORMTHEME` in Niri's environment) plus the built-in KDE colour-scheme template | Reopen applications that keep the old colours |
 | Neovim with LazyVim | Local template `nvim-palette.lua`, written to `nvim/lua/noctalia_palette.lua` and read by the pinned `base16-nvim` | Next launch, or on focus or resume after regeneration |
 | tmux | No template: its configuration uses the terminal's named colours, so Alacritty's palette applies | Together with Alacritty |
@@ -90,11 +90,11 @@ chezmoi owns the application imports and settings, Noctalia's
 `92-app-themes.toml` and `94-desktop-controls.toml`, and the local templates in
 `~/.config/noctalia/templates/`. Noctalia owns the generated colour files. The
 create-only placeholders for them (`niri/noctalia.kdl`,
-`alacritty/themes/noctalia.toml`, `gtk-3.0/noctalia.css`, `gtk-4.0/noctalia.css`
-and btop's seeded `btop.conf`) make the first start valid, and later applies leave
-them alone. Noctalia writes GTK's `settings.ini` files and Neovim's palette
-directly from their templates: change the templates under
-`home/dot_config/noctalia/templates/`, not their output.
+`alacritty/themes/noctalia.toml` and btop's seeded `btop.conf`) make the first
+start valid, and later applies leave them alone. Noctalia writes GTK's
+`settings.ini` files and Neovim's palette directly from their templates: change
+the templates under `home/dot_config/noctalia/templates/`, not their output.
+Noctalia's built-in GTK templates also write each `gtk.css` and its import.
 
 `./bin/shaffy check` renders the whole home for a synthetic user in a sandbox,
 placeholders included, and validates Niri, Noctalia, Fish and tmux.
@@ -114,7 +114,7 @@ it back from `~/.local/state/shaffy/runs/<op>/before/`, then reload:
 
 ```sh
 snapper -c home status PRE..POST
-snapper -c home undochange PRE..POST ~/.config/gtk-3.0/gtk.css
+snapper -c home undochange PRE..POST ~/.config/alacritty/shaffy.toml
 noctalia msg config-reload
 noctalia msg templates-apply
 ```
