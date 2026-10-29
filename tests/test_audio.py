@@ -11,8 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BridgeModifierTests(unittest.TestCase):
-    def test_bridge_modifier_preserves_generated_cache_and_uses_real_option(self):
-        source = 'yabridge_path="obsolete"\nplugin_dirs=[]\n[last_known_config]\nwine_version="kept"\nyabridge_host_hash=123\n'
+    def test_bridge_modifier_sets_the_paths_and_keeps_the_rest(self):
+        source = (
+            'plugin_dirs=[]\nvst2_location="inline"\n[last_known_config]\nwine_version="kept"\nyabridge_host_hash=123\n'
+        )
         with tempfile.TemporaryDirectory() as directory:
             # Rendered for a synthetic home, as chezmoi does before running a modify_ script.
             home = Path(directory) / 'home tester'
@@ -30,7 +32,7 @@ class BridgeModifierTests(unittest.TestCase):
             result = subprocess.check_output(['python3', str(modifier)], input=source, text=True)
             parsed = tomllib.loads(result)
             self.assertEqual(subprocess.check_output(['python3', str(modifier)], input=result, text=True), result)
-        self.assertNotIn('yabridge_path', parsed)
+        self.assertEqual(parsed['vst2_location'], 'inline')
         self.assertEqual(parsed['yabridge_home'], f'{home}/.local/share/yabridge')
         self.assertEqual(parsed['plugin_dirs'], [f'{home}/.wine/drive_c/Program Files/VSTPlugins'])
         self.assertEqual(parsed['last_known_config'], {'wine_version': 'kept', 'yabridge_host_hash': 123})

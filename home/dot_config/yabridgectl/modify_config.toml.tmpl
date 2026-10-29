@@ -1,16 +1,12 @@
 #!/usr/bin/python3
-"""Own bridge paths/options while retaining yabridgectl's generated version cache."""
+"""Own the bridge's paths; the other keys and the generated version cache stay yabridgectl's."""
 import re
 import sys
 
 text = sys.stdin.read()
-text = re.sub(r'^yabridge_path\s*=.*\n?', '', text, flags=re.M)
 values = {
     'plugin_dirs': "['" + {{ printf "%s/.wine/drive_c/Program Files/VSTPlugins" .chezmoi.homeDir | toJson }} + "']",
     'yabridge_home': "'" + {{ printf "%s/.local/share/yabridge" .chezmoi.homeDir | toJson }} + "'",
-    'vst2_location': "'centralized'",
-    'no_verify': 'false',
-    'blacklist': '[]',
 }
 for key, value in values.items():
     text, count = re.subn(r'^' + key + r'\s*=.*$', key + ' = ' + value, text, flags=re.M)
