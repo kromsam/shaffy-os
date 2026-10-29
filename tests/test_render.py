@@ -26,6 +26,12 @@ GIT_DEFAULTS = (
     '[tag]\n    sort = -version:refname\n[column]\n    ui = auto\n'
     '[commit]\n    verbose = true\n'
 )
+GIT_GITHUB = (
+    "# GitHub HTTPS remotes authenticate through the GitHub CLI's login, as\n"
+    '# `gh auth setup-git` would write it; the empty helper clears any earlier one.\n'
+    '[credential "https://github.com"]\n    helper =\n    helper = !/usr/bin/gh auth git-credential\n'
+    '[credential "https://gist.github.com"]\n    helper =\n    helper = !/usr/bin/gh auth git-credential\n'
+)
 
 DIRECT = os.environ.get('SHAFFY_RENDER_DIRECT') == '1'
 TOOLS = ('chezmoi', 'niri', 'noctalia', 'fish', 'xdg-user-dir')
@@ -271,7 +277,10 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(
                 (home / '.config/git/config').read_text(),
                 '[user]\n    name = Test Person\n    email = test@example.invalid\n'
-                '    signingkey = /etc/os-release\n' + GIT_DEFAULTS + '    gpgsign = true\n[gpg]\n    format = ssh\n',
+                '    signingkey = /etc/os-release\n'
+                + GIT_DEFAULTS
+                + '    gpgsign = true\n[gpg]\n    format = ssh\n'
+                + GIT_GITHUB,
             )
             dirs = (home / '.config/user-dirs.dirs').read_text()
             self.assertIn('XDG_PICTURES_DIR="$HOME/Bilder"', dirs)
@@ -460,7 +469,7 @@ class RenderTests(unittest.TestCase):
                 f'directory = "{home if DIRECT else "/home/tester"}/Screenshots"',
                 (home / '.config/noctalia/90-omarchy.toml').read_text(),
             )
-            self.assertEqual((home / '.config/git/config').read_text(), GIT_DEFAULTS)
+            self.assertEqual((home / '.config/git/config').read_text(), GIT_DEFAULTS + GIT_GITHUB)
             self.assertFalse((home / '.config/user-dirs.dirs').exists())
 
     def test_plugins_come_from_noctalia_sources_not_this_repository(self):

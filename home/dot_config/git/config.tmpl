@@ -41,3 +41,11 @@
 [gpg]
     format = ssh
 {{- end }}
+# GitHub HTTPS remotes authenticate through the GitHub CLI's login, as
+# `gh auth setup-git` would write it; the empty helper clears any earlier one.
+[credential "https://github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential

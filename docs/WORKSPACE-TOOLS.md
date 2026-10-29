@@ -184,7 +184,9 @@ of a branch sets its upstream, diffs use the histogram algorithm and colour
 moved lines, `rerere` remembers conflict resolutions, `git branch` lists the
 most recently committed branches first and `git tag` the newest versions
 first, and `git commit` shows the diff in the message editor. The name, e-mail
-and SSH signing come from the supplement's `identity` settings. Git reads
+and SSH signing come from the supplement's `identity` settings. GitHub HTTPS
+remotes authenticate through `gh auth login`, the way `gh auth setup-git` sets
+it up, so that command is not needed. Git reads
 `~/.gitconfig` and each repository's own configuration after this file, so
 their entries win.
 
