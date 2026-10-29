@@ -17,6 +17,8 @@ the build dependencies come from the `workflows` package group.
 take a newer one, read the upstream changes, set the revision here and in the
 script on dev and release it. Then remove `~/.cache/shaffy/build/audio-bridge`,
 where the build keeps its source at the old revision, and run the script again.
+`python3 scripts/test-windows-vst2.py` then loads every bridged plugin under
+`~/.vst/yabridge` and exercises its parameters and audio processing.
 
 `scripts/reload-reaper.sh` requests normal REAPER closure (allowing a save
 prompt), applies the home only after REAPER exits, then opens a new empty project.

@@ -310,6 +310,7 @@ fallback. The workspace installer downloads its browser runtime. Keep one driver
 per run and record authentication failures or skipped flows. Credentials and
 browser profiles remain private application data.
 
+<!-- Remove after 2027-01-16, with the gbrain marker in defaults/config.yaml. -->
 The GBrain integration is retired. Its MCP entry is explicitly disabled by the
 public default, and home apply removes its old launchers, proxy and service.
 Private databases and memory are preserved. Follow

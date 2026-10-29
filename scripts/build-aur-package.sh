@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Build an AUR package from the AUR's current recipe as the target user, never as root.
 # The recipe is cloned into the user's cache, never into the checkout, and the
 # repository keeps no recipes. Two steps, each ending in one JSON line:

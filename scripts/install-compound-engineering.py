@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Materialize the CE plugin declared by the home sources in both native hosts."""
 import json
 import os

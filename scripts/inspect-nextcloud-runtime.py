@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Report the Nextcloud client's accounts, folder mappings and pause states; resume one folder on request.
 
 Read-only by default: the saved accounts and mappings come from

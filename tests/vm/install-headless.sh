@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Install CachyOS into the kit's VM without questions, from the live session of the pinned
 # installer image: cachyos-installer --config vm-install.json erases /dev/vda, installs Btrfs
 # with the default subvolumes, Limine with snapper, and the Niri desktop, and then runs

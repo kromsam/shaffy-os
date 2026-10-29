@@ -6,6 +6,7 @@ ai:
     enabled: true
   mcp_servers:
     # Retirement marker: absence alone would retain an existing client entry.
+    # Remove after 2027-01-16, with the GBrain section of docs/WORKSPACE-TOOLS.md.
     gbrain:
       enabled: false
     # Beeper Desktop's own server, while Beeper runs with its Desktop API on.

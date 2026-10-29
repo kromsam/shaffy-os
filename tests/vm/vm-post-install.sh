@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # The post_install step of vm-install.json. cachyos-installer runs it as root in the live
 # session after a headless install, when it has already unmounted the new system: it mounts
 # the new root and lists the kit's two shares in its /etc/fstab, so they are mounted at

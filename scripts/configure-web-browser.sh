@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Run as the desktop user, without sudo. Defaults to read-only.
 set -euo pipefail
 mode=${1:---check}

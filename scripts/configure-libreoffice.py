@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Select LibreOffice's Tabbed interface; default to a read-only check."""
 
 import argparse

@@ -6,6 +6,9 @@ journals and assets there in SilverBullet's conventions, Logseq's templates as
 slash templates and its simple queries as live queries, plus a `Logseq import`
 page listing what needs a person's attention: queries it could not translate,
 whiteboards, renamed pages and lines from Syncthing conflict copies.
+
+Remove after 2027-01-20, with tests/test_logseq_conversion.py and
+docs/MIGRATING-PASSWORDS-AND-NOTES.md.
 """
 import argparse
 import datetime

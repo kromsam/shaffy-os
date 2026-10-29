@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Load every bridged VST2 plugin and exercise parameters and audio processing.
 
 Usage: test-windows-vst2.py [DIRECTORY] (default ~/.vst/yabridge, searched recursively).

@@ -1,5 +1,7 @@
 # Retiring GBrain and Gstack
 
+<!-- Remove after 2027-01-16, with scripts/archive-gbrain.py. -->
+
 This change declares native Compound Engineering for Claude Code and Codex,
 tracking EveryInc/compound-engineering-plugin main. The home apply removes the
 retired GBrain launchers, proxy, service and MCP entries. It preserves private

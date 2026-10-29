@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # mise tools follow latest; other sources retain their reviewed revisions.
 set -euo pipefail
 [[ $(id -u) != 0 && $HOME == "$(getent passwd "$(id -un)" | cut -d: -f6)" ]] || {
@@ -22,6 +22,7 @@ if tools[0] != tools[1]:
 PY
 
 # Zotero MCP was a uv tool until 2026-10; mise installs it now, so remove that copy.
+# Remove after 2027-01-28.
 if command -v uv >/dev/null && uv tool list 2>/dev/null | grep -q '^zotero-mcp-server '; then
   uv tool uninstall zotero-mcp-server
 fi

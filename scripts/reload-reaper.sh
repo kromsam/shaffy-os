@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Close normally: REAPER may ask the user to save if they edited the new project.
 # The home apply refuses a user or home other than the bound one.
 set -euo pipefail

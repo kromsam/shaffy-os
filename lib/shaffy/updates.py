@@ -2,8 +2,9 @@
 
 `report` only reads: pacman's and the AUR's pending upgrades, mise's outdated tools,
 the user installs against this checkout's pins, the LazyVim plugins against the managed
-lock, the applications that update themselves and the Shaffy OS release. `steps` is the
-update routine, in order; `./bin/shaffy update` runs it and stops at the first failure.
+lock, the applications that update themselves and the Shaffy OS release, and, with the
+pins, the retirements past their removal date. `steps` is the update routine, in order;
+`./bin/shaffy update` runs it and stops at the first failure.
 Neither changes configuration: a release still reaches the machine through an apply.
 """
 from concurrent.futures import ThreadPoolExecutor
@@ -136,12 +137,21 @@ def pin_section(root, upstream=None):
     return Section('Repository pins', summary, lines)
 
 
+def removal_section(root, today=None):
+    """Retirements and one-off migrations past their removal date (lib/shaffy/sunset.py)."""
+    from . import sunset
+    due = sunset.due(root, today)
+    lines = [f'{path}:{number}: {line}' for path, number, _, line in due]
+    summary = f'{len(due)} past their date; delete them on dev' if due else 'none due'
+    return Section('Removals', summary, lines)
+
+
 def report(root, home, pins=True):
     """Every section, read in parallel; the network reads dominate."""
     checks = [pacman, aur, lambda: mise(root), lambda: installs(root, home), lambda: lazyvim(home),
               lambda: self_updating(home), lambda: shaffy_release(root)]
     if pins:
-        checks.append(lambda: pin_section(root))
+        checks += [lambda: pin_section(root), lambda: removal_section(root)]
     with ThreadPoolExecutor(max_workers=len(checks)) as pool:
         futures = [pool.submit(check) for check in checks]
     sections = []

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Build the official Wine 10+ branch of yabridge for 64-bit VST2 plugins.
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)

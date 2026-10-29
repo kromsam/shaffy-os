@@ -1,5 +1,9 @@
-#!/usr/bin/env python3
-"""Owner-run, verified private snapshot before retiring GBrain. Dry-run by default."""
+#!/usr/bin/python3
+"""Owner-run, verified private snapshot before retiring GBrain. Dry-run by default.
+
+Remove after 2027-01-16, with scripts/export-gbrain-snapshot.ts, tests/test_gbrain_archive.py
+and docs/MIGRATING-AGENT-TOOLS.md.
+"""
 import argparse
 from contextlib import contextmanager
 import datetime

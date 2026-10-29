@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Promote the encrypted default keyring to the `login` collection before its daemon first starts.
 
 GNOME Keyring's PAM module unlocks only the collection whose file is

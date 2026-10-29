@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Read only the local Syncthing API; report health without exposing its API key.
 
 Devices and folders are Syncthing's own, paired and shared in its web interface;

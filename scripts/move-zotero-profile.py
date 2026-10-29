@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Move an existing Zotero profile to the managed name, so the `zotero` integration can adopt it.
 
 Zotero names a new profile directory at random (`abcd1234.default`); Shaffy OS

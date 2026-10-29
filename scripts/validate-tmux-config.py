@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Source a tmux configuration on a private server; tmux reports parse errors on stderr but exits 0."""
 import os
 from pathlib import Path

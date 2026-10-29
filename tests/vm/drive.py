@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Drive the kit's VM without its window (tests/vm/README.md, "Without a window").
 
 run-vm.sh --headless gives the VM an offscreen display, a QMP socket for keys, a VNC

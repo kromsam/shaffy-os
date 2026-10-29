@@ -1,21 +1,18 @@
-# Retired: the repository ID moved into the backup settings, and the
-# restore probe gave way to a fresh marker and random samples per backup.
-.config/restic-home/repository-id
-.config/restic-home/restore-probe
 # Retired with Bitwarden, which Proton Pass replaced. The vault's sign-in state in
-# ~/.config/Bitwarden and the bw CLI's own data stay untouched.
-.local/share/applications/bitwarden-noctalia.desktop
+# ~/.config/Bitwarden and the bw CLI's own data stay untouched. Remove after 2027-01-28.
 .local/bin/bitwarden-login
 .local/bin/bw
 # Retired with the Sticky Notes plugin. Notes already saved in
-# <documents>/sticky-notes stay untouched.
+# <documents>/sticky-notes stay untouched. Remove after 2027-01-26.
 .local/share/applications/sticky-notes.desktop
 # Retired with the AUR's Beeper package, whose entry started it without Chromium's sandbox.
-# The AppImage writes its own Beeper.desktop.
+# The AppImage writes its own Beeper.desktop. Remove after 2027-01-28.
 .local/share/applications/beeper.desktop
 # Retired with the official qpdf zip: qpdf is the writing group's package now.
+# Remove after 2027-01-28.
 .local/bin/qpdf
 # Retired memory integration. Private data and recovery copies remain untouched.
+# Remove after 2027-01-16.
 .local/bin/gbrain
 .local/bin/gbrain-mcp
 .local/lib/shaffy/gbrain-mcp-proxy.py

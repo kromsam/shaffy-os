@@ -17,6 +17,10 @@ the network, so it takes a few seconds:
 ./bin/shaffy outdated --no-pins  # the machine and the release only
 ```
 
+With the pins it also lists the retirements and migrations whose removal date
+has passed ([CLAUDE.md](../CLAUDE.md#retirements-and-migrations)); delete them on
+dev like a pin refresh.
+
 ## The machine
 
 ```sh

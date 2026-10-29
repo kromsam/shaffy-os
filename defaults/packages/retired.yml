@@ -3,6 +3,6 @@
 # and profiles.
 retired:
   # From the AUR until 2026-10: Zotero now comes from the CachyOS repository (writing) and
-  # Beeper from its own AppImage (scripts/install-beeper-desktop.py).
+  # Beeper from its own AppImage (scripts/install-beeper-desktop.py). Remove after 2027-01-28.
   - zotero-bin
   - beeper-v4-bin

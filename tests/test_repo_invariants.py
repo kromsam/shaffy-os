@@ -1,5 +1,6 @@
 """Invariants of the repository itself: the Git boundary of the private supplement,
-licences and attribution, and no personal literals in the public tree."""
+licences and attribution, no personal literals in the public tree, no unreferenced
+script or document, Markdown links that resolve, and one interpreter per language."""
 from pathlib import Path
 import re
 import shutil
@@ -179,6 +180,70 @@ class LiteralScannerTests(unittest.TestCase):
         self.assertIn('dirlink', files)
         hits = literals.scan(self.repo, files, literals.static_rules())
         self.assertIn(('link', 'home-path'), {(h.path, h.rule) for h in hits})
+
+
+def tracked_text():
+    """{path: text} of every tracked text file that exists."""
+    files = {}
+    for path in git('ls-files', '-z').stdout.split('\0'):
+        target = ROOT / path
+        if path and target.is_file() and not target.is_symlink():
+            try:
+                files[path] = target.read_text()
+            except UnicodeDecodeError:
+                pass
+    return files
+
+
+def heading_slugs(text):
+    """GitHub's anchors for a Markdown file's headings."""
+    slugs, seen = set(), {}
+    for line in re.sub(r'^```.*?^```', '', text, flags=re.M | re.S).splitlines():
+        heading = re.match(r'#{1,6} (.+)', line)
+        if heading:
+            words = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', heading.group(1)).strip().lower()
+            slug = re.sub(r'[^\w\- ]', '', words).replace(' ', '-')
+            slugs.add(f'{slug}-{seen[slug]}' if slug in seen else slug)
+            seen[slug] = seen.get(slug, 0) + 1
+    return slugs
+
+
+@unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0,
+                     'needs a git checkout')
+class TidinessTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.files = tracked_text()
+
+    def test_every_script_and_document_is_referenced(self):
+        # A test alone does not count: something a person or the code uses names the file.
+        for path in sorted(p for p in self.files if p.startswith(('scripts/', 'docs/'))):
+            name = Path(path).name
+            users = [other for other, text in self.files.items()
+                     if other != path and not other.startswith('tests/') and name in text]
+            self.assertTrue(users, f'nothing outside the tests names {path}; document it or delete it')
+
+    def test_relative_markdown_links_and_anchors_resolve(self):
+        for path, text in sorted(self.files.items()):
+            if not path.endswith('.md'):
+                continue
+            prose = re.sub(r'`[^`\n]*`', '', re.sub(r'^```.*?^```', '', text, flags=re.M | re.S))
+            for target in re.findall(r'\]\(([^)\s]+)\)', prose):
+                if re.match(r'[a-z]+:', target):
+                    continue
+                file, _, anchor = target.partition('#')
+                resolved = (ROOT / path).parent / file if file else ROOT / path
+                self.assertTrue(resolved.exists(), f'{path}: {target} does not exist')
+                if anchor and resolved.suffix == '.md':
+                    self.assertIn(anchor, heading_slugs(resolved.read_text()), f'{path}: {target}')
+
+    def test_scripts_name_the_system_interpreter(self):
+        # The system Python has the packages Shaffy OS installs; `env python3` may find mise's.
+        allowed = ('#!/usr/bin/python3', '#!/bin/bash', '#!/bin/sh')
+        for path, text in sorted(self.files.items()):
+            if text.startswith('#!'):
+                interpreter = text.split('\n', 1)[0].split()[0]
+                self.assertIn(interpreter, allowed, path)
 
 
 if __name__ == '__main__':

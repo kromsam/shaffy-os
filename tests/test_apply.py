@@ -398,7 +398,12 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(self.runs(), [])
 
     def test_targets_chezmoi_removes_are_copied_first(self):
-        retired = self.home / '.config/restic-home/restore-probe'  # listed in home/.chezmoiremove
+        # Retirements expire (lib/shaffy/sunset.py), so take whichever the file lists now.
+        entries = [line for line in (ROOT / 'home/.chezmoiremove').read_text().splitlines()
+                   if line.strip() and not line.startswith('#')]
+        if not entries:
+            self.skipTest('home/.chezmoiremove retires nothing')
+        retired = self.home / entries[0]
         retired.parent.mkdir(parents=True, exist_ok=True)
         retired.write_text('probe\n')
         self.attach()
@@ -406,7 +411,7 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(retired.exists())
         op = self.record()['last_completed_op']
-        copy = self.state / 'runs' / op / 'before/.config/restic-home/restore-probe'
+        copy = self.state / 'runs' / op / 'before' / entries[0]
         self.assertEqual(copy.read_text(), 'probe\n')
 
     def test_old_runs_are_pruned_to_the_newest_ten_completed(self):

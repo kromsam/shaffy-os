@@ -94,6 +94,17 @@ records, plus secrets and private application data, which stay outside both
 repositories. The supplement holds identifiers and references, never
 passwords, private keys or tokens.
 
+## Retirements and migrations
+
+Removing what an earlier release created, or helping an installation move off
+an old tool, is needed only until every installation has applied it. Mark each
+such change with a comment that says `Remove after YYYY-MM-DD`, three months
+after the release that ships it, and name what goes with it: its test, its
+runbook, the links to them. A home file is retired in `home/.chezmoiremove`
+and a package in `defaults/packages/retired.yml`; the self-test refuses an
+entry in either without that comment. `./bin/shaffy outdated` lists the
+comments whose date has passed; delete them on dev with everything they name.
+
 ## Check, review, apply
 
 ```sh

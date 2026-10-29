@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Open the Tailnet account login privately, without printing its token.
 
 The login server is tailnet.login_server from the bound settings; sudo asks for the

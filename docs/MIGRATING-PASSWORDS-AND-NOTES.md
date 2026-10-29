@@ -1,5 +1,8 @@
 # Migrating to Proton Pass and SilverBullet
 
+<!-- Remove after 2027-01-20, with scripts/convert-logseq-graph.py and the links to this
+page in DESKTOP-APPLICATIONS.md. -->
+
 Shaffy OS replaced Bitwarden with Proton Pass and Logseq OG with SilverBullet
 Desktop. The system apply no longer installs `bitwarden` or `logseq-og-bin`, and
 the home apply removes `bitwarden-login` and no longer names the `bw` CLI, but neither removes an installed
