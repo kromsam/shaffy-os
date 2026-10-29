@@ -156,6 +156,35 @@ def yaru(root, upstream):
     return [pin]
 
 
+def better_bibtex(root, upstream):
+    script = 'scripts/install-better-bibtex.py'
+    text = (root / script).read_text()
+    current = re.search(r"VERSION = '([^']+)'", text).group(1)
+    digest = re.search(r"SHA256 = '([0-9a-f]{64})'", text).group(1)
+    url = re.search(r"URL = f'([^']+)'", text).group(1)
+    pin = Pin('Better BibTeX for Zotero', current)
+    releases = upstream.json('https://api.github.com/repos/retorquere/zotero-better-bibtex/releases?per_page=30')
+    versions = [
+        r['tag_name'][1:]
+        for r in releases
+        if r['tag_name'].startswith('v')
+        and STABLE.fullmatch(r['tag_name'][1:])
+        and not r['draft']
+        and not r['prerelease']
+        and upstream.old_enough(r['published_at'])
+    ]
+    pin.latest = max(versions, key=numeric, default=current)
+
+    def raise_to():
+        sha256 = hashlib.sha256(upstream.read(url.replace('{VERSION}', pin.latest))).hexdigest()
+        changed = [_edit(root, script, f"VERSION = '{current}'", f"VERSION = '{pin.latest}'", 1)]
+        _edit(root, script, digest, sha256, 1)
+        return changed
+
+    pin.raise_to = raise_to
+    return [pin]
+
+
 def yabridge(root, upstream):
     text = (root / 'scripts/build-audio-bridge.sh').read_text()
     current = re.search(r'revision=([0-9a-f]{40})', text).group(1)
@@ -284,7 +313,7 @@ def ruff_target(root, upstream):
     return [pin]
 
 
-FAMILIES = (collections, yaru, yabridge, ci_container, actions_checkout, lazyvim, ruff_target)
+FAMILIES = (collections, yaru, better_bibtex, yabridge, ci_container, actions_checkout, lazyvim, ruff_target)
 
 
 def check(root, upstream=None):

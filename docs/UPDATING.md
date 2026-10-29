@@ -72,7 +72,8 @@ use.
 ## This repository's pins
 
 The repository pins what it cannot take as `latest`: the Ansible collections,
-the Yaru icons, yabridge's revision, the CI container and its checkout action,
+the Yaru icons, the Better BibTeX release a new Zotero profile gets, yabridge's
+revision, the CI container and its checkout action,
 the LazyVim plugin lock and ruff's Python target, which follows the system
 Python. Packages and mise tools have no pins here. Raise them on dev:
 

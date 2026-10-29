@@ -22,6 +22,7 @@ OLD, NEW = '2026-10-01T00:00:00Z', '2026-10-27T00:00:00Z'  # NEW is younger than
 PINNED = (
     'requirements.yml',
     'scripts/install-yaru-icons.py',
+    'scripts/install-better-bibtex.py',
     'README.md',
     'docs/OMARCHY-IMPLEMENTATION.md',
     'scripts/build-audio-bridge.sh',
@@ -32,6 +33,10 @@ PINNED = (
 )
 DIGEST = 'sha256:' + 'ab' * 32
 YARU = b'yaru archive'
+BETTER_BIBTEX = b'better bibtex release'
+BETTER_BIBTEX_URL = (
+    'https://github.com/retorquere/zotero-better-bibtex/releases/download/v9.9.6/zotero-better-bibtex-9.9.6.xpi'
+)
 
 
 class FakeUpstream(pins.Upstream):
@@ -49,12 +54,23 @@ class FakeUpstream(pins.Upstream):
             }
         if url.startswith('https://hub.docker.com/'):
             return {'digest': DIGEST}
+        if url.startswith('https://api.github.com/repos/retorquere/zotero-better-bibtex/releases'):
+            release = {'draft': False, 'prerelease': False, 'published_at': OLD}
+            return [
+                {**release, 'tag_name': 'v9.9.10', 'published_at': NEW},
+                {**release, 'tag_name': 'release'},  # the update channel's moving tag
+                {**release, 'tag_name': 'v9.9.8', 'prerelease': True},
+                {**release, 'tag_name': 'v9.9.7', 'draft': True, 'published_at': None},
+                {**release, 'tag_name': 'v9.9.6'},
+            ]
         raise AssertionError(url)
 
     def python(self):
         return 'py399'
 
     def read(self, url):
+        if url == BETTER_BIBTEX_URL:
+            return BETTER_BIBTEX
         assert url == 'https://github.com/ubuntu/yaru/archive/refs/tags/30.04.1ubuntu.tar.gz', url
         return YARU
 
@@ -85,6 +101,7 @@ class PinTests(unittest.TestCase):
         found = self.found()
         self.assertEqual(found['Ansible collection community.general'].latest, '97.1.0')
         self.assertEqual(found['Yaru icons'].latest, '30.04.1ubuntu')  # the pinned …ubuntu line
+        self.assertEqual(found['Better BibTeX for Zotero'].latest, '9.9.6')
         self.assertEqual(found['GitHub action actions/checkout'].latest, 'v9.1.0')
         self.assertEqual(found['CI container cachyos/cachyos:latest'].latest, 'ab' * 6)
         self.assertEqual(found['ruff target, the system Python'].latest, 'py399')
@@ -102,6 +119,13 @@ class PinTests(unittest.TestCase):
             self.assertIn('30.04.1ubuntu', text[path])
             self.assertIn(yaru, text[path])
         self.assertIn('refs/tags/30.04.1ubuntu.tar.gz', text['README.md'])
+        # The installer fetches the release the pin was taken from and accepts it.
+        installer = runpy.run_path(str(self.root / 'scripts/install-better-bibtex.py'))
+        self.assertEqual(installer['VERSION'], '9.9.6')
+        served = {BETTER_BIBTEX_URL: BETTER_BIBTEX}
+        with mock.patch.dict(installer['download'].__globals__, fetch=lambda url: io.BytesIO(served[url])):
+            installer['download'](installer['URL'], self.root / 'better-bibtex.xpi')
+        self.assertEqual((self.root / 'better-bibtex.xpi').read_bytes(), BETTER_BIBTEX)
         for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml'):
             self.assertEqual(text[path].count(f'actions/checkout@{"2" * 40} # v9.1.0'), 2, path)
         for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml', 'tests/tool-versions.json'):
