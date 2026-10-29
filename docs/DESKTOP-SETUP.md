@@ -34,27 +34,15 @@ tmux with workmux in [workspace tools](WORKSPACE-TOOLS.md).
   made in its settings window, the wallpaper selected on each monitor and the
   lock-screen widget layout. No state, session, secret or clipboard content
   enters Git.
-- chezmoi's state database is `~/.local/state/shaffy/chezmoistate.boltdb`.
 
 ## Personal settings
 
 The public configuration reads its personal values from the settings: the public
-defaults in `defaults/config.yaml`, overridden by the bound supplement (see
-[the supplement](SUPPLEMENT.md)). The desktop uses these:
-
-| Setting | Effect | Without a supplement value |
-| --- | --- | --- |
-| `desktop.displays` | Niri output blocks: `name`, `mode`, `scale` and `position` in logical pixels | Niri configures outputs itself |
-| `desktop.keyboard` | XKB `layouts`, `variants` and `options` | Niri follows `localectl` |
-| `desktop.wallpaper.directory`, `.image` | The picker's folder, and the default and initial image | `/usr/share/noctalia/assets`, and Noctalia's own wallpaper there, `noctalia-wallpaper.png` |
-| `desktop.lock_screen.image` | The lock-screen background | The same image |
-| `desktop.browser` | Default handler for web links and HTML, set by the `browser` role | `zen.desktop` |
-| `folders.pictures`, `folders.videos` | Screenshots in `<pictures>/Screenshots`, recordings in `<videos>/Recordings` | Installation's XDG pictures and videos directories |
-| `folders.downloads` | Tailnet file transfers | Installation's XDG downloads directory |
-| `tailnet.login_server` | The Tailnet panel's admin link | No admin link |
-
-The folder names themselves are described in [home folders](HOME-FOLDERS.md). An
-example with synthetic values:
+defaults in `defaults/config.yaml`, overridden by the bound supplement.
+[The supplement](SUPPLEMENT.md#desktop) lists the desktop settings and what
+applies without them, and [home folders](HOME-FOLDERS.md) the folders that
+screenshots, recordings and received files go to. An example with synthetic
+values:
 
 ```yaml
 desktop:
@@ -79,19 +67,10 @@ desktop:
 
 ## Override layers
 
-Where a setting is not enough, the supplement's `overrides` name native fragments
-inside the supplement, relative to its root. They are trusted configuration and
-may run commands. Each comes after the public configuration, and renders as an
-empty file when unset:
-
-| Application | Setting | Rendered as | Precedence |
-| --- | --- | --- | --- |
-| Niri | `overrides.niri` | `~/.config/niri/user.kdl` | Included last by `config.kdl`, so its bindings replace public ones of the same key. Niri adds `output` blocks and other multipart sections instead of merging them, so leave outputs to `desktop.displays`. |
-| Noctalia | `overrides.noctalia` | `~/.config/noctalia/97-supplement.toml` | After the public fragments, before Noctalia's own runtime files (below). |
-| Fish | `overrides.fish` | `~/.config/fish/supplement.fish` | Sourced at the end of `config.fish`, after `conf.d/`, so it can replace functions defined there. |
-| Alacritty | `overrides.alacritty` | `~/.config/alacritty/supplement.toml` | The last import: it wins over the generated colours and `shaffy.toml`. |
-
-For example, a supplement that opens another terminal and uses the palette's dark
+Where a setting is not enough, the supplement's `overrides` name native
+fragments that come after the public configuration;
+[the supplement](SUPPLEMENT.md#overrides) lists each with its precedence. For
+example, a supplement that opens another terminal and uses the palette's dark
 mode:
 
 ```yaml
@@ -134,27 +113,6 @@ case. `./bin/shaffy check` lists each such key, so it can be moved into a fragme
 Personal changes belong in the supplement. Adding, re-adding or merging deployed
 files or Noctalia's state back into the public `home/` source copies personal
 paths and choices into public files; do not capture a whole state file.
-
-## Personal files
-
-Fonts, pictures and launchers come from the supplement's `assets`: each key is a
-target under `~/`, each value a file inside the supplement, or `{file, executable,
-private}`. The home apply copies them, checked against their SHA-256, and refuses
-when a real folder or a link is in the way.
-
-```yaml
-assets:
-  "~/.local/share/fonts/Example-Regular.otf": assets/fonts/Example-Regular.otf
-  "~/Pictures/Wallpapers/harbour.jpg": assets/wallpapers/harbour.jpg
-```
-
-A large synchronized collection, such as a wallpaper folder from a Nextcloud
-account, stays with its sync client: point `desktop.wallpaper.directory` at the
-synchronized folder. The `nextcloud` integration manages only the client's login
-autostart entry; accounts, folder connections and pause states stay the client's.
-Choosing a wallpaper never changes the image, but a sync client carries local
-deletions to the server: remove the folder connection in the client before
-deleting the folder.
 
 ## Commands
 
@@ -219,11 +177,9 @@ The bar is a flat, opaque, square 26 px bar at the top:
 
 ### Plugins in the launcher
 
-The plugins (Tailnet, Syncthing, Phone Connect, Remmina, and the
-screen recorder, timer and world clock) come from Noctalia's official and
-community plugin sources, which Noctalia fetches and keeps updated. Only the
-recorder and the timer sit on the bar, and the world clocks open from the clock.
-Reach the others from the launcher, **Super+Space**:
+Of the [Noctalia plugins](DESKTOP-APPLICATIONS.md#noctalia-plugins), only the
+screen recorder and the timer sit on the bar, and the world clocks open from the
+clock. Reach the others from the launcher, **Super+Space**:
 
 | Tool | Launcher access |
 | --- | --- |
@@ -247,7 +203,9 @@ directly. The picker shows the images in `desktop.wallpaper.directory`; automati
 rotation is off and a change fades over 300 ms. Choosing an image only selects
 it. Noctalia saves the choice per monitor in its state, which loads last, so later
 applies keep it. The managed fragment sets only the folder and the default image,
-which is also the initial selection.
+which is also the initial selection. The folder may be one a sync client keeps,
+such as a Nextcloud folder. The client carries local deletions to the server, so
+remove the folder connection in the client before deleting the folder.
 
 The lock screen shows `desktop.lock_screen.image`. As in Omarchy, the session
 locks after five minutes without input: the screen dims for three seconds

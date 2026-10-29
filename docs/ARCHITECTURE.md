@@ -154,35 +154,23 @@ environment variable selects a supplement.
 
 `check`, `data` and `diff` accept any selection. `apply` uses the binding and
 never binds implicitly: `apply --supplement PATH` must name the bound
-supplement, and a system apply refuses the option. A new installation binds
-once:
+supplement, and a system apply refuses the option. The commands that bind and
+rebind are in [the supplement](SUPPLEMENT.md#binding).
 
-```sh
-./bin/shaffy supplement attach --supplement ~/Projects/my-supplement
-./bin/shaffy supplement attach --none    # the public defaults, deliberately
-```
-
-`attach` records the target user, the supplement's resolved path and
+`supplement attach` records the target user, the supplement's resolved path and
 `supplement_id`, and the checkout it runs from. It refuses an installation that
 is already bound, and one that has a root record, which it recognises only with
-`--adopt-system-record` (see [Records](#records)). A binding changes only
-deliberately:
-
-```sh
-./bin/shaffy supplement rebind --path ~/Projects/my-supplement   # the supplement moved
-./bin/shaffy supplement rebind --path PATH --new-id              # accept another supplement_id
-./bin/shaffy supplement rebind --checkout ~/Projects/shaffy-os   # apply from another checkout
-```
+`--adopt-system-record` (see [Records](#records)). After that, only
+`supplement rebind` changes the binding.
 
 `rebind --path` refuses a different `supplement_id` unless `--new-id` is given.
 When the system is bound it first moves the root record's binding through
 `records.yml` in the same operation, so sudo asks for the password. `rebind`
 refuses while an operation is unfinished. Neither `attach` nor `rebind` applies
 anything or changes the ownership ledger. Both, except when adopting a root
-record, then list what the binding means for the integrations. To apply once
-from a checkout other than the bound one, run `apply` in that checkout and add
-`--checkout PATH` naming it; the journal records a `checkout-override` event
-and the binding stays as it is.
+record, then list what the binding means for the integrations.
+`apply --checkout PATH` journals a `checkout-override` event and leaves the
+binding as it is.
 
 ### Records
 

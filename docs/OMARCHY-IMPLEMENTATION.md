@@ -120,40 +120,19 @@ enable_ddcutil = true
 
 ## Apply and runtime files
 
-`./bin/shaffy apply --home` applies the desktop configuration. Its preflight builds
-`shaffy-desktop-key` from `files/desktop-key/` in
-`~/.cache/shaffy/build/desktop-key/`, never under the checkout. It then takes a
-snapper pre snapshot of `/home`, copies every file it will change into
-`~/.local/state/shaffy/runs/<op>/before/`, applies, installs the key sender into
-`~/.local/bin/` when the build differs, validates Niri, Noctalia and Alacritty in
-the real home, and takes the post snapshot. In a running Niri session it finally
-has Noctalia reload its configuration and apply its templates. Noctalia fetches
-and updates the plugins itself; the apply neither installs nor restarts them.
+`./bin/shaffy apply --home` applies the desktop configuration; validation and
+recovery are in [desktop setup](DESKTOP-SETUP.md#validation-and-recovery). Its
+preflight builds `shaffy-desktop-key` from `files/desktop-key/` in
+`~/.cache/shaffy/build/desktop-key/`, never under the checkout, and the apply
+installs the key sender into `~/.local/bin/` when the build differs. Noctalia
+fetches and updates the plugins itself; the apply neither installs nor restarts
+them.
 
 `~/.config/niri/omarchy-overrides.kdl` and `~/.config/noctalia/99-runtime.toml`
 are create-only: the apply creates each once, and `shaffy-desktop` owns it
 afterwards (the gaps-and-borders toggle; the clock format and battery label). The
 helper writes them atomically with mode 0644 and keeps its toggle state private
 (mode 0600) in `~/.local/state/shaffy/desktop-controls/`.
-
-## Recovery
-
-To undo a change, revert it in the supplement or the source, then run
-`./bin/shaffy diff` and `./bin/shaffy apply --home`. To restore selected files as
-they were before an apply, undo them from the operation's snapper pair or copy
-them back from its `before/` folder, then reload Niri and Noctalia:
-
-```sh
-snapper -c home undochange PRE..POST ~/.config/niri/cfg/rules.kdl
-niri msg action load-config-file
-noctalia msg config-reload
-```
-
-Keep the source in step with a restored file, or a later apply brings the change
-back. Packages are removed separately: the supplement's `packages.omit` leaves a
-group package out without uninstalling it, and listing it in `packages.remove`
-as well removes it with the next system apply; `packages.remove` alone refuses a
-package that a group still installs.
 
 ## Remaining differences
 

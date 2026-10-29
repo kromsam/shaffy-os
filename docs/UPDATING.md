@@ -7,7 +7,7 @@ repository's own pins, and Shaffy OS releases. Each has one route.
 | --- | --- | --- |
 | Packages, the AUR, mise tools and the user installs | `./bin/shaffy update`, in the bound checkout | Weekly |
 | This repository's pins | `python3 scripts/refresh-pins.py`, on dev, then a release | Monthly |
-| A Shaffy OS release | `git pull --ff-only`, then an apply ([Update](../README.md#update)) | When one is made |
+| A Shaffy OS release | `git pull --ff-only`, then an apply ([A release](#a-release)) | When one is made |
 
 `./bin/shaffy outdated` shows all three at once and changes nothing. It asks
 the network, so it takes a few seconds:
@@ -97,10 +97,30 @@ into a throwaway home, lets every plugin move with `SHAFFY_LAZY_REFRESH` set
 installed, and keeps the lock that results. It names plugins that were added
 or removed.
 
-yabridge is reported only. Read the upstream changes on its
-`new-wine10-embedding` branch, then set the new revision in
-`scripts/build-audio-bridge.sh` and [maintenance](MAINTENANCE.md) by hand.
+yabridge is reported only;
+[maintenance](MAINTENANCE.md#windows-audio-plugins-reaper) says how to take a
+newer revision.
 
 Commit the refreshed pins on dev. Once CI passes and dev is released, the next
 `./bin/shaffy update` on the machine installs the new Yaru icons, the new
 collections and the plugins of the new lock.
+
+## A release
+
+Keep the bound checkout on `main`. Review the incoming changes, then pull them,
+install the Ansible collections the release pins, and apply:
+
+```sh
+git pull --ff-only
+mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
+./bin/shaffy check
+./bin/shaffy diff
+./bin/shaffy apply --system
+./bin/shaffy apply --home
+```
+
+The system apply refuses until the installed collections match
+`requirements.yml`. If the checkout's `mise.toml` changed, review it and trust it
+again when mise asks. An apply installs what is missing but upgrades nothing;
+the next `./bin/shaffy update` takes the tools and user installs to the
+release's pins.

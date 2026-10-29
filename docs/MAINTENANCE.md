@@ -28,17 +28,8 @@ REAPER's.
 
 ## Integrations
 
-Optional integrations are listed in `defaults/integrations.yml`: `backup`,
-`nextcloud`, `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`. A
-supplement requests each with `integrations: {name: managed|disabled|released}`;
-one it does not name stays unmanaged. Their files render only while managed, and
-the ownership ledger (`~/.local/state/shaffy/ledger.json`) records the activation
-an apply created, so `disabled` removes exactly those links and autostart entries
-and keeps configuration and data. `./bin/shaffy status` lists what the next apply
-would change or refuses. When an integration is already active on a machine,
-`./bin/shaffy integration NAME adopt` records it as managed first; `release`
-stops tracking it and changes nothing. A managed integration that disappears
-from the settings is refused until it is set to `disabled` or `released`.
+The integrations, their states, `adopt` and `release` are described in
+[the supplement](SUPPLEMENT.md#integrations).
 
 Zotero names a new profile directory at random, and the `zotero` integration
 manages `~/.zotero/zotero/shaffy.default`. A machine where Zotero already made a

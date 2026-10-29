@@ -29,7 +29,8 @@ another palette or mode, set it in the supplement's Noctalia fragment
 (`overrides.noctalia`, see [the override layers](DESKTOP-SETUP.md#override-layers)).
 At the end of a home apply in a running Niri session, `./bin/shaffy` has Noctalia
 apply its templates (`noctalia msg templates-apply`) and then checks Niri's
-configuration again, because the template writes Niri's colour include.
+configuration again, because the template writes Niri's colour include. It
+reports a failure in either step but never fails the apply for it.
 
 Window geometry, the terminal's font and opacity, editor preferences and tmux
 bindings do not depend on the palette. Applications with their own theme engines,
@@ -85,7 +86,7 @@ widgets and their layout are Noctalia's own; the idle lock and its timings are i
 [wallpaper and lock screen](DESKTOP-SETUP.md#wallpaper-and-lock-screen). Disk
 unlock, login and the keyring are separate; see [login keyring](LOGIN-KEYRING.md).
 
-## Ownership and validation
+## Ownership and recovery
 
 chezmoi owns the application imports and settings, Noctalia's
 `92-app-themes.toml` and `94-desktop-controls.toml`, and the local templates in
@@ -97,34 +98,10 @@ start valid, and later applies leave them alone. Noctalia writes GTK's
 the templates under `home/dot_config/noctalia/templates/`, not their output.
 Noctalia's built-in GTK templates also write each `gtk.css` and its import.
 
-`./bin/shaffy check` renders the whole home for a synthetic user in a sandbox,
-placeholders included, and validates Niri, Noctalia, Fish and tmux.
-`./bin/shaffy apply --home` validates the real home's Niri, Noctalia and Alacritty
-configuration before its post snapshot. Once the operation is complete, and only
-in a running Niri session, it has Noctalia reload its configuration and apply its
-templates, runs `niri validate` again and warns if the generated include breaks
-the configuration. These last steps never fail the apply.
-
-## Recovery
-
-To revert a theme or control change, revert it in the supplement or the source,
-then run `./bin/shaffy diff` and `./bin/shaffy apply --home`. To restore one
-application's configuration as it was before an apply, undo only that path from
-the operation's snapper pair (`./bin/shaffy status` names the operation) or copy
-it back from `~/.local/state/shaffy/runs/<op>/before/`, then reload:
-
-```sh
-snapper -c home status PRE..POST
-snapper -c home undochange PRE..POST ~/.config/alacritty/shaffy.toml
-noctalia msg config-reload
-noctalia msg templates-apply
-```
-
-Keep the source in step with a file restored by hand, or the next apply brings the
-change back. chezmoi leaves a deployed file behind when only its source is
-deleted, so removing a fragment such as `94-desktop-controls.toml` altogether also
-lists its target in `home/.chezmoiremove`. A palette chosen in Noctalia's settings
-is changed back there, not by editing its state file while Noctalia runs.
+Validation and recovery are in
+[desktop setup](DESKTOP-SETUP.md#validation-and-recovery). After restoring a
+theme file there, run `noctalia msg templates-apply` as well, so Noctalia writes
+the colour files from the current palette again.
 
 References: [application theming](https://docs.noctalia.dev/noctalia/theming/app-theming/),
 [GTK and Qt](https://docs.noctalia.dev/noctalia/templates/official/gtk-qt/),

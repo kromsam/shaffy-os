@@ -156,25 +156,9 @@ existing profiles and synchronization services.
 
 ## Update
 
-Keep the bound checkout on `main`. Review the incoming changes, then update
-the sources and reapply:
-
-```sh
-git pull --ff-only
-mise upgrade ansible-core
-mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
-./bin/shaffy check
-./bin/shaffy diff
-./bin/shaffy apply --system
-./bin/shaffy apply --home
-```
-
-If the mise declaration changed, review it and trust it again when prompted.
-An apply installs what is missing but upgrades nothing. `./bin/shaffy update`
-upgrades the packages, the AUR, the mise tools and the user installs, and
-`./bin/shaffy outdated` shows what is behind, this repository's own pins
-included; [Updating](docs/UPDATING.md) describes both and the pin refresh on
-dev. Keep an existing private supplement updated in its own Git repository.
+[Updating](docs/UPDATING.md) describes how to take a release, how `./bin/shaffy update` upgrades the packages, the AUR, the
+mise tools and the user installs, and how `./bin/shaffy outdated` shows what is
+behind. Keep an existing private supplement updated in its own Git repository.
 
 For an interrupted apply, start with `./bin/shaffy status` and
 `./bin/shaffy apply --resume`. `--abandon` clears an operation that cannot be

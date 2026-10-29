@@ -144,7 +144,7 @@ shows home changes only.
 | `desktop.lock_screen.image` | The lock-screen background, a path. | The same wallpaper. | home |
 | `desktop.browser` | The desktop entry that opens web links and HTML, such as `firefox.desktop`. | `zen.desktop` | `browser` |
 
-[Desktop setup](DESKTOP-SETUP.md) shows what each setting changes, and
+[Desktop setup](DESKTOP-SETUP.md#personal-settings) has an example, and
 [keyboard setup](KEYBOARD-SETUP.md) covers layouts and key maps.
 
 ### folders

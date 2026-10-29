@@ -280,9 +280,8 @@ The home apply reloads a running Noctalia.
   and Phone Connect in [KDE Connect](KDE-CONNECT.md).
 - Remmina lists the profiles in `~/.local/share/remmina`.
 
-Only the screen recorder and the timer sit on the bar, and the world clocks open
-from the clock. [Desktop setup](DESKTOP-SETUP.md#plugins-in-the-launcher) lists
-the others' launcher entries and prefixes.
+[Desktop setup](DESKTOP-SETUP.md#plugins-in-the-launcher) says where each
+plugin sits and lists the launcher entries and prefixes.
 
 ## Tailnet
 
