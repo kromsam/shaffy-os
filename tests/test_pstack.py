@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MERGE = runpy.run_path(str(ROOT / 'scripts/merge-ai-config.py'))
 INSTALL = runpy.run_path(str(ROOT / 'scripts/install-pstack.py'))
 PLUGIN = MERGE['PSTACK_PLUGIN']
+RUBY_LSP = 'ruby-lsp@claude-plugins-official'
 MARKETPLACE = MERGE['PSTACK_MARKETPLACE']
 
 
@@ -21,7 +22,7 @@ class PstackTests(unittest.TestCase):
         original = {
             'hooks': {'Stop': [{'hooks': [{'type': 'command', 'command': 'workmux status'}]}]},
             'permissions': {'deny': ['Bash(sudo:*)']},
-            'enabledPlugins': {'ruby-lsp@official': True},
+            'enabledPlugins': {'other@official': True},
             'extraKnownMarketplaces': {'other': {'source': {'source': 'github', 'repo': 'org/other'}}},
         }
         for enabled in (True, False):
@@ -30,10 +31,22 @@ class PstackTests(unittest.TestCase):
                 actual = json.loads(output)
                 for key in ('hooks', 'permissions'):
                     self.assertEqual(actual[key], original[key])
-                self.assertTrue(actual['enabledPlugins']['ruby-lsp@official'])
+                self.assertTrue(actual['enabledPlugins']['other@official'])
                 self.assertEqual(actual['enabledPlugins'][PLUGIN], enabled)
                 self.assertEqual(actual['extraKnownMarketplaces']['other'], original['extraKnownMarketplaces']['other'])
                 self.assertEqual(MERGE['merge_claude_settings'](output, enabled), output)
+
+    def test_claude_enables_ruby_lsp_from_anthropics_marketplace_whatever_pstack_is(self):
+        # Claude Code's built-in directory serves ruby-lsp without its language server.
+        for enabled in (True, False):
+            with self.subTest(enabled=enabled):
+                switched_off = json.dumps({'enabledPlugins': {RUBY_LSP: False}})
+                actual = json.loads(MERGE['merge_claude_settings'](switched_off, enabled))
+                self.assertIs(actual['enabledPlugins'][RUBY_LSP], True)
+                self.assertEqual(
+                    actual['extraKnownMarketplaces']['claude-plugins-official'],
+                    {'source': {'source': 'github', 'repo': 'anthropics/claude-plugins-official'}},
+                )
 
     def test_codex_keeps_other_plugins_mcp_hooks_and_pstack_specific_options(self):
         source = (
@@ -73,7 +86,7 @@ class PstackTests(unittest.TestCase):
     def test_ce_entries_go_and_everything_else_stays(self):
         ce, ce_marketplace = MERGE['CE_PLUGIN'], MERGE['CE_MARKETPLACE']
         claude = {
-            'enabledPlugins': {ce: True, 'ruby-lsp@official': True},
+            'enabledPlugins': {ce: True, 'other@official': True},
             'extraKnownMarketplaces': {
                 ce_marketplace: {'source': {'source': 'github', 'repo': 'EveryInc/compound-engineering-plugin'}},
                 'other': {'source': {'source': 'github', 'repo': 'org/other'}},
@@ -81,8 +94,8 @@ class PstackTests(unittest.TestCase):
         }
         output = MERGE['merge_claude_settings'](json.dumps(claude), True)
         actual = json.loads(output)
-        self.assertEqual(actual['enabledPlugins'], {'ruby-lsp@official': True, PLUGIN: True})
-        self.assertEqual(set(actual['extraKnownMarketplaces']), {'other', MARKETPLACE})
+        self.assertEqual(actual['enabledPlugins'], {'other@official': True, PLUGIN: True, RUBY_LSP: True})
+        self.assertEqual(set(actual['extraKnownMarketplaces']), {'other', MARKETPLACE, 'claude-plugins-official'})
         self.assertEqual(MERGE['merge_claude_settings'](output, True), output)
         codex = (
             f'[plugins."{ce}"]\nenabled = true\n[plugins."other@official"]\nenabled = true\n'
@@ -153,6 +166,31 @@ class PstackTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Apply the declared'):
                 INSTALL['declared'](home, True, {})
 
+    def test_refresh_adds_missing_marketplaces_before_installing_every_claude_plugin(self):
+        both = {MARKETPLACE: {}, 'claude-plugins-official': {}}
+        for known, added in (
+            ({}, {'michael-denyer/pstack-claude', 'anthropics/claude-plugins-official'}),
+            (both, set()),
+        ):
+            with self.subTest(known=known), tempfile.TemporaryDirectory() as directory:
+                home = Path(directory)
+                for name, content in (
+                    ('.claude/settings.json', MERGE['merge_claude_settings']('', True)),
+                    ('.codex/config.toml', MERGE['merge_codex']('', {}, True)),
+                    ('.claude/plugins/known_marketplaces.json', json.dumps(known)),
+                ):
+                    (home / name).parent.mkdir(parents=True, exist_ok=True)
+                    (home / name).write_text(content)
+                with mock.patch.object(INSTALL['subprocess'], 'run') as run:
+                    INSTALL['refresh'](home, True, {}, INSTALL['settings_snapshot'](home), {})
+                # Each host's own command, after `mise exec TOOL --`.
+                calls = [call.args[0][call.args[0].index('--') + 1 :] for call in run.call_args_list]
+                adds = [call for call in calls if call[:4] == ['claude', 'plugin', 'marketplace', 'add']]
+                self.assertEqual({call[4] for call in adds}, added)
+                for plugin in (PLUGIN, RUBY_LSP):
+                    install = calls.index(['claude', 'plugin', 'install', plugin, '--scope', 'user'])
+                    self.assertTrue(all(calls.index(add) < install for add in adds))
+
     def native_run(self, claude, codex, applied, fail):
         """The plugin managers and the home apply, as the refresh calls them."""
 
@@ -183,7 +221,7 @@ class PstackTests(unittest.TestCase):
                 codex.write_text(MERGE['merge_codex']('model = "kept"\n', {}, False))
                 registry = home / '.claude/plugins/known_marketplaces.json'
                 registry.parent.mkdir()
-                registry.write_text(json.dumps({MARKETPLACE: {}}))
+                registry.write_text(json.dumps({MARKETPLACE: {}, 'claude-plugins-official': {}}))
                 original = INSTALL['settings_snapshot'](home)
                 applied = []
                 native_run = self.native_run(claude, codex, applied, fail)

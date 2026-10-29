@@ -18,6 +18,7 @@ before mise activates in a shell.
 | Bun | mise `bun = "latest"`, for pstack's PR watcher, orchestration store and statechart scripts |
 | Ruby | mise `ruby` at `latest`, for LazyVim's Ruby language tools and formatters, with the `ruby-lsp` gem that each `mise install` adds |
 | pstack | Native Claude Code and Codex plugin from `michael-denyer/pstack-claude`, tracking `main` |
+| Ruby LSP in Claude Code | Claude Code plugin `ruby-lsp@claude-plugins-official`, from Anthropic's `anthropics/claude-plugins-official` |
 | Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
@@ -30,7 +31,7 @@ supplement's mise fragment (`overrides.mise`), which renders as
 ```sh
 ./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, gh, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
-bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP and pstack
+bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP and the agent plugins
 ./bin/shaffy status
 ```
 
@@ -110,6 +111,25 @@ to restore the public default. The same switch works for other named MCP
 servers. Merely deleting a custom server from the supplement leaves an
 existing client entry alone. An unfamiliar inline TOML entry is refused for
 review rather than rewriting the whole Codex configuration.
+
+## Ruby LSP in Claude Code
+
+Claude Code's `ruby-lsp` plugin gives agents the Ruby LSP's definitions,
+references and diagnostics in `.rb`, `.rake`, `.gemspec`, `.ru` and `.erb`
+files, as LazyVim's Ruby extra does in the editor. It is public with the rest of
+the Ruby tooling and has no setting. The home apply enables
+`ruby-lsp@claude-plugins-official` in `~/.claude/settings.json` and declares its
+marketplace, and the workspace installer installs it beside pstack. Claude Code's
+built-in plugin directory offers a `ruby-lsp` plugin too, but without the
+language server.
+
+The plugin starts the `ruby-lsp` gem of the active Ruby. The public `ruby` entry
+of the mise configuration installs that gem on every `mise install`, so the
+workspace installer and `./bin/shaffy update` add it to the global Ruby, also
+to one installed before. A Ruby that a project pins in its own `mise.toml` does
+not run that hook; give the project's entry the same `postinstall`. To switch the
+plugin off in one project, set it to `false` under `enabledPlugins` in the
+project's `.claude/settings.local.json`.
 
 ## Proton Pass CLI
 
@@ -264,8 +284,9 @@ plugins, hooks, permissions and MCP servers. Their native registries and caches
 remain application data.
 
 After home apply, the workspace installer materializes or refreshes the declared
-plugin in both hosts. `scripts/install-pstack.py` can refresh only pstack; it
-refuses until the declared settings have been applied. The install record at
+plugin in both hosts. `scripts/install-pstack.py` can refresh only the plugins,
+pstack and [Claude Code's Ruby LSP](#ruby-lsp-in-claude-code); it refuses until
+the declared settings have been applied. The install record at
 `~/.local/state/shaffy/pstack/installed.json` captures the hosts' reported
 versions for diagnosis. Upstream `main` advances on explicit refresh; there is
 no private fork or exported duplicate skill tree. Restart sessions to load the

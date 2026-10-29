@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-"""Materialize the pstack plugin declared by the home sources in both native hosts."""
+"""Materialize the agent plugins the home sources declare: pstack in both native hosts, and
+Claude Code's other plugins."""
 
 import json
 import os
@@ -15,6 +16,7 @@ sys.path.insert(0, str(REPO / 'lib'))
 MERGE = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
 MARKETPLACE = MERGE['PSTACK_MARKETPLACE']
 PLUGIN = MERGE['PSTACK_PLUGIN']
+CLAUDE_PLUGINS = MERGE['CLAUDE_PLUGINS']
 
 
 def declared(home, enabled, hooks):
@@ -26,14 +28,19 @@ def declared(home, enabled, hooks):
         text = path.read_text() if path.exists() else ''
         existing = parse(text) if text.strip() else {}
         if existing != parse(merge(text)):
-            raise ValueError('Apply the declared pstack settings with ./bin/shaffy apply --home first.')
+            raise ValueError('Apply the declared plugin settings with ./bin/shaffy apply --home first.')
 
 
 def commands():
+    claude = []
+    for plugin in CLAUDE_PLUGINS:
+        claude += [
+            ['claude', 'plugin', 'marketplace', 'update', plugin.partition('@')[2]],
+            ['claude', 'plugin', 'install', plugin, '--scope', 'user'],
+            ['claude', 'plugin', 'update', plugin],
+        ]
     return [
-        ['claude', 'plugin', 'marketplace', 'update', MARKETPLACE],
-        ['claude', 'plugin', 'install', PLUGIN, '--scope', 'user'],
-        ['claude', 'plugin', 'update', PLUGIN],
+        *claude,
         ['codex', 'plugin', 'marketplace', 'upgrade', MARKETPLACE],
         ['codex', 'plugin', 'add', PLUGIN],
     ]
@@ -89,12 +96,13 @@ def refresh(home, enabled, hooks, original_settings, env):
     registry = home / '.claude/plugins/known_marketplaces.json'
     known = json.loads(registry.read_text()) if registry.exists() else {}
     try:
-        if MARKETPLACE not in known:
-            subprocess.run(
-                ['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'marketplace', 'add', MERGE['PSTACK_REPOSITORY']],
-                check=True,
-                env=env,
-            )
+        for plugin, repository in CLAUDE_PLUGINS.items():
+            if plugin.partition('@')[2] not in known:
+                subprocess.run(
+                    ['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'marketplace', 'add', repository],
+                    check=True,
+                    env=env,
+                )
         for command in commands():
             subprocess.run(['mise', 'exec', command[0], '--', *command], check=True, env=env)
         # After the upgrade: Codex refuses plugin commands while a declared marketplace is

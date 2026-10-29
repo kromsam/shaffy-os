@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Merge owned MCP, pstack and hook entries, preserving unrelated agent configuration."""
+"""Merge owned MCP, plugin and hook entries, preserving unrelated agent configuration."""
 
 import copy
 import json
@@ -14,6 +14,13 @@ sys.path.insert(0, str(REPO / 'lib'))
 PSTACK_REPOSITORY = 'michael-denyer/pstack-claude'
 PSTACK_MARKETPLACE = 'pstack-claude'
 PSTACK_PLUGIN = f'pstack@{PSTACK_MARKETPLACE}'
+# The Claude Code plugins Shaffy OS installs, each with the GitHub repository of its
+# marketplace. Claude Code's built-in plugin directory offers ruby-lsp too, but without the
+# language server, which only the entry in Anthropic's marketplace repository declares.
+CLAUDE_PLUGINS = {
+    PSTACK_PLUGIN: PSTACK_REPOSITORY,
+    'ruby-lsp@claude-plugins-official': 'anthropics/claude-plugins-official',
+}
 # Compound Engineering, which pstack replaced: its entries are dropped, and
 # scripts/install-pstack.py uninstalls it. Remove after 2027-01-29, with the CE parts
 # of both scripts and of tests/test_pstack.py.
@@ -161,12 +168,12 @@ def merge_codex_hooks(text, hooks):
 def merge_claude_settings(text, pstack, hooks=None):
     result = json.loads(text) if text.strip() else {}
     original = copy.deepcopy(result)
-    result.setdefault('enabledPlugins', {})[PSTACK_PLUGIN] = pstack
+    result.setdefault('enabledPlugins', {}).update({**dict.fromkeys(CLAUDE_PLUGINS, True), PSTACK_PLUGIN: pstack})
     result['enabledPlugins'].pop(CE_PLUGIN, None)
-    result.setdefault('extraKnownMarketplaces', {})[PSTACK_MARKETPLACE] = {
-        'source': {'source': 'github', 'repo': PSTACK_REPOSITORY}
-    }
-    result['extraKnownMarketplaces'].pop(CE_MARKETPLACE, None)
+    marketplaces = result.setdefault('extraKnownMarketplaces', {})
+    for plugin, repository in CLAUDE_PLUGINS.items():
+        marketplaces[plugin.partition('@')[2]] = {'source': {'source': 'github', 'repo': repository}}
+    marketplaces.pop(CE_MARKETPLACE, None)
     merge_hooks(result, hooks or {})
     if result == original and text.strip():
         return text
