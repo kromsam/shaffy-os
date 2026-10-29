@@ -7,7 +7,10 @@ claude = "latest"
 codex = "latest"
 # pstack's PR watcher, orchestration store and statechart scripts run on Bun.
 bun = "latest"
-ruby = "latest"
+# Claude Code's ruby-lsp plugin runs the gem of the active Ruby. Every `mise install` adds it to
+# this Ruby, also when it was installed before, and leaves it alone once there; mise has
+# deprecated ~/.default-gems in favour of such hooks.
+ruby = { version = "latest", postinstall = { run = "gem install --conservative ruby-lsp", when = "always" } }
 "aqua:protonpass/pass-cli" = "latest"
 "github:raine/workmux" = "latest"
 # Zotero MCP with semantic search and PDF reading, on the system Python and CPU-only PyTorch.

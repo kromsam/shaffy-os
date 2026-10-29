@@ -168,6 +168,12 @@ class WorkspaceToolsTests(unittest.TestCase):
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
 
+    def test_every_mise_install_leaves_ruby_lsp_in_the_global_ruby(self):
+        # Claude Code's ruby-lsp plugin runs the gem of the active Ruby. `always` also reaches a Ruby
+        # installed before the hook; --conservative leaves an installed gem alone, offline.
+        ruby = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())['tools']['ruby']
+        self.assertEqual(ruby['postinstall'], {'run': 'gem install --conservative ruby-lsp', 'when': 'always'})
+
     def test_tools_install_only_once_the_home_has_this_checkouts_configuration(self):
         # mise takes options from the home's configuration; a tool missing there installs without them.
         with tempfile.TemporaryDirectory() as directory:
