@@ -23,6 +23,8 @@ SELF_UPDATING = (
     ('SilverBullet Desktop', '.local/lib/silverbullet-desktop/SilverBullet.AppImage'),
     ('Beeper Desktop', '.local/lib/beeper/Beeper.AppImage'),
     ('Spotify', '.local/share/spotify-launcher'),
+    # Zotero's add-on updater, after scripts/install-better-bibtex.py installed it.
+    ('Better BibTeX', '.zotero/zotero/shaffy.default/extensions/better-bibtex@iris-advies.com.xpi'),
 )
 
 
@@ -225,7 +227,7 @@ def steps(root, home):
             cwd=root,
         ),
         Step(
-            'mise tools (Zotero MCP among them) and pstack',
+            'mise tools (Zotero MCP among them), the agent plugins and Better BibTeX',
             ['bash', str(root / 'scripts/install-workspace-tools.sh')],
         ),
         Step(

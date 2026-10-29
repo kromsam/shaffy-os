@@ -128,7 +128,7 @@ mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
 bash scripts/build-audio-bridge.sh
 ```
 
-These install the mise tools, Zotero MCP among them, pstack, SilverBullet Desktop, Beeper Desktop, LazyVim's language tools and the Windows VST2 bridge. They are separate from
+These install the mise tools, Zotero MCP among them, pstack, Zotero's Better BibTeX, SilverBullet Desktop, Beeper Desktop, LazyVim's language tools and the Windows VST2 bridge. They are separate from
 an ordinary apply and download or build software in the user's home. For the
 Yaru icon theme selected by the desktop:
 

@@ -39,3 +39,5 @@ fi
 (cd "$HOME" && mise install -y "${tools[@]}")
 
 /usr/bin/python3 "$repo/scripts/install-pstack.py"
+# Better BibTeX for the managed Zotero profile; Zotero updates it once it is installed.
+/usr/bin/python3 "$repo/scripts/install-better-bibtex.py"

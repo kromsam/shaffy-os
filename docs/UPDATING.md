@@ -39,8 +39,9 @@ one and run it again. A step with nothing to do is skipped.
 3. **Ansible controller**: `mise upgrade ansible-core` in the checkout.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.
-5. **mise tools and pstack**: `scripts/install-workspace-tools.sh`,
-   for every tool of the mise configuration, Zotero MCP among them.
+5. **mise tools, the agent plugins and Better BibTeX**: `scripts/install-workspace-tools.sh`,
+   for every tool of the mise configuration, Zotero MCP among them, pstack and
+   ruby-lsp, and Better BibTeX when the managed Zotero profile has none.
    mise's `latest` is the newest release that is at least three days old
    ([workspace tools](WORKSPACE-TOOLS.md)).
 6. **Yaru icons**: downloads and installs the pinned release, only when the
@@ -59,8 +60,9 @@ use.
 
 - **Applications that update themselves**: SilverBullet Desktop and Beeper
   Desktop download new AppImages themselves, Spotify's launcher updates the
-  client, and Claude Code and Codex refresh pstack through their
-  plugin managers. `outdated` lists which of them are installed.
+  client, Claude Code and Codex refresh pstack through their
+  plugin managers, and Zotero updates Better BibTeX. `outdated` lists which of
+  them are installed.
 - **yabridge**: a reviewed source, rebuilt by hand ([maintenance](MAINTENANCE.md)).
   `outdated` reports a build whose revision differs from the pin.
 - **Mason's language tools**: `:Mason` in Neovim, then `U` to update them.

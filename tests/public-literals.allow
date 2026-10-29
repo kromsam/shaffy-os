@@ -12,3 +12,5 @@ home-path	tests/test_bootstrap.py	/home/x	a capture path shaped like an Ansible 
 home-path	tests/test_home_backup.py	/home/old	a snapshot path from another home
 device-id	home/private_dot_local/private_share/zotero-data/styles/*.csl	f2b91563-dc66-4c25-bbfd-0b9d3085aa0f	the adapted CSL style's own id, generated for it
 private-ip	tests/vm/vm-post-install.sh	10.0.2.2	QEMU user networking's fixed address for the host, which the VM kit lets reach sshd
+email	scripts/install-better-bibtex.py	better-bibtex@iris-advies.com.xpi	Better BibTeX's add-on id, which names its file in Zotero's profile
+email	lib/shaffy/updates.py	better-bibtex@iris-advies.com.xpi	Better BibTeX's add-on id, which names its file in Zotero's profile

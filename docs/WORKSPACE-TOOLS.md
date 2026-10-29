@@ -31,14 +31,15 @@ supplement's mise fragment (`overrides.mise`), which renders as
 ```sh
 ./bin/shaffy apply --system --tags desktop_apps   # tmux, zoxide, uv, gh, Node.js and npm
 ./bin/shaffy apply --home                        # mise configuration, launchers, AI settings
-bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP and the agent plugins
+bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, the agent plugins and Better BibTeX
 ./bin/shaffy status
 ```
 
 The script refuses to run as root. It installs every tool
 `home/dot_config/mise/config.toml` names, with the version and options of the
 home's mise configuration, which the home apply renders from that file; all
-public mise tools use `latest`.
+public mise tools use `latest`. With the `zotero` integration managed it also
+installs Better BibTeX ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)).
 `./bin/shaffy update` runs it again to install updates, after the packages
 ([Updating](UPDATING.md)); running it by hand does the same. Applying the home changes the
 configuration and launchers, but does not download new tool versions. The

@@ -5,3 +5,7 @@ user_pref("extensions.zotero.useDataDir", true);
 user_pref("extensions.zotero.sync.autoSync", true);
 user_pref("extensions.zotero.httpServer.enabled", true);
 user_pref("extensions.zotero.httpServer.localAPI.enabled", true);
+// scripts/install-better-bibtex.py puts Better BibTeX in the profile's extensions folder.
+// Zotero's default (15) keeps an add-on found there disabled until it is enabled by hand;
+// 14 leaves out the profile scope (1). Whatever can write that folder can write this file too.
+user_pref("extensions.autoDisableScopes", 14);

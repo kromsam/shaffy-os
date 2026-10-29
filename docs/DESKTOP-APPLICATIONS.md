@@ -255,8 +255,15 @@ writing:
 ```
 
 Without `writing.language` the exports set no language, and without
-`writing.docx_reference` DOCX exports use Pandoc's default styles. The
-`zotero` integration and the Zotero MCP server are described in
+`writing.docx_reference` DOCX exports use Pandoc's default styles.
+
+Citations come from Zotero through the Better BibTeX add-on. While the `zotero`
+integration is managed, `scripts/install-workspace-tools.sh` installs a checked
+Better BibTeX release into Zotero's profile when the profile has none, and
+Zotero updates it from then on. The profile's `user.js` lets Zotero enable an
+add-on found in the profile, which it otherwise keeps disabled.
+
+The `zotero` integration and the Zotero MCP server are described in
 [maintenance](MAINTENANCE.md#integrations) and
 [workspace tools](WORKSPACE-TOOLS.md).
 

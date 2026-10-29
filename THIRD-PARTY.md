@@ -37,6 +37,8 @@ repository holds only version declarations and scripts.
 - yabridge, built from a pinned revision by `scripts/build-audio-bridge.sh` (GPL-3.0).
 - Zotero MCP, selected as `latest` in the mise configuration;
   `scripts/install-workspace-tools.sh` installs or updates it.
+- Better BibTeX for Zotero, installed from a checked upstream release by
+  `scripts/install-better-bibtex.py`; Zotero then updates it (MIT).
 - Yaru icons, installed from a checked upstream release by `scripts/install-yaru-icons.py`
   (icons CC BY-SA 4.0, scripts GPL-3.0).
 - Neovim plugins, which lazy.nvim downloads at first start (`lazy-lock.json` pins them).
