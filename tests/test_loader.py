@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy.fastload import load_data  # noqa: E402
 from shaffy.loader import SettingsError, check_reference, load  # noqa: E402
 from shaffy.selection import SelectionError  # noqa: E402
-from support import host_test  # noqa: E402
+from support import host_test, serial  # noqa: E402
 
 FIXTURES = ROOT / 'tests/fixtures/supplements'
 
@@ -568,6 +568,7 @@ class CachedPathTests(LoaderCase):
         again = load_data(ROOT, supplement=path, home=self.home, directory=self.tmp / 'cache')
         self.assertEqual(again['shaffy']['selection']['supplement_id'], 'before')
 
+    @serial
     @host_test('timing on this laptop; CI runners vary')
     def test_cache_hit_is_fast(self):
         self.run_fast()

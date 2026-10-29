@@ -33,6 +33,13 @@ def _reflink_supported(directory):
         return result.returncode == 0
 
 
+def serial(test):
+    """Run this test or class alone, after the parallel ones (tests/runner.py): for
+    measurements that a busy machine would skew."""
+    test.shaffy_serial = True
+    return test
+
+
 def host_test(reason, *, tools=(), paths=(), reflink=False):
     """Skip unless every tool and path exists (and reflink copies work, if asked)."""
     missing = [tool for tool in tools if shutil.which(tool) is None]

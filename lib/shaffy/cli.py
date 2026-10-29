@@ -12,14 +12,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def selftest(args):
-    """Run the unittest suite; --skip-host reproduces what CI runs."""
+    """Run the unittest suite in parallel (tests/runner.py), or in order with --jobs 1;
+    --skip-host reproduces what CI runs."""
     # Test scaffolding is the one thing written under the checkout.
     (ROOT / 'artifacts').mkdir(exist_ok=True)
     env = dict(os.environ)
     if args.skip_host:
         env['SHAFFY_SKIP_HOST_TESTS'] = '1'
-    command = [sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / 'tests'),
-               '-t', str(ROOT / 'tests'), '-p', 'test_*.py']
+    if args.jobs == 1:
+        command = [sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / 'tests'),
+                   '-t', str(ROOT / 'tests'), '-p', 'test_*.py']
+    else:
+        command = [sys.executable, str(ROOT / 'tests/runner.py'),
+                   *(['--jobs', str(args.jobs)] if args.jobs else [])]
     if args.verbose:
         command.append('-v')
     return subprocess.call(command, cwd=ROOT, env=env)
@@ -644,6 +649,8 @@ def main(argv):
     test = commands.add_parser('selftest', help='run the test suite')
     test.add_argument('--skip-host', action='store_true',
                       help='skip tests bound to this machine, as CI does')
+    test.add_argument('-j', '--jobs', type=int, metavar='N',
+                      help='worker processes (default: one per CPU); 1 runs plain unittest in order')
     test.add_argument('-v', '--verbose', action='store_true', help='list every test')
     test.set_defaults(run=selftest)
     validate = commands.add_parser('check', help='validate the settings and a sandboxed render; '

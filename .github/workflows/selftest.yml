@@ -3,12 +3,20 @@
 # sees a private supplement.
 name: selftest
 on:
+  # A release tag names a commit that dev and main have already tested.
   push:
+    branches: [main, dev]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  # A newer push supersedes a run still in progress, except on main, where every run finishes.
+  group: selftest-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   selftest:
+    # This repository's own branches are tested by their push; a pull request runs only from a fork.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     container:
       image: cachyos/cachyos@sha256:f645eba0ce0240b6a26c273b4542d463e734cc68bbd50d988964e3edbb037e5f
@@ -44,6 +52,7 @@ jobs:
         run: runuser -u tester -- sh -c 'cd "$GITHUB_WORKSPACE" && reuse lint'
 
   system:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

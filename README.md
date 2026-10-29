@@ -199,7 +199,7 @@ See [recovery](docs/DESKTOP-SETUP.md#validation-and-recovery) before restoring a
 | `./bin/shaffy supplement attach --supplement PATH` or `--none` | Binds an unbound installation to a supplement, or to the public defaults alone; applies nothing. `--adopt-system-record` recognises the root record of an earlier system apply. |
 | `./bin/shaffy supplement rebind --path PATH` or `--checkout PATH` | Follows a supplement or a checkout that moved; `--new-id` accepts a changed `supplement_id`. |
 | `./bin/shaffy integration NAME adopt` or `release` | `adopt` records an integration that is already active here as managed; `release` stops tracking it and changes nothing. |
-| `./bin/shaffy selftest [--skip-host] [-v]` | Runs the test suite; `--skip-host` leaves out tests bound to this machine, as CI does. |
+| `./bin/shaffy selftest [--skip-host] [-j N] [-v]` | Runs the test suite in parallel, one worker per CPU; `--skip-host` leaves out tests bound to this machine, as CI does, and `-j 1` runs plain unittest in order. |
 
 `check`, `data` and `diff` accept `--supplement PATH` or
 `--without-supplement` to try other settings than the bound ones; `diff` then
