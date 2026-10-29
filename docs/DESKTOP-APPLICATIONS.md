@@ -234,7 +234,8 @@ Tabbed again.
 The `writing` group installs Zettlr, Pandoc, qpdf, TeX Live, LibreOffice, Vale,
 Harper, English spelling and hyphenation dictionaries and the Fira fonts; a
 supplement adds other languages' packages with `packages.extra`, for example
-`libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero is the CachyOS
+`libreoffice-fresh-nl`, `hunspell-nl`, `hyphen-nl` and `texlive-langeuropean`
+(Dutch babel and hyphenation for the PDF export). Zotero is the CachyOS
 repository's `zotero` package. Reapply with
 `./bin/shaffy apply --system --tags writing`.
 

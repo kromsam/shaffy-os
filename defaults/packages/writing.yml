@@ -5,8 +5,6 @@ packages:
   - pandoc-cli
   - qpdf
   - texlive-meta
-  - texlive-langeuropean
-  - texlive-langcyrillic
   - libreoffice-fresh
   - hunspell-en_gb
   - hyphen-en
