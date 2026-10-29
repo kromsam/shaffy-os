@@ -3,8 +3,7 @@
 A local test: it reads the supplement's denylist.txt, one Python regular expression
 per line applied case-insensitively, and the identifying values of its settings, and
 scans every public path and line. It reports where a value matched, never the value.
-Without a supplement it is skipped; SHAFFY_REQUIRE_DENYLIST=1 (the export) makes that
-a failure and also refuses transitional blocks.
+Without a supplement it is skipped.
 """
 
 import os
@@ -18,7 +17,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 from shaffy import literals
 
-REQUIRED = os.environ.get('SHAFFY_REQUIRE_DENYLIST') == '1'
 # Settings whose values identify the owner; paths and generic values match public conventions.
 FIELDS = (
     'supplement_id',
@@ -48,21 +46,16 @@ def field(settings, dotted):
 
 class ExportDenylistTests(unittest.TestCase):
     def setUp(self):
-        if os.environ.get('SHAFFY_SKIP_HOST_TESTS') == '1' and not REQUIRED:
+        if os.environ.get('SHAFFY_SKIP_HOST_TESTS') == '1':
             self.skipTest('needs the bound supplement of this machine')
         from shaffy.selection import resolve
 
         selection = resolve(ROOT)  # a broken binding fails here instead of skipping
         if selection['mode'] != 'supplement':
-            self.unavailable('no supplement is bound')
+            self.skipTest('no supplement is bound')
         self.supplement = Path(selection['path'])
         if not (self.supplement / 'denylist.txt').is_file():
-            self.unavailable(f'{self.supplement / "denylist.txt"} does not exist')
-
-    def unavailable(self, reason):
-        if REQUIRED:
-            self.fail(f'SHAFFY_REQUIRE_DENYLIST=1, but {reason}')
-        self.skipTest(reason)
+            self.skipTest(f'{self.supplement / "denylist.txt"} does not exist')
 
     def rules(self):
         rules = []
@@ -93,7 +86,7 @@ class ExportDenylistTests(unittest.TestCase):
 
     def test_public_files_hold_no_private_value(self):
         files = literals.public_files(ROOT)
-        hits = literals.scan(ROOT, files, self.rules(), exempt_transitional=not REQUIRED)
+        hits = literals.scan(ROOT, files, self.rules())
         where = sorted({f'{h.path}:{h.line}: {h.rule}' for h in hits})
         if where:
             self.fail(

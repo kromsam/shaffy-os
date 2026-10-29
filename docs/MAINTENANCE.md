@@ -2,8 +2,8 @@
 
 Recurring commands for the tools Shaffy OS keeps beside its applies. Run them
 from the checkout as the desktop user unless noted. Tools that exist only for
-one particular laptop's hardware and data are documented outside the public
-export.
+one particular laptop's hardware and data are documented outside this
+repository.
 
 ## Windows audio plugins (REAPER)
 

@@ -1,7 +1,7 @@
-"""Personal literals in the public tree, checked by the self-test and before an export.
+"""Personal literals in the public tree, checked by the self-test.
 
-The public tree is every tracked or untracked, not ignored file that .gitattributes
-does not mark export-ignore. Two kinds of rule scan it:
+The public tree is every tracked or untracked, not ignored file. Two kinds of rule
+scan it:
 
 - static rules for shapes of personal data (home paths, private addresses and
   names, e-mail addresses, device and key identifiers), with an explicit allowlist
@@ -10,11 +10,8 @@ does not mark export-ignore. Two kinds of rule scan it:
   and Git identity), so the owner's values are caught without being written down.
   They cannot be allowlisted, because an entry would publish the value.
 
-Two kinds of line are exempt. Licence notices may name the copyright holder: lines
-with SPDX-FileCopyrightText, and the copyright line of a LICENSE file. A
-transitional block may keep an old name until the workstation's migration
-converges: a comment that starts with the TRANSITIONAL marker, and the lines up to
-the next blank line. The export refuses any that remain.
+Licence notices are exempt, because they may name the copyright holder: lines with
+SPDX-FileCopyrightText, and the copyright line of a LICENSE file.
 """
 
 from dataclasses import dataclass
@@ -27,8 +24,6 @@ import re
 import socket
 import subprocess
 
-TRANSITIONAL = re.compile(r'^\s*(?:#|//|>|<!--|\{\{-?\s*/\*)\s*(?:\*\*)?Transitional, until')
-
 
 @dataclass(frozen=True)
 class Hit:
@@ -39,7 +34,7 @@ class Hit:
 
 
 def public_files(root):
-    """Tracked and untracked, not ignored files that the export keeps."""
+    """Tracked and untracked, not ignored files."""
     listed = subprocess.run(
         ['git', '-C', str(root), 'ls-files', '-z', '-co', '--exclude-standard'],
         capture_output=True,
@@ -47,17 +42,8 @@ def public_files(root):
         check=True,
     ).stdout.split('\0')[:-1]
     listed = sorted({p for p in listed if os.path.lexists(Path(root) / p)})
-    attributes = subprocess.run(
-        ['git', '-C', str(root), 'check-attr', '-z', '--stdin', 'export-ignore'],
-        input='\0'.join(listed),
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    fields = attributes.split('\0')[:-1]
-    ignored = {fields[i] for i in range(0, len(fields), 3) if fields[i + 2] == 'set'}
     # A link is scanned as its target text, even when it names a folder.
-    return [p for p in listed if p not in ignored and ((Path(root) / p).is_symlink() or not (Path(root) / p).is_dir())]
+    return [p for p in listed if (Path(root) / p).is_symlink() or not (Path(root) / p).is_dir()]
 
 
 def lines(root, path):
@@ -69,19 +55,13 @@ def lines(root, path):
     return data.decode('latin-1' if b'\0' in data[:8192] else 'utf-8', errors='replace').splitlines()
 
 
-def exempt_lines(path, content):
-    """Line numbers of licence notices and of transitional blocks, as two sets."""
-    notices, transitional, inside = set(), set(), False
-    for number, line in enumerate(content, 1):
-        if 'SPDX-FileCopyrightText' in line or (Path(path).name.startswith('LICENSE') and line.startswith('Copyright')):
-            notices.add(number)
-        if TRANSITIONAL.match(line):
-            inside = True
-        elif not line.strip():
-            inside = False
-        if inside:
-            transitional.add(number)
-    return notices, transitional
+def notice_lines(path, content):
+    """Line numbers of licence notices."""
+    return {
+        number
+        for number, line in enumerate(content, 1)
+        if 'SPDX-FileCopyrightText' in line or (Path(path).name.startswith('LICENSE') and line.startswith('Copyright'))
+    }
 
 
 def _word(value):
@@ -215,13 +195,12 @@ def environment_rules(root):
     ]
 
 
-def scan(root, files, rules, exempt_transitional=True):
+def scan(root, files, rules):
     """Hits of the rules in the files' paths and lines; '_' also counts as a word break."""
     hits = []
     for path in files:
         content = lines(root, path)
-        notices, transitional = exempt_lines(path, content)
-        skipped = notices | (transitional if exempt_transitional else set())
+        skipped = notice_lines(path, content)
         for number, line in [(0, path), *enumerate(content, 1)]:
             if number in skipped:
                 continue
@@ -230,16 +209,6 @@ def scan(root, files, rules, exempt_transitional=True):
                 found = set(find(line, previous)) | set(find(line.replace('_', '-'), previous))
                 hits += [Hit(path, number, rule, text) for text in sorted(found)]
     return hits
-
-
-def transitional_blocks(root, files):
-    """(path, first line) of every transitional block."""
-    blocks = []
-    for path in files:
-        content = lines(root, path)
-        _, transitional = exempt_lines(path, content)
-        blocks += [(path, n) for n in sorted(transitional) if n - 1 not in transitional]
-    return blocks
 
 
 def read_allowlist(path):

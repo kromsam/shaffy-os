@@ -51,18 +51,6 @@ def tracked():
     ).stdout.split('\0')[:-1]
 
 
-def exported(paths):
-    """The paths the public export keeps: those not marked export-ignore in .gitattributes."""
-    result = subprocess.run(
-        ['git', '-C', str(ROOT), 'check-attr', '-z', 'export-ignore', '--', *paths],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split('\0')[:-1]
-    ignored = {result[i] for i in range(0, len(result), 3) if result[i + 2] == 'set'}
-    return [path for path in paths if path not in ignored]
-
-
 class LicenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -92,11 +80,11 @@ class LicenceTests(unittest.TestCase):
         self.assertEqual(texts, used)
 
     def test_every_annotated_path_is_a_public_tracked_file(self):
-        public = set(exported(self.files))
+        public = set(self.files)
         for paths, _ in self.annotations():
             for path in paths:
                 if path != '**':
-                    self.assertIn(path, public, f'REUSE.toml names {path}, which the export would not contain')
+                    self.assertIn(path, public, f'REUSE.toml names {path}, which is not a tracked file')
 
     def test_files_derived_from_cachyos_stay_gpl_with_their_notice(self):
         gpl = {
@@ -159,9 +147,6 @@ class PublicLiteralTests(unittest.TestCase):
             self.assertTrue(reason.strip(), entry)
             self.assertTrue(any(literals.allowed(h, [entry]) for h in self.static), f'unused entry: {entry}')
 
-    def test_the_export_carries_no_transitional_block(self):
-        self.assertEqual(literals.transitional_blocks(ROOT, self.files), [])
-
 
 class LiteralScannerTests(unittest.TestCase):
     def setUp(self):
@@ -175,15 +160,6 @@ class LiteralScannerTests(unittest.TestCase):
     def track(self):
         subprocess.run(['git', '-C', str(self.repo), 'add', '-A'], check=True)
         return literals.public_files(self.repo)
-
-    def test_only_a_comment_starts_a_transitional_block(self):
-        marker = 'Transitional' + ', until the migration converges: the old name.'
-        (self.repo / 'a.py').write_text(f'# {marker}\nOLD = 1\n\nNEW = 2\n')
-        (self.repo / 'b.md').write_text(f'<!-- {marker} -->\nOld text.\n')
-        (self.repo / 'c.py').write_text(f'NAME = "{marker}"\n')
-        self.assertEqual(literals.transitional_blocks(self.repo, self.track()), [('a.py', 1), ('b.md', 1)])
-        _, lines = literals.exempt_lines('a.py', literals.lines(self.repo, 'a.py'))
-        self.assertEqual(lines, {1, 2})
 
     def test_a_link_to_a_folder_is_scanned_as_its_target(self):
         (self.repo / 'folder').mkdir()
