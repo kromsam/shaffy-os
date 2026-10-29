@@ -327,7 +327,7 @@ its files and creates its activation only while the supplement asks for it:
 | `reaper` | REAPER's PipeWire audio settings and the yabridge configuration. |
 | `ssh` | The SSH client configuration and the SSH agent socket. |
 | `syncthing` | Syncthing's user service. |
-| `zettlr` | Zettlr's export profiles, its custom CSS, and two of its settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. |
+| `zettlr` | Zettlr's export profiles and two of its settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. |
 | `zotero` | Zotero's profile, the library location and the local API the MCP server reads. |
 
 ```yaml

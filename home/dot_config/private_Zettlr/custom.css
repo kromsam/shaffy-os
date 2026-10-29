@@ -1,5 +1,0 @@
-/* Restored fullscreen positioning; toolbar visibility uses Zettlr's setting. */
-#editor.fullscreen {
-  top: 0;
-  position: fixed;
-}

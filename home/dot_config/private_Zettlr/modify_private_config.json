@@ -10,7 +10,6 @@ import sys
 
 SETTINGS = {
     ('export', 'useBundledPandoc'): False,
-    # Invalid old custom CSS used JS to hide controls; keep the native setting instead.
     ('display', 'hideToolbarInDistractionFree'): True,
 }
 

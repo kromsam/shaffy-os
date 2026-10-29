@@ -378,7 +378,7 @@ class RenderTests(unittest.TestCase):
             # A fresh home has no REAPER or Zettlr configuration for their modifiers to change,
             # and the fixture disables zettlr, so none of its files render.
             self.assertFalse((home / '.config/REAPER/reaper.ini').exists())
-            self.assertFalse((home / '.config/Zettlr/custom.css').exists())
+            self.assertFalse((home / '.config/Zettlr/defaults').exists())
             # Backup settings configure the client; its timers wait for the integration.
             backup = json.loads((home / '.config/restic-home/backup.json').read_text())
             self.assertEqual(
@@ -427,7 +427,7 @@ class RenderTests(unittest.TestCase):
                 socket,
                 '.config/autostart/Nextcloud.desktop',
                 '.ssh/config',
-                '.config/Zettlr/custom.css',
+                '.config/Zettlr',
                 '.zotero',
                 '.local/share/zotero-data',
                 '.config/restic-home',

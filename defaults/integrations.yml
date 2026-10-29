@@ -47,7 +47,7 @@ reaper:
 
 zettlr:
   scope: home
-  description: Zettlr's export profiles, style and packaged Pandoc
+  description: Zettlr's export profiles, toolbar and packaged Pandoc
   targets:
     - .config/Zettlr/**
   activation:
