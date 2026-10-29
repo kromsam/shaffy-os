@@ -9,13 +9,13 @@ repository.
 
 The stable yabridge's GUI embedding is incompatible with newer Wine, so
 `scripts/build-audio-bridge.sh` builds the official `new-wine10-embedding` branch
-at exact revision `ba7022df0aee1e91cde62d7f0e940d3bc43a82b0` and installs it with a
-hash receipt under `~/.local/share/yabridge` (64-bit VST2 only). Wine Staging and
-the build dependencies come from the `workflows` package group.
+at the exact revision the script names and installs it with a hash receipt under
+`~/.local/share/yabridge` (64-bit VST2 only). Wine Staging and the build
+dependencies come from the `workflows` package group.
 
 `./bin/shaffy outdated` reports when the branch has moved past the revision. To
-take a newer one, read the upstream changes, set the revision here and in the
-script on dev and release it. Then remove `~/.cache/shaffy/build/audio-bridge`,
+take a newer one, read the upstream changes, set the revision in the script on
+dev and release it. Then remove `~/.cache/shaffy/build/audio-bridge`,
 where the build keeps its source at the old revision, and run the script again.
 `python3 scripts/test-windows-vst2.py` then loads every bridged plugin under
 `~/.vst/yabridge` and exercises its parameters and audio processing.

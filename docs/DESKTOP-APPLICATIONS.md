@@ -199,7 +199,7 @@ The language tools install through Mason after the system packages and
 mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
 ```
 
-It installs the 18 tools the script lists, writes the result to
+It installs every tool the script lists, writes the result to
 `~/.local/state/nvim/desktop-tools.json` and exits non-zero when one fails.
 Plugins and Mason's tools are runtime data; only the configuration and the plugin
 lock are in the repository.

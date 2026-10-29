@@ -42,12 +42,11 @@ following Noctalia's light or dark mode, and its hook sets the icon theme and th
 monospace font in GSettings. Qt's GTK3 platform theme reads the same settings. The
 `adw-gtk-theme` package supplies both GTK variants.
 
-Neovim's `RRethy/base16-nvim` is pinned to
-`44fc7a0d7ad878f90b04ffe8fa58c99c19007509` in its plugin specification and in
-`lazy-lock.json`. Until Noctalia has written the first palette, base16's own
-Rosé Pine Dawn, the light variant of the default palette, stands in. On focus or
-resume the editor reloads a changed palette, unless another colour scheme has
-been selected in it.
+Neovim's `RRethy/base16-nvim` is pinned in its plugin specification
+(`lua/plugins/theme.lua`) and in `lazy-lock.json`. Until Noctalia has written
+the first palette, base16-nvim's own `rose-pine-dawn`, the light variant of the
+default palette, stands in. On focus or resume the editor reloads a changed
+palette, unless another colour scheme has been selected in it.
 
 ## Searchable controls
 

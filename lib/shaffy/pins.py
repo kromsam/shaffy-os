@@ -168,7 +168,7 @@ def yabridge(root, upstream):
             current[:12],
             latest[:12],
             note='a reviewed source: read the upstream changes, then set the revision in '
-            'scripts/build-audio-bridge.sh and docs/MAINTENANCE.md by hand',
+            'scripts/build-audio-bridge.sh by hand',
         )
     ]
 
