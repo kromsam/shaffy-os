@@ -245,17 +245,9 @@ repository's `zotero` package. Reapply with
 The `zettlr` integration renders Zettlr's DOCX and PDF (LuaLaTeX) export
 profiles. They use the Pandoc filters, LaTeX header and citation style that the
 home apply installs under `~/.local/share/pandoc/`: a Chicago notes and
-bibliography style whose entries leave out URLs and DOIs. Two settings fill in
-the profiles:
-
-```yaml
-writing:
-  language: en-GB                        # lang of every export: hyphenation and quotes
-  docx_reference: "~/Templates/reference.docx"   # styles for DOCX exports
-```
-
-Without `writing.language` the exports set no language, and without
-`writing.docx_reference` DOCX exports use Pandoc's default styles.
+bibliography style whose entries leave out URLs and DOIs. The settings
+`writing.language` and `writing.docx_reference` fill in the profiles
+([writing settings](SUPPLEMENT.md#writing-and-login)).
 
 Zettlr's citations come from Zotero through the Better BibTeX add-on. While the `zotero`
 integration is managed, `scripts/install-workspace-tools.sh` installs a checked

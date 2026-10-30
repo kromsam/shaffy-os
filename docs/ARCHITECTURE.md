@@ -200,12 +200,8 @@ new apply compares the two records' `target.uid`, `target.home`,
 system operation on each side, and refuses on any difference; `status` reports
 it. `last_completed_op` and `phases` are never compared. A root record that the
 user record does not know, for example after the home was reinstalled, is
-refused until one of these recognises it:
-
-```sh
-./bin/shaffy supplement attach --supplement ~/Projects/my-supplement --adopt-system-record
-./bin/shaffy supplement attach --none --adopt-system-record
-```
+refused until `supplement attach --adopt-system-record` recognises it
+([binding](SUPPLEMENT.md#binding)).
 
 Adopting requires equal `target.uid`, `target.home`, `binding.mode` and
 `supplement_id`, moves the root binding when only the path differs, sets

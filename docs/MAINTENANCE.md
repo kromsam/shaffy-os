@@ -53,12 +53,8 @@ Nextcloud and Syncthing keep four things apart:
   user unit) comes from the `nextcloud` and `syncthing` integrations. A home
   apply never edits the clients' own settings.
 - **Adoption** of a machine that already synchronizes records the clients'
-  existing activation as managed:
-
-  ```sh
-  ./bin/shaffy integration nextcloud adopt
-  ./bin/shaffy integration syncthing adopt
-  ```
+  existing activation as managed, with `integration NAME adopt`
+  ([integrations](SUPPLEMENT.md#integrations)).
 
 - **Activation** is `managed` in the settings: the next apply links Syncthing's
   service and Nextcloud's autostart entry.

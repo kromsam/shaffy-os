@@ -58,10 +58,9 @@ mise install ansible-core
 mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml -p collections
 ```
 
-`mise.toml` selects `latest` for ansible-core; rerun its install command or
-`mise upgrade ansible-core` to update the installed controller. All public mise
-tools use `latest`: editing or applying their configuration alone does not
-update installed binaries. `requirements.yml` still pins the Galaxy collections,
+`mise.toml` selects `latest` for ansible-core, and every public mise tool uses
+`latest` too; [updating](docs/UPDATING.md) says how they are upgraded.
+`requirements.yml` still pins the Galaxy collections,
 and `ansible.cfg` makes the playbooks read only `./collections`, which Git ignores.
 If mise reports that it does not trust `mise.toml`, review it and run `mise
 trust`. `pacman -S` refreshes nothing; a full `sudo pacman -Syu` stays a
