@@ -281,6 +281,29 @@ additions (clipboard, capture, panels, notifications, timer, toggles).
 Workspaces are Niri's dynamic, per-monitor workspaces: the number keys reach
 existing workspaces and do not create ten permanent global ones.
 
+## The folder chooser
+
+Until Niri includes [fix d054395](https://github.com/niri-wm/niri/commit/d054395)
+for [issue 4691](https://github.com/niri-wm/niri/issues/4691), Nautilus 51.1
+crashes when an XWayland application asks for a folder. Shaffy OS therefore
+chooses files and folders with GTK's chooser:
+`home/dot_config/xdg-desktop-portal/niri-portals.conf` is Niri's own portal
+preferences plus one `FileChooser=gtk` line. After a Niri update:
+
+1. Check that the running Niri (`niri msg version`, after logging in again)
+   includes d054395; a higher version number alone does not prove it.
+2. Remove the `FileChooser` line from that file, apply the home and restart the
+   portal with `systemctl --user restart xdg-desktop-portal.service`.
+3. Choose a folder from an XWayland application, for example a local project in
+   Codex. Nautilus's chooser should open and return the folder, and
+   `journalctl --user --since '5 minutes ago'` should show no Nautilus crash and
+   no `Delegated FileChooser call failed`. If it fails, restore the line.
+
+When the line is gone and Niri's preferences equal the file, delete the file and
+retire it in `home/.chezmoiremove`. A test compares the file with the installed
+`/usr/share/xdg-desktop-portal/niri-portals.conf`, so a Niri update that changes
+its preferences shows up there.
+
 ## Validation and recovery
 
 `./bin/shaffy check` renders the whole home for a synthetic user in a sandbox,
