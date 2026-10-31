@@ -123,6 +123,7 @@ show_events_card = false
 
 [lockscreen]
 wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_screen.image) | toJson }}
+transition = []
 
 # Omarchy locks after five minutes without input. The screen dims for three seconds
 # first, and any input cancels the lock. Applications that inhibit idle, such as a

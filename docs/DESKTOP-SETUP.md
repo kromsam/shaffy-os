@@ -215,6 +215,7 @@ session awake, and **Super+Ctrl+I** switches caffeine on or off, which pauses
 the idle lock (also in the main menu under Style, and in the control centre).
 **Super+Alt+L** or **Super+Ctrl+L** locks at once, and Noctalia locks before
 suspend. Idle never suspends the machine.
+Lock and unlock animations are off.
 
 The timings are `[idle.behavior.lock]` and `[idle.behavior.screen-off]` in
 `90-omarchy.toml`. A supplement changes them in its Noctalia fragment
