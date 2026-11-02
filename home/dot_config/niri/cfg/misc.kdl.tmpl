@@ -29,10 +29,11 @@
         saturation 1.0  // color saturation boost (default: 1.5)
     }
 
-    debug {
-        // Allows notification actions and window activation from Noctalia.
-        honor-xdg-activation-with-invalid-serial
-    }
+    // honor-xdg-activation-with-invalid-serial stays off. With it, any window can
+    // take the focus by asking, and Chromium asks on every browser extension
+    // action. The cost is that apps such as Discord and Telegram do not come
+    // forward from a tray icon or a notification. A window rule replaces this
+    // choice once a Niri release has on-xdg-activate: "set-urgent" for browsers.
 
     hotkey-overlay {
        skip-at-startup
