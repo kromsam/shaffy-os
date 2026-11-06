@@ -12,7 +12,7 @@
         XDG_CURRENT_DESKTOP "niri"
         XDG_SESSION_TYPE "wayland"
 {{- if eq (dig "integrations" "ssh" "state" "" (includeTemplate "shaffy.json" . | fromJson).shaffy) "managed" }}
-        SSH_AUTH_SOCK "/run/user/{{ .chezmoi.uid }}/ssh-agent.socket"
+        SSH_AUTH_SOCK {{ printf "%s/.ssh/proton-pass-ssh-agent.sock" .chezmoi.homeDir | toJson | replace "\\u0026" "&" | replace "\\u003c" "<" | replace "\\u003e" ">" }}
 {{- end }}
     }
 

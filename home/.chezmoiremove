@@ -6,3 +6,8 @@
 # tests/test_apply.py.
 .config/niri/omarchy-overrides.kdl
 .config/noctalia/90-omarchy.toml
+# The Proton Pass desktop agent replaced the packaged agent environment.
+# Remove after 2027-02-06 with test_legacy_ssh_activation_migrates_and_converges
+# and test_legacy_ssh_activation_is_removed_only_when_owned_and_disabled in
+# tests/test_apply.py and docs/SSH.md's "Migrating the packaged agent" section.
+.config/environment.d/30-ssh-agent.conf

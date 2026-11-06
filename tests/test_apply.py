@@ -667,10 +667,10 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Integration syncthing is now disabled. A service it enabled keeps running', result.stdout)
         self.assertFalse(os.path.lexists(self.home / self.SYNCTHING))
-        self.assertFalse(os.path.lexists(self.home / '.config/systemd/user/sockets.target.wants/ssh-agent.socket'))
+        self.assertFalse(os.path.lexists(self.home / '.config/autostart/shaffy-proton-pass.desktop'))
         self.assertTrue(ssh.is_file())  # configuration is ignored from now on, never removed
         # Nothing points SSH at the agent socket any more.
-        self.assertFalse((self.home / '.config/environment.d/30-ssh-agent.conf').exists())
+        self.assertFalse((self.home / '.config/environment.d/90-proton-pass-ssh-agent.conf').exists())
         op = self.record()['last_completed_op']
         copy = self.state / 'runs' / op / 'before' / self.SYNCTHING
         self.assertEqual(os.readlink(copy), '/usr/lib/systemd/user/syncthing.service')
@@ -683,6 +683,83 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(back.returncode, 0, back.stderr)
         self.assertTrue(os.path.lexists(self.home / self.SYNCTHING))
         self.assertEqual(self.ledger()['syncthing']['state'], 'managed')
+
+    # Remove after 2027-02-06 with the old environment retirement in home/.chezmoiremove
+    # and docs/SSH.md's "Migrating the packaged agent" section.
+    def test_legacy_ssh_activation_migrates_and_converges(self):
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        old = '.config/systemd/user/sockets.target.wants/ssh-agent.socket'
+        new = self.home / '.config/autostart/shaffy-proton-pass.desktop'
+        new.unlink()
+        link = self.home / old
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to('/usr/lib/systemd/user/ssh-agent.socket')
+        environment = self.home / '.config/environment.d/30-ssh-agent.conf'
+        environment.write_text('SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/ssh-agent.socket\n')
+        book = self.state / 'ledger.json'
+        owned = json.loads(book.read_text())
+        owned['integrations']['ssh']['activation'] = [
+            {
+                'kind': 'wants-link',
+                'unit': 'ssh-agent.socket',
+                'link': '~/' + old,
+            }
+        ]
+        book.write_text(json.dumps(owned))
+        key = self.home / '.ssh/id_ed25519'
+        key.write_text('synthetic private key, never a real credential\n')
+        config = (self.home / '.ssh/config').read_text()
+        result = self.shaffy('apply', '--home')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(os.path.lexists(link))
+        self.assertFalse(environment.exists())
+        self.assertTrue(new.is_file())
+        copies = self.state / 'runs' / self.record()['last_completed_op'] / 'before'
+        self.assertEqual(os.readlink(copies / old), '/usr/lib/systemd/user/ssh-agent.socket')
+        self.assertEqual(
+            (copies / '.config/environment.d/30-ssh-agent.conf').read_text(),
+            'SSH_AUTH_SOCK=${XDG_RUNTIME_DIR}/ssh-agent.socket\n',
+        )
+        self.assertEqual(key.read_text(), 'synthetic private key, never a real credential\n')
+        self.assertEqual((self.home / '.ssh/config').read_text(), config)
+        again = self.shaffy('apply', '--home')
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertIn('(0 target(s) changed)', again.stdout)
+
+    # Remove after 2027-02-06 with the old environment retirement in home/.chezmoiremove
+    # and docs/SSH.md's "Migrating the packaged agent" section.
+    def test_legacy_ssh_activation_is_removed_only_when_owned_and_disabled(self):
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        old = self.home / '.config/systemd/user/sockets.target.wants/ssh-agent.socket'
+        old.parent.mkdir(parents=True, exist_ok=True)
+        (self.home / '.config/autostart/shaffy-proton-pass.desktop').unlink()
+        book = self.state / 'ledger.json'
+        original = json.loads(book.read_text())['integrations']['ssh']
+        original['activation'] = [
+            {
+                'kind': 'wants-link',
+                'unit': 'ssh-agent.socket',
+                'link': '~/.config/systemd/user/sockets.target.wants/ssh-agent.socket',
+            }
+        ]
+        for state in ('disabled', 'released', None):
+            with self.subTest(state=state):
+                old.unlink(missing_ok=True)
+                old.symlink_to('/usr/lib/systemd/user/ssh-agent.socket')
+                owned = json.loads(book.read_text())
+                if state:
+                    owned['integrations']['ssh'] = original
+                else:
+                    owned['integrations'].pop('ssh', None)
+                book.write_text(json.dumps(owned))
+                self.set_integration('ssh', state)
+                result = self.shaffy('apply', '--home')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(os.path.lexists(old), state != 'disabled')
+                self.assertFalse((self.home / '.config/autostart/shaffy-proton-pass.desktop').exists())
+                self.assertTrue((self.home / '.ssh/config').is_file())
 
     def test_a_managed_integration_left_out_of_the_settings_is_refused(self):
         self.attach()

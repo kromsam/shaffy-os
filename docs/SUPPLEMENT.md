@@ -351,7 +351,7 @@ its files and creates its activation only while the supplement asks for it:
 | `backup` | The daily verified home backup, weekly maintenance and monthly full check, as user timers. Needs the `backup` settings. |
 | `nextcloud` | The Nextcloud client's login autostart entry. |
 | `reaper` | REAPER's PipeWire audio settings and the yabridge configuration. |
-| `ssh` | The SSH client configuration and the SSH agent socket. |
+| `ssh` | The SSH client configuration and the Proton Pass desktop SSH agent. Prepare the app and keys before enabling it; see [SSH setup](SSH.md). |
 | `syncthing` | Syncthing's user service. |
 | `zettlr` | Two of Zettlr's settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. With `zotero` managed too, its citation library is Better BibTeX's export. |
 | `zotero` | Zotero's profile, the library location, the local API the MCP server reads, Better BibTeX and the folder it exports to ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)). |

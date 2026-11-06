@@ -407,8 +407,8 @@ status`, but its hooks refuse `apply`, `update`, `init`, `destroy`, `purge` and
 - [Desktop applications](docs/DESKTOP-APPLICATIONS.md) and
   [workspace tools](docs/WORKSPACE-TOOLS.md).
 - [Home folders](docs/HOME-FOLDERS.md), [keyboard](docs/KEYBOARD-SETUP.md),
-  [KDE Connect](docs/KDE-CONNECT.md) and
-  [login keyring](docs/LOGIN-KEYRING.md).
+  [KDE Connect](docs/KDE-CONNECT.md), [login keyring](docs/LOGIN-KEYRING.md)
+  and [SSH with Proton Pass](docs/SSH.md).
 - [Home backup](docs/HOME-BACKUP.md).
 - [Hibernation and battery](docs/POWER-MANAGEMENT.md): the swap file and
   resume, critical-battery hibernation and the charge limit.

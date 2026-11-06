@@ -581,7 +581,7 @@ Before rendering, every home apply compares the settings with the ledger;
 | `managed`, not in the ledger, nothing active | The apply renders its targets and records the activation. |
 | `managed`, not in the ledger, activation already present | Refused until `./bin/shaffy integration NAME adopt` records it. |
 | `managed`, and its `activate_requires` does not hold yet | Deferred: this apply renders it as not managed, records nothing and says why. |
-| `managed`, but the catalogue changed its activation | The new activation is recorded. |
+| `managed`, but the catalogue changed its activation | The new activation is recorded; old reversible paths absent from it are copied, then removed. A newly introduced path already present without ownership refuses the apply. |
 | `disabled`, managed in the ledger | Its targets become ignored; the apply copies, then removes, exactly the recorded wants links and autostart entries, and keeps configuration and data. |
 | `released`, in the ledger | The entry is removed; targets, activation and data stay as they are. |
 | Absent from the settings, managed in the ledger | Refused until it is set to `disabled` or `released`. |
@@ -594,7 +594,9 @@ chezmoi has applied and verified the home, it removes the `remaining` records
 one at a time, rewriting the ledger after each (a link that is already gone
 counts as removed), then writes the final state with `transition: null` and
 journals `ledger-done`. An entry left with a transition belongs to the
-unfinished operation: `--resume` repeats it, and after `--abandon` it waits for
+unfinished operation: `--resume` preserves its remaining queue even after the new
+activation was recorded. Paths are compared as filesystem paths, so changing
+metadata at the same path never schedules its removal. After `--abandon` it waits for
 `integration NAME adopt` or `release`.
 
 `integration NAME adopt` records activation already present as `managed` with

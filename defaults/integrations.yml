@@ -28,12 +28,12 @@ syncthing:
 
 ssh:
   scope: home
-  description: The SSH client configuration and the packaged SSH agent socket
+  description: The SSH client configuration and the Proton Pass desktop SSH agent
   targets:
     - .ssh/**
-    - .config/systemd/user/sockets.target.wants/ssh-agent.socket
+    - .config/autostart/shaffy-proton-pass.desktop
   activation:
-    - {kind: wants-link, unit: ssh-agent.socket, link: "~/.config/systemd/user/sockets.target.wants/ssh-agent.socket"}
+    - {kind: autostart, path: "~/.config/autostart/shaffy-proton-pass.desktop"}
 
 reaper:
   scope: home

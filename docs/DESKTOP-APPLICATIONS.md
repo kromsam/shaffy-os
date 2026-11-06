@@ -83,6 +83,8 @@ window (app id `Proton Pass`) out of screen shares, recordings and screenshots.
 Its account, settings and vault cache are the app's own and stay outside both
 repositories. `packages.omit: [proton-pass]` leaves it out. The browser
 extension comes from the browser's own add-on store and signs in separately.
+The managed SSH integration uses its desktop agent; see [SSH setup](SSH.md)
+for plan requirements, private key import, unlocking and verification.
 The vault's command line is in [workspace tools](WORKSPACE-TOOLS.md#proton-pass-cli).
 
 ## SilverBullet

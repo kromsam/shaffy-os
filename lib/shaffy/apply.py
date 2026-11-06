@@ -225,7 +225,7 @@ class HomeApply:
         pending['_changing'] = [(line[1], line[3:]) for line in status.stdout.splitlines() if len(line) > 3]
         if desktop_key.differs(self.key, Path.home()):
             pending['_changing'].append(('M', desktop_key.TARGET))
-        # Disabling removes activation chezmoi no longer sees, so it is copied like any change.
+        # Removed activation is ignored by chezmoi, so include it in the operation copies.
         pending['_changing'] += [('D', relative) for relative in ledger.removals(transitions, Path.home())]
         pending['_transitions'] = transitions
         return []

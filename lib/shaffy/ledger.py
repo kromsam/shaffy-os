@@ -111,7 +111,7 @@ def adoptable(integration, home, key='adopt_requires'):
 def plan(integrations, ledger, home, op):
     """Compare the settings with the ledger: (problems, transitions) for the home scope.
 
-    A transition is {name, scope, to, activation}; `to` is managed, disabled or released.
+    A transition is {name, scope, to, activation, remaining}; `to` is managed, disabled or released.
     An entry still carrying a transition of operation `op` is repeated (a resume); one of
     another operation was abandoned and waits for `integration adopt|release`. An
     integration whose `activate_requires` does not hold yet is deferred: this apply
@@ -146,8 +146,33 @@ def plan(integrations, ledger, home, op):
                     f'longer name it; set integrations.{name} to disabled or released'
                 )
             continue
+        if entry and entry.get('transition'):
+            transitions.append(
+                {
+                    'name': name,
+                    'scope': 'home',
+                    'to': entry['transition']['to'],
+                    'activation': entry['activation'],
+                    'remaining': list(entry['transition']['remaining']),
+                }
+            )
+            continue
         current = entry['state'] if entry else None
         change = {'name': name, 'scope': 'home', 'to': state}
+        activation = integration['activation']
+        owned_paths = {_path(r, home) for r in entry['activation'] if r['kind'] in REVERSIBLE} if entry else set()
+        conflicts = [
+            str(_path(r, home))
+            for r in activation
+            if r['kind'] in REVERSIBLE and _path(r, home) not in owned_paths and present(r, home)
+        ]
+        if state == 'managed' and entry and conflicts:
+            problems.append(
+                f'integration {name} has new activation already present but not owned: '
+                + ', '.join(conflicts)
+                + '; review the conflicting entry and move it aside before applying again'
+            )
+            continue
         if state == 'managed' and current != 'managed':
             if entry is None and any(present(r, home) for r in integration['activation']):
                 blocked = adoptable(integration, home)
@@ -162,14 +187,21 @@ def plan(integrations, ledger, home, op):
             if blocked:
                 deferred[name] = blocked
                 continue
-            transitions.append({**change, 'activation': integration['activation']})
+            transitions.append({**change, 'activation': activation, 'remaining': []})
         elif state == 'managed' and entry['activation'] != integration['activation']:
-            # The catalogue changed what activating it means; record the new activation.
-            transitions.append({**change, 'activation': integration['activation']})
+            new_paths = {_path(r, home) for r in activation if r['kind'] in REVERSIBLE}
+            remaining = [r for r in entry['activation'] if r['kind'] in REVERSIBLE and _path(r, home) not in new_paths]
+            transitions.append({**change, 'activation': activation, 'remaining': remaining})
         elif state == 'disabled' and current == 'managed':
-            transitions.append({**change, 'activation': entry['activation']})
+            transitions.append(
+                {
+                    **change,
+                    'activation': entry['activation'],
+                    'remaining': [r for r in entry['activation'] if r['kind'] in REVERSIBLE],
+                }
+            )
         elif state == 'released' and entry:
-            transitions.append({**change, 'activation': []})
+            transitions.append({**change, 'activation': [], 'remaining': []})
     return problems, transitions, deferred
 
 
@@ -185,21 +217,20 @@ def units_to_start(ledger, settled):
 
 
 def removals(transitions, home):
-    """Home-relative paths that disabling removes, for the operation's copies."""
+    """Home-relative owned activation paths to remove, for the operation's copies."""
     return [
         str(_path(r, home).relative_to(home))
         for t in transitions
-        if t['to'] == 'disabled'
-        for r in t['activation']
-        if r['kind'] in REVERSIBLE and os.path.lexists(_path(r, home))
+        for r in t['remaining']
+        if os.path.lexists(_path(r, home))
     ]
 
 
 def begin(ledger, transitions, op):
     """Record each transition's intent before the home operation writes.
 
-    chezmoi creates a managed integration's links and entries, so only disabling has
-    `remaining` records for the wrapper to reverse.
+    Persist the removal queue before replacing activation, so a resumed catalogue
+    change retains ownership of the old paths until they have been removed.
     """
     for change in transitions:
         entry = ledger['integrations'].setdefault(
@@ -213,14 +244,14 @@ def begin(ledger, transitions, op):
                 'created_by': op,
             },
         )
+        if entry.get('transition') and entry['transition']['op'] == op:
+            continue
         if change['to'] == 'managed':
             entry['activation'] = change['activation']
         entry['transition'] = {
             'op': op,
             'to': change['to'],
-            'remaining': [r for r in change['activation'] if r['kind'] in REVERSIBLE]
-            if change['to'] == 'disabled'
-            else [],
+            'remaining': list(change['remaining']),
         }
         entry.update(changed_by=op, changed_at=now())
     return ledger
@@ -229,8 +260,8 @@ def begin(ledger, transitions, op):
 def finish(ledger, op, home, write):
     """Complete this operation's transitions after chezmoi verified the home; each step idempotent.
 
-    chezmoi created a managed integration's activation; disabling removes the links and
-    autostart entries it made (chezmoi now ignores them, so it would not); configuration
+    chezmoi created a managed integration's activation; remove its superseded or disabled
+    links and autostart entries (chezmoi now ignores them, so it would not); configuration
     keys in application files are the application's and stay.
     """
     done = []

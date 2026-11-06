@@ -86,6 +86,62 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(stored['integrations']['a']['state'], 'disabled')
         self.assertIsNone(stored['integrations']['a']['transition'])
 
+    def test_replacing_activation_resumes_after_intent_and_each_removal(self):
+        for crash_after in (0, 1):
+            with self.subTest(crash_after=crash_after):
+                self.activate()
+                owned = ledger.adopt({'ledger_version': 1, 'integrations': {}}, 'a', integration('managed'), 'op0')
+                replacement = {'kind': 'autostart', 'path': '~/.config/autostart/New.desktop'}
+                desired = {'a': integration('managed', activation=(replacement,))}
+                problems, transitions, _ = ledger.plan(desired, owned, self.home, 'op1')
+                self.assertEqual(problems, [])
+                self.assertEqual(len(ledger.removals(transitions, self.home)), 2)
+                ledger.begin(owned, transitions, 'op1')
+                self.book.write(owned)
+                new_path = ledger.expand(replacement['path'], self.home)
+                new_path.write_text('new activation')
+                if crash_after:
+
+                    def crash(data):
+                        self.book.write(data)
+                        raise KeyboardInterrupt
+
+                    with self.assertRaises(KeyboardInterrupt):
+                        ledger.finish(owned, 'op1', self.home, crash)
+                stored = self.book.read()
+                expected = [ENTRY] if crash_after else [LINK, ENTRY]
+                self.assertEqual(stored['integrations']['a']['transition']['remaining'], expected)
+                problems, again, _ = ledger.plan(desired, stored, self.home, 'op1')
+                self.assertEqual(problems, [])
+                self.assertEqual(again[0]['remaining'], expected)
+                ledger.begin(stored, again, 'op1')
+                self.assertEqual(stored['integrations']['a']['transition']['remaining'], expected)
+                self.assertEqual(ledger.finish(stored, 'op1', self.home, self.book.write), [('a', 'managed')])
+                self.assertEqual(new_path.read_text(), 'new activation')
+                for record in (LINK, ENTRY):
+                    self.assertFalse(ledger.present(record, self.home))
+                self.assertEqual(ledger.plan(desired, stored, self.home, 'op2'), ([], [], {}))
+                new_path.unlink()
+
+    def test_changed_metadata_at_the_same_path_keeps_the_new_activation(self):
+        self.activate()
+        owned = ledger.adopt({'integrations': {}}, 'a', integration('managed'), 'op0')
+        replacement = {**LINK, 'unit': 'renamed.service'}
+        _, transitions, _ = ledger.plan({'a': integration('managed', (replacement, ENTRY))}, owned, self.home, 'op1')
+        self.assertEqual(ledger.removals(transitions, self.home), [])
+        ledger.begin(owned, transitions, 'op1')
+        ledger.finish(owned, 'op1', self.home, lambda data: None)
+        self.assertTrue(ledger.present(replacement, self.home))
+        self.assertEqual(owned['integrations']['a']['activation'], [replacement, ENTRY])
+
+    def test_catalogue_change_refuses_an_existing_unowned_new_path(self):
+        self.activate()
+        owned = ledger.adopt({'integrations': {}}, 'a', integration('managed', (LINK,)), 'op0')
+        problems, transitions, _ = ledger.plan({'a': integration('managed')}, owned, self.home, 'op1')
+        self.assertIn('new activation already present but not owned', problems[0])
+        self.assertEqual(transitions, [])
+        self.assertEqual(owned['integrations']['a']['activation'], [LINK])
+
     def test_an_unmet_activation_precondition_defers_instead_of_refusing(self):
         receipt = self.home / 'receipt.json'
         gated = {

@@ -1,0 +1,3 @@
+{{- if eq (dig "integrations" "ssh" "state" "" (includeTemplate "shaffy.json" . | fromJson).shaffy) "managed" -}}
+SSH_AUTH_SOCK=${HOME}/.ssh/proton-pass-ssh-agent.sock
+{{ end -}}

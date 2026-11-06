@@ -374,18 +374,42 @@ class RenderTests(unittest.TestCase):
 
     def test_integrations_render_only_while_managed(self):
         wants = '.config/systemd/user/default.target.wants/syncthing.service'
-        socket = '.config/systemd/user/sockets.target.wants/ssh-agent.socket'
+        ssh_autostart = '.config/autostart/shaffy-proton-pass.desktop'
         with tempfile.TemporaryDirectory() as keep:
             self.assertClean(render(ROOT, supplement=ROOT / 'tests/fixtures/supplements/comprehensive', keep=keep))
             home = Path(keep) / 'home'
             self.assertEqual(os.readlink(home / wants), '/usr/lib/systemd/user/syncthing.service')
-            self.assertEqual(os.readlink(home / socket), '/usr/lib/systemd/user/ssh-agent.socket')
+            self.assertIn(
+                'TryExec=/usr/bin/proton-pass\nExec=/usr/bin/proton-pass\n', (home / ssh_autostart).read_text()
+            )
             self.assertTrue((home / '.config/autostart/Nextcloud.desktop').is_file())
             self.assertTrue((home / '.ssh/config').is_file())
-            # The agent environment follows the ssh integration that enables its socket.
-            self.assertIn('SSH_AUTH_SOCK', (home / '.config/environment.d/30-ssh-agent.conf').read_text())
+            # The agent environment follows the managed desktop integration.
+            self.assertEqual(
+                (home / '.config/environment.d/90-proton-pass-ssh-agent.conf').read_text(),
+                'SSH_AUTH_SOCK=${HOME}/.ssh/proton-pass-ssh-agent.sock\n',
+            )
             self.assertIn('SSH_AUTH_SOCK', (home / '.config/fish/conf.d/30-ssh-agent.fish').read_text())
-            self.assertIn('SSH_AUTH_SOCK', (home / '.config/niri/cfg/misc.kdl').read_text())
+            fish = home / '.config/fish/conf.d/30-ssh-agent.fish'
+            for forwarded in (None, '/synthetic/forwarded-agent.sock'):
+                env = {**os.environ, 'HOME': str(home)}
+                env.pop('SSH_AUTH_SOCK', None)
+                if forwarded:
+                    env['SSH_AUTH_SOCK'] = forwarded
+                result = subprocess.run(
+                    ['fish', '--no-config', '-c', 'source "$argv[1]"; printf %s "$SSH_AUTH_SOCK"', str(fish)],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, forwarded or str(home / '.ssh/proton-pass-ssh-agent.sock'))
+            rendered_home = str(home) if DIRECT else '/home/tester'
+            self.assertIn(
+                f'SSH_AUTH_SOCK {json.dumps(rendered_home + "/.ssh/proton-pass-ssh-agent.sock")}',
+                (home / '.config/niri/cfg/misc.kdl').read_text(),
+            )
             self.assertIn('Path=shaffy.default\n', (home / '.zotero/zotero/profiles.ini').read_text())
             prefs = (home / '.zotero/zotero/shaffy.default/user.js').read_text()
             self.assertIn(
@@ -446,7 +470,7 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             for target in (
                 wants,
-                socket,
+                ssh_autostart,
                 '.config/autostart/Nextcloud.desktop',
                 '.ssh/config',
                 '.config/Zettlr',
@@ -457,11 +481,31 @@ class RenderTests(unittest.TestCase):
                 '.local/bin/restic-home',
                 '.local/state/shaffy/home-backup',
                 '.config/systemd/user/restic-home-backup.service',
-                '.config/environment.d/30-ssh-agent.conf',
+                '.config/environment.d/90-proton-pass-ssh-agent.conf',
                 '.config/fish/conf.d/30-ssh-agent.fish',
             ):
                 self.assertFalse(os.path.lexists(home / target), target)
             self.assertNotIn('SSH_AUTH_SOCK', (home / '.config/niri/cfg/misc.kdl').read_text())
+
+    def test_disabled_and_released_ssh_render_no_agent_environment_or_activation(self):
+        for state in ('disabled', 'released'):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as temporary:
+                supplement = Path(temporary) / 'supplement'
+                shutil.copytree(ROOT / 'tests/fixtures/supplements/comprehensive', supplement)
+                config = supplement / 'config.yaml'
+                config.write_text(config.read_text().replace('ssh: managed', f'ssh: {state}'))
+                keep = Path(temporary) / 'render'
+                keep.mkdir()
+                self.assertClean(render(ROOT, supplement=supplement, keep=keep))
+                home = keep / 'home'
+                for target in (
+                    '.config/autostart/shaffy-proton-pass.desktop',
+                    '.config/environment.d/90-proton-pass-ssh-agent.conf',
+                    '.config/fish/conf.d/30-ssh-agent.fish',
+                    '.ssh/config',
+                ):
+                    self.assertFalse(os.path.lexists(home / target), target)
+                self.assertNotIn('SSH_AUTH_SOCK', (home / '.config/niri/cfg/misc.kdl').read_text())
 
     def test_defaults_leave_outputs_and_keyboard_to_niri_and_localectl(self):
         with tempfile.TemporaryDirectory() as keep:
