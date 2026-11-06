@@ -3,30 +3,23 @@
   community.general.pacman:
     name: "{{ shaffy.packages.groups.workflows }}"
     state: present
-# The target user is not added to the docker group: its members control the engine, which
-# runs as root, so membership is root access without a password. Docker runs through sudo.
-# Docker filters published ports in its own chains, before UFW sees them. A port published
-# without a host address therefore binds to loopback: `ip` covers the default bridge and
-# `default-network-opts` every network created afterwards, such as Compose's.
-- name: Create the Docker engine's configuration directory
-  ansible.builtin.file:
-    path: /etc/docker
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-- name: Publish container ports on loopback unless a host address is given
-  ansible.builtin.copy:
-    src: daemon.json
-    dest: /etc/docker/daemon.json
-    owner: root
-    group: root
-    mode: '0644'
-  notify: Restart the Docker engine
-- name: Enable and start the local Docker engine
+- name: Give Docker's data a subvolume before the rootless engine can first start
+  ansible.builtin.import_tasks: docker-data.yml
+- name: Install the rootless Docker launcher that comes from the AUR
+  ansible.builtin.include_role:
+    name: aur_package
+  loop: '{{ shaffy.packages.aur.workflows }}'
+  loop_control:
+    loop_var: aur_package
+# Docker runs rootless, as the target user's own service, which the home enables. The system
+# engine stays disabled on a fresh installation, so this task only retires the one an earlier
+# Shaffy OS enabled. Its data and /etc/docker/daemon.json stay for the owner to copy and delete:
+# started again to rescue something, the old engine must still publish ports on loopback only.
+# Remove after 2027-02-06, with its test in tests/test_system_roles.py and the marked passage
+# on moving to the rootless engine in docs/DESKTOP-APPLICATIONS.md.
+- name: Stop and disable the system Docker engine, the socket first so it cannot restart the service
   ansible.builtin.systemd_service:
-    name: docker.service
-    enabled: true
-    state: started
-- name: Apply a changed engine configuration
-  ansible.builtin.meta: flush_handlers
+    name: '{{ item }}'
+    enabled: false
+    state: stopped
+  loop: [docker.socket, docker.service]

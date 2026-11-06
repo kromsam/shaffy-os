@@ -26,7 +26,7 @@ def aur_packages():
 
 class RoleTests(unittest.TestCase):
     def test_roles_install_only_the_resolved_aur_selection(self):
-        for role in ('desktop_apps',):
+        for role in ('desktop_apps', 'workflows'):
             tasks = yaml.safe_load((ROOT / f'roles/{role}/tasks/main.yml').read_text())
             installs = [
                 task for task in tasks if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package'
@@ -37,7 +37,7 @@ class RoleTests(unittest.TestCase):
             self.assertNotIn('aur_package', installs[0].get('vars', {}))
 
     def test_the_roles_take_these_packages_from_the_aur_and_the_repository_keeps_no_recipes(self):
-        self.assertEqual(aur_packages(), ['ttf-ms-fonts'])
+        self.assertEqual(aur_packages(), ['docker-rootless-extras', 'ttf-ms-fonts'])
         self.assertFalse((ROOT / 'packages').exists())
         files = subprocess.run(
             ['git', '-C', str(ROOT), 'ls-files', '-z', '-co', '--exclude-standard'],

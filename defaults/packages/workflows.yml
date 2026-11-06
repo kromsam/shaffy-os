@@ -3,6 +3,8 @@ packages:
   - docker
   - docker-compose
   - docker-buildx
+  # Rootless Docker's network driver; RootlessKit's fallback cannot keep containers off the host's loopback.
+  - slirp4netns
   - mise
   - base-devel
   - reaper
@@ -18,6 +20,11 @@ packages:
   - libxcb
   - meson
   - tomlplusplus
+aur:
+  # Arch's docker package leaves out Moby's rootless launcher and its user units.
+  - name: docker-rootless-extras
 required:
-  # docker.service is enabled; the target user uses it through sudo, outside the docker group.
+  # The home enables the rootless engine's user service, which needs these to run and to isolate.
   - docker
+  - docker-rootless-extras
+  - slirp4netns

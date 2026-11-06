@@ -1,0 +1,16 @@
+---
+# As a subvolume of its own, the rootless engine's data stays out of the home's snapshots and out
+# of an undo of the home. The engine makes an ordinary directory at its first start, so this runs
+# before its launcher is installed, and an existing directory is left as it is.
+- name: Look for the rootless Docker engine's data directory
+  ansible.builtin.stat:
+    path: '{{ shaffy_target_home }}/.local/share/docker'
+  register: workflows_docker_data
+
+- name: Create Docker's data directory as a Btrfs subvolume of its own
+  become: true
+  become_user: '{{ shaffy_target_user }}'
+  ansible.builtin.command:
+    argv: [btrfs, subvolume, create, --parents, '{{ shaffy_target_home }}/.local/share/docker']
+  changed_when: true
+  when: not workflows_docker_data.stat.exists

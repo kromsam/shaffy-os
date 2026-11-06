@@ -350,10 +350,8 @@ class PackageTests(LoaderCase):
         self.assertEqual(packages['extra'], [])
         self.assertEqual(packages['remove'], ['beeper-v4-bin', 'zotero-bin'])
         self.assertIn('zotero', packages['groups']['writing'])
-        self.assertEqual(
-            packages['aur'],
-            {group: ([{'name': 'ttf-ms-fonts'}] if group == 'desktop_apps' else []) for group in packages['groups']},
-        )
+        aur = {'desktop_apps': [{'name': 'ttf-ms-fonts'}], 'workflows': [{'name': 'docker-rootless-extras'}]}
+        self.assertEqual(packages['aur'], {group: aur.get(group, []) for group in packages['groups']})
 
     def test_choices_add_omit_and_remove(self):
         packages = self.packages('packages:\n  extra: [htop, zellij]\n  omit: [reaper]\n  remove: [reaper]\n')
@@ -370,6 +368,11 @@ class PackageTests(LoaderCase):
     def test_contradictory_choices_fail(self):
         for text, message in (
             ('packages:\n  omit: [docker]\n', 'packages.omit: docker is required by the workflows group'),
+            (
+                'packages:\n  omit: [docker-rootless-extras]\n',
+                'packages.omit: docker-rootless-extras is required by the workflows group',
+            ),
+            ('packages:\n  omit: [slirp4netns]\n', 'packages.omit: slirp4netns is required by the workflows group'),
             ('packages:\n  omit: [htop]\n', 'packages.omit: htop is in no package group'),
             ('packages:\n  extra: [docker]\n', 'packages.extra: docker is already in the workflows group'),
             (

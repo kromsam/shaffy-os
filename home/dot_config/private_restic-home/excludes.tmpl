@@ -3,6 +3,8 @@
 $HOME/.cache
 $HOME/.npm
 $HOME/.local/share/Trash
+# Rootless Docker's images and volumes: their sub-UID files are unreadable, which fails a backup.
+$HOME/.local/share/docker
 {{- with dig "excludes" list $b }}
 # From the settings.
 {{- range . }}

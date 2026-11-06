@@ -605,6 +605,14 @@ stage_defaults() {
   NEXT="reboot the VM, log in through SDDM, mount the shares, then: bash $SHARE/guest-validate.sh after-reboot"
 }
 
+published_on_loopback_only() { # published_on_loopback_only: a port published without a host address
+  local id bindings
+  id=$(docker run -d -p 8080 busybox:stable sleep 60) || return 1
+  bindings=$(docker port "$id" 8080)
+  docker rm -f "$id" >/dev/null
+  [[ -n $bindings ]] && ! grep -qv '^127\.0\.0\.1:' <<<"$bindings"
+}
+
 stage_after_reboot() {
   require_checkout
   py_report booted booted
@@ -622,7 +630,15 @@ stage_after_reboot() {
   check "no user unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"$OUTPUT")}" test -z "$OUTPUT"
   keep_output failed-system-units systemctl list-units --state=failed --no-legend --plain
   check "no system unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"$OUTPUT")}" test -z "$OUTPUT"
-  check "docker.service, which the workflows role enables, is active" systemctl is-active --quiet docker.service
+  check "the rootless Docker engine, the user service the home enables, is active" systemctl --user is-active --quiet docker.service
+  check "the system Docker engine is off" bash -c '! systemctl is-active --quiet docker.service'
+  check "a rootless container publishes a port on a boot that never ran the system engine" \
+    keep rootless-container docker run --rm -p 127.0.0.1::8080 busybox:stable true
+  check "a port published without an address listens on loopback only, as ~/.config/docker/daemon.json says" \
+    published_on_loopback_only
+  # Inode 256 is the root of a Btrfs subvolume; the system apply made it before the engine started.
+  check "Docker's data is the user's own subvolume, outside the home's snapshots" \
+    test "$(stat -c '%i %U' "$HOME/.local/share/docker")" = "256 $(id -un)"
 
   local missing=() target
   while IFS= read -r target; do

@@ -80,29 +80,31 @@ class SettingsGatedRoleTests(unittest.TestCase):
 
 class DockerEngineTests(unittest.TestCase):
     def test_published_ports_default_to_loopback_on_every_bridge_network(self):
-        daemon = json.loads((ROOT / 'roles/workflows/files/daemon.json').read_text())
+        daemon = json.loads((ROOT / 'home/dot_config/docker/daemon.json').read_text())
         self.assertEqual(daemon['ip'], '127.0.0.1')
         self.assertEqual(
             daemon['default-network-opts'], {'bridge': {'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1'}}
         )
 
-    def test_the_engine_starts_with_its_configuration_and_restarts_when_it_changes(self):
+    def test_the_system_engine_is_retired_without_touching_its_data(self):
         steps = tasks('workflows')
-        config = next(
+        stop = next(task for task in steps if 'ansible.builtin.systemd_service' in task)
+        # A live socket would start the service again, so it stops first.
+        self.assertEqual(stop['loop'], ['docker.socket', 'docker.service'])
+        self.assertEqual(stop['ansible.builtin.systemd_service']['enabled'], False)
+        self.assertEqual(stop['ansible.builtin.systemd_service']['state'], 'stopped')
+        # A failed AUR build must leave the old engine running.
+        install = next(
             i
             for i, task in enumerate(steps)
-            if task.get('ansible.builtin.copy', {}).get('dest') == '/etc/docker/daemon.json'
+            if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package'
         )
-        start = next(
-            i
-            for i, task in enumerate(steps)
-            if task.get('ansible.builtin.systemd_service', {}).get('name') == 'docker.service'
-        )
-        self.assertLess(config, start)
-        self.assertEqual(steps[config]['notify'], 'Restart the Docker engine')
-        self.assertEqual(steps[-1].get('ansible.builtin.meta'), 'flush_handlers')
-        handlers = yaml.safe_load((ROOT / 'roles/workflows/handlers/main.yml').read_text())
-        self.assertIn('Restart the Docker engine', [handler['name'] for handler in handlers])
+        self.assertLess(install, steps.index(stop))
+        # The owner may start the old engine again to rescue data; its configuration keeps the
+        # ports it publishes on loopback until the owner deletes it along with the data.
+        every_step = str([yaml.safe_load(path.read_text()) for path in (ROOT / 'roles/workflows/tasks').glob('*.yml')])
+        for kept in ('/var/lib/docker', '/var/lib/containerd', '/etc/docker'):
+            self.assertNotIn(kept, every_step)
 
     def test_no_role_adds_a_user_to_the_root_equivalent_docker_group(self):
         def user_tasks(node):  # tasks nested in blocks included
@@ -121,10 +123,6 @@ class DockerEngineTests(unittest.TestCase):
                 groups = user.get('groups', [])
                 groups = groups.split(',') if isinstance(groups, str) else groups
                 self.assertNotIn('docker', [group.strip() for group in groups], path)
-
-
-if __name__ == '__main__':
-    unittest.main()
 
 
 def _controller_ready():
@@ -164,3 +162,91 @@ class PackagesEvaluationTests(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 0, result.stdout[-2000:])
         self.assertIn('failed=0', result.stdout)
+
+
+def _artifacts_on_btrfs():
+    (ROOT / 'artifacts').mkdir(exist_ok=True)
+    kind = subprocess.run(['stat', '-f', '-c', '%T', ROOT / 'artifacts'], capture_output=True, text=True, check=False)
+    return kind.stdout.strip() == 'btrfs'
+
+
+class DockerDataOrderTests(unittest.TestCase):
+    def test_the_subvolume_exists_before_the_launcher_that_starts_the_engine(self):
+        # An apply that stopped between the two would leave the engine to make an ordinary directory.
+        steps = tasks('workflows')
+        subvolume = next(
+            i for i, task in enumerate(steps) if task.get('ansible.builtin.import_tasks') == 'docker-data.yml'
+        )
+        launcher = next(
+            i
+            for i, task in enumerate(steps)
+            if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package'
+        )
+        self.assertLess(subvolume, launcher)
+
+    def test_the_subvolume_is_created_as_the_user_whose_engine_writes_to_it(self):
+        # The run below cannot switch users without root, so it drops this; a subvolume owned by
+        # root would stop the rootless engine at every login.
+        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker-data.yml').read_text())
+        create = next(step for step in steps if 'ansible.builtin.command' in step)
+        self.assertEqual((create['become'], create['become_user']), (True, '{{ shaffy_target_user }}'))
+
+
+@unittest.skipUnless(_controller_ready() and _artifacts_on_btrfs(), 'needs the mise controller and a Btrfs checkout')
+class DockerDataSubvolumeTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(dir=ROOT / 'artifacts')
+        self.addCleanup(temporary.cleanup)
+        self.tmp = Path(temporary.name)
+        self.home = self.tmp / 'home'
+        self.home.mkdir()
+        self.data = self.home / '.local/share/docker'
+        # The test already runs as the target user, so the switch to that user would only ask for sudo.
+        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker-data.yml').read_text())
+        for step in steps:
+            step.pop('become', None)
+            step.pop('become_user', None)
+        (self.tmp / 'docker-data.yml').write_text(yaml.safe_dump(steps))
+
+    def play(self):
+        play = self.tmp / 'play.yml'
+        play.write_text(
+            yaml.safe_dump(
+                [
+                    {
+                        'hosts': 'localhost',
+                        'connection': 'local',
+                        'gather_facts': False,
+                        'vars': {
+                            'ansible_python_interpreter': '/usr/bin/python3',
+                            'shaffy_target_home': str(self.home),
+                        },
+                        'tasks': [{'ansible.builtin.import_tasks': str(self.tmp / 'docker-data.yml')}],
+                    }
+                ]
+            )
+        )
+        command, env = bootstrap.ansible_command(ROOT, 'ansible-playbook', '-i', 'localhost,', str(play))
+        result = subprocess.run(command, env=env, cwd=ROOT, capture_output=True, text=True, timeout=90, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result.stdout
+
+    def is_subvolume(self):
+        return self.data.stat().st_ino == 256  # the root inode of every Btrfs subvolume
+
+    def test_a_missing_directory_becomes_a_subvolume_once(self):
+        self.assertRegex(self.play(), r'changed=1\s')
+        self.assertTrue(self.is_subvolume())
+        self.assertRegex(self.play(), r'changed=0\s')
+        self.assertTrue(self.is_subvolume())
+
+    def test_an_existing_directory_and_its_data_are_left_alone(self):
+        self.data.mkdir(parents=True)
+        (self.data / 'engine-id').write_text('kept\n')
+        self.assertRegex(self.play(), r'changed=0\s')
+        self.assertFalse(self.is_subvolume())
+        self.assertEqual((self.data / 'engine-id').read_text(), 'kept\n')
+
+
+if __name__ == '__main__':
+    unittest.main()

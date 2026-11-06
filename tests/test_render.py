@@ -364,6 +364,17 @@ class RenderTests(unittest.TestCase):
                 (home / '.config/niri/cfg/misc.kdl').read_text(),
             )
             self.assertTrue((home / '.local/share/pandoc/csl').is_dir())
+            # Docker belongs to the default desktop, so its rootless engine needs no supplement.
+            self.assertEqual(
+                os.readlink(home / '.config/systemd/user/default.target.wants/docker.service'),
+                '/usr/lib/systemd/user/docker.service',
+            )
+            self.assertIn(
+                'DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/docker.sock',
+                (home / '.config/environment.d/40-docker.conf').read_text(),
+            )
+            self.assertIn('DOCKER_HOST', (home / '.config/fish/conf.d/25-docker.fish').read_text())
+            self.assertEqual(json.loads((home / '.config/docker/daemon.json').read_text())['ip'], '127.0.0.1')
 
     def test_integrations_render_only_while_managed(self):
         wants = '.config/systemd/user/default.target.wants/syncthing.service'
@@ -417,6 +428,8 @@ class RenderTests(unittest.TestCase):
                 .read_text()
                 .endswith('# From the settings.\n$HOME/Projects/scratch data\n')
             )
+            # restic cannot read Docker's sub-UID files, and restic-home fails on what it cannot read.
+            self.assertIn('$HOME/.local/share/docker\n', (home / '.config/restic-home/excludes').read_text())
             self.assertTrue((home / '.config/systemd/user/restic-home-backup.timer').is_file())
             self.assertFalse(
                 os.path.lexists(home / '.config/systemd/user/timers.target.wants/restic-home-backup.timer')

@@ -63,14 +63,17 @@ created or restored by hand.
 ## Behaviour
 
 Each run backs up the home with `--one-file-system` and `--exclude-caches`.
-The public exclusions are regenerable caches and the Trash; the settings add
-personal ones. Routine backup never prunes. Maintenance first inspects its
+The public exclusions are regenerable caches, the Trash and Docker's data; the
+settings add personal ones. Routine backup never prunes. Maintenance first inspects its
 dry-run selection and refuses any snapshot outside this home's host, path and
 tags, then prunes and checks.
 
-Only the home is backed up. Container volumes, such as Docker's under
-`/var/lib/docker`, are outside it: export their databases into the home with each
-database's own dump tool, and repeat the export after changes worth keeping.
+Only the home is backed up, and not all of it. Rootless Docker keeps its images
+and volumes in `~/.local/share/docker`, which is left out: many of those files
+belong to the containers' users, restic cannot read them, and a backup that cannot
+read a file does not complete cleanly. Export databases into the rest of the home
+with each database's own dump tool, and repeat the export after changes worth
+keeping.
 
 Private backup progress and errors are in `~/.cache/restic-home/backup.jsonl` and
 `backup.stderr`. The user services serialize operations with a local lock and the

@@ -365,45 +365,97 @@ also holds the earlier `/etc`.
 
 ## Docker
 
-The `workflows` role installs Docker, Compose and Buildx and enables
-`docker.service`; it starts no containers. It does not add the target user to
-the `docker` group: members of that group control the engine, which runs as
-root, so membership would give any program running as the user root access
-without a password. Run Docker through sudo instead:
+Docker runs [rootless](https://docs.docker.com/engine/security/rootless/): the
+engine is the target user's own service, so `docker` and `docker compose` need
+neither sudo nor the `docker` group, and a container can reach only what the user
+can. The `workflows` role installs Docker, Compose, Buildx and the rootless
+launcher. The home enables the user service `docker.service` and points
+`DOCKER_HOST` at its socket, for the session and for Fish. No containers start by
+themselves.
 
-```sh
-sudo docker ps
-sudo docker compose up -d
-```
+The engine runs while the user is logged in, and containers with a restart policy
+come back at the next login. Its images and volumes are in `~/.local/share/docker`
+and stay out of the [home backup](HOME-BACKUP.md). The system apply creates that
+directory as a Btrfs subvolume of its own before the engine first starts, so the
+home's snapshots and an undo of the home leave the containers' data alone; a
+directory that already exists stays as it is. Inside a container, root is the
+user, so what it writes to a bind mount belongs to the user. Any other container
+user is a sub-UID on the host, whose files the user cannot always read; remove them
+with `rootlesskit rm -rf PATH`.
+
+A published port is an ordinary socket of the user's `rootlesskit` process, so UFW
+filters it. `~/.config/docker/daemon.json` also binds a port published without a
+host address to loopback: `ip` sets this for the default bridge, and
+`default-network-opts` for every bridge network, such as the ones Compose creates.
+A project's `"5433:5432"` then listens on `127.0.0.1:5433` only. To offer a port to
+the network on purpose, name the address in the mapping, such as
+`"0.0.0.0:8080:80"`, and allow it in UFW. A container with `network_mode: host`
+shares the rootless engine's network namespace, not the host's: what it listens on
+cannot be reached from the host, so publish the port instead. A port below 1024 is
+refused; map it to a higher host port, such as `"8080:80"`. After a
+change to `daemon.json`, run `systemctl --user restart docker.service`, which stops
+running containers; those with a restart policy come back.
 
 <!-- Remove after 2027-01-19, this paragraph only. -->
-An earlier Shaffy OS added the target user to the group, and a system apply
+An earlier Shaffy OS added the target user to the `docker` group, and a system apply
 does not undo that. To leave it, run `sudo gpasswd -d "$USER" docker` and log
 out and back in; `id -nG` then no longer lists `docker`.
 
-Docker filters published ports in its own firewall chains, before UFW sees them,
-so UFW's default incoming policy does not protect a published port. The role
-therefore installs `/etc/docker/daemon.json` (source
-`roles/workflows/files/daemon.json`), which binds a port published without a host
-address to loopback: `ip` sets this for the default bridge, and
-`default-network-opts` for every bridge network created afterwards, such as the
-ones Compose creates. A project's `"5433:5432"` then listens on `127.0.0.1:5433`
-only. Containers with `network_mode: host` publish nothing and stay behind UFW.
-See [Docker's port publishing documentation](https://docs.docker.com/engine/network/port-publishing/).
+<!-- Remove after 2027-02-06, this passage down to the commands that free the old space. -->
+An earlier Shaffy OS ran the system engine, as root. A system apply stops and
+disables it, but keeps its data and its configuration, which the rootless engine
+cannot see. Published images download again. To carry a project's volumes over,
+have Compose create them empty, or `docker volume create NAME` for a volume outside
+a project, then copy each one while the system engine is stopped. Copy before the
+project's first start: a database that has started in the new volume has made a
+fresh one there, which the copy would mix with the old; remove it with
+`docker compose down --volumes` and begin again. Use a terminal opened after the
+home apply, so that `docker` reaches the rootless engine:
 
-To offer a port to the network on purpose, name the address in the mapping, such
-as `"0.0.0.0:8080:80"`; UFW does not filter it either way. A network created before the
-configuration keeps the binding it was created with; `docker compose down`
-followed by `up` recreates a project's network with the new default, and keeps
-its volumes. A changed `daemon.json` restarts the engine, which stops running
-containers; those with a restart policy come back.
+```sh
+systemctl --user daemon-reload
+systemctl --user start docker.service                      # or log in again
+sudo ls /var/lib/docker/volumes                            # what there is to carry
+docker compose up --no-start                               # in the project
+docker volume ls                                           # the new, empty volumes
+sudo tar --numeric-owner -C /var/lib/docker/volumes/OLD/_data -cf - . |
+  docker run --rm -i -v NEW:/to alpine tar -C /to -xf -    # for each volume
+docker compose up -d
+```
+
+A bind-mounted data directory keeps the owners the system engine gave it, which mean
+nothing to the rootless engine. Run `sudo chown -R "$USER": DIRECTORY` and, for a
+container that runs as another user,
+`docker run --rm -v "$PWD/DIRECTORY:/d" alpine chown -R UID:GID /d`.
+
+Only volumes and bind mounts carry over. A locally built image must be built again,
+and files a container kept outside them stay with the old engine. A Buildx builder
+with the `docker-container` driver, such as the ones Kamal creates, keeps the system
+engine's socket and fails without it. `docker buildx ls` lists them;
+`docker buildx rm NAME` reports that it cannot reach the old engine and removes the
+builder all the same, and Kamal creates its builders again at the next build.
+
+To rescue something else, such as a database dump or an image with `docker save`,
+start the old engine for a moment with `sudo systemctl start docker.service`; its
+kept configuration still publishes ports on loopback only. Once the projects work
+and nothing else you need is there, delete the old engine's data and configuration,
+after a reboot: a container that did not stop in time can leave its file system
+mounted under `/var/lib/docker`, and `rm` would stop there half done. The root
+snapshots taken before still hold the data, so the space returns as snapper
+removes them:
+
+```sh
+sudo systemctl stop docker.socket docker.service containerd.service
+sudo rm -rf /var/lib/docker /var/lib/containerd /etc/docker
+```
 
 ## AUR packages
 
-One package comes from the Arch User Repository: the Microsoft core fonts
-(`ttf-ms-fonts`). The repository keeps no recipes.
+Two packages come from the Arch User Repository: Moby's rootless Docker launcher
+(`docker-rootless-extras`), which Arch's `docker` package leaves out, and the
+Microsoft core fonts (`ttf-ms-fonts`). The repository keeps no recipes.
 
-When it is missing, the `aur_package` role installs it from the AUR's current
+When one is missing, the `aur_package` role installs it from the AUR's current
 recipe, without an AUR helper and without passwordless sudo:
 `scripts/build-aur-package.sh` clones the recipe into
 `~/.cache/shaffy/build/NAME/` as the target user and reports the repository
@@ -411,7 +463,10 @@ packages it needs, which root installs as dependencies; the same script builds i
 with `makepkg`, as the target user. Root copies the package into the operation
 directory under `/var/lib/shaffy/ops/`, checks the copy's SHA-256 and name,
 records the recipe's AUR commit beside it and installs only that copy. Nothing is
-built as root. An installed package is left alone: updates are yay's.
+built as root. An installed package is left alone: updates are yay's. If a recipe
+asks for a newer dependency than the installed one, pacman refuses the package and
+the system apply stops unfinished; run `sudo pacman -Syu`, then
+`./bin/shaffy apply --resume`.
 
 ```sh
 yay            # repository packages and AUR packages together, showing recipe changes

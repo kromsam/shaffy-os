@@ -112,7 +112,7 @@ name; XDG-aware applications do not require them.
 
 The system apply asks for sudo in your terminal and comes first: it prepares
 snapper's `home` configuration. It installs the complete package selection,
-including the AUR build, and enables Docker. Expect substantial downloads,
+including the AUR builds. Expect substantial downloads,
 including TeX Live and Wine. `diff` previews home changes; the system package
 selection is in [defaults/packages](defaults/packages/README.md).
 

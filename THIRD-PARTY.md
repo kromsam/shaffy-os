@@ -22,6 +22,10 @@ revisions are the ones the files were compared with.
 These are fetched at install or first start, under their own licences; the
 repository holds only version declarations and scripts.
 
+- The AUR package `docker-rootless-extras`: the `aur_package` role builds it from
+  the AUR's current recipe on the machine when it is missing, and yay updates it;
+  the repository holds no recipe. It installs Moby's rootless launcher (Apache-2.0),
+  user units and a sysctl file that keeps unprivileged user namespaces on.
 - The AUR package `ttf-ms-fonts`: the `aur_package` role builds it from the
   AUR's current recipe on the machine when it is missing, and yay updates it;
   the repository holds no recipe. Installing it accepts Microsoft's End User
