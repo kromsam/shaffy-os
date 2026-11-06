@@ -382,7 +382,7 @@ terminal, and every task that needs root becomes root through sudo:
 
 Each routine role carries one fixed tag, its own name: `packages`, `desktop`,
 `desktop_apps`, `workflows`, `writing`, `sync`, `home_backup`, `kde_connect`, `localsend`,
-`tailnet`, `login`, `browser` and `keyboard`. `--tags` takes a comma-separated
+`tailnet`, `login`, `power`, `browser` and `keyboard`. `--tags` takes a comma-separated
 list of them; the operation steps and the settings role run with every
 selection. The wrapper never passes `--skip-tags`, and never runs the play in
 check mode. The second play, `records.yml`, runs only the root step that abandons an

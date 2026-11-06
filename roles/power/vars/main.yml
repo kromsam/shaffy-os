@@ -1,0 +1,2 @@
+---
+power_hibernate: "{{ shaffy.settings.power.low_battery_hibernate | default({}) }}"

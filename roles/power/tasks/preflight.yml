@@ -1,0 +1,32 @@
+---
+- name: Read the installed UPower version
+  ansible.builtin.command:
+    argv: [pacman, -Q, upower]
+  register: power_upower_package
+  changed_when: false
+
+- name: Require UPower configuration drop-in support
+  ansible.builtin.assert:
+    that: power_upower_package.stdout.split()[1].split('-')[0] is version('1.91.0', '>=')
+    fail_msg: Low-battery hibernation needs UPower 1.91.0 or later for configuration drop-ins.
+    quiet: true
+
+- name: Ask logind whether this running boot can hibernate
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - --system
+      - --json=short
+      - call
+      - org.freedesktop.login1
+      - /org/freedesktop/login1
+      - org.freedesktop.login1.Manager
+      - CanHibernate
+  register: power_can_hibernate
+  changed_when: false
+
+- name: Require available hibernation before installing an automatic action
+  ansible.builtin.assert:
+    that: (power_can_hibernate.stdout | from_json).data == ['yes']
+    fail_msg: Set up disk-backed swap and resume, reboot, and test hibernation before enabling this policy.
+    quiet: true

@@ -52,6 +52,8 @@
       tags: [tailnet]
     - role: login
       tags: [login]
+    - role: power
+      tags: [power]
     - role: browser
       tags: [browser]
     - role: keyboard

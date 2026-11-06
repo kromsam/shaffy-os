@@ -211,6 +211,16 @@ applies from adding them but does not delete them; delete them with
 The writing settings reach Zettlr only while the `zettlr` integration is
 managed. Automatic login is described in [login keyring](LOGIN-KEYRING.md).
 
+### power
+
+`power.low_battery_hibernate` opts into direct hibernation on a critically low
+battery. Set its `low_percent`, `critical_percent` and `action_percent` in
+strictly descending order, each greater than zero and at most 100. Enable it
+only after testing hibernation and resume on the machine. The `power` role
+installs a UPower override; removing the setting removes that override on apply.
+Without the setting, the packaged policy remains in control. See
+[critical-battery hibernation](POWER-MANAGEMENT.md) for checks and sources.
+
 ### backup
 
 The home backup to a restic repository over SFTP: `host`, `tags` and

@@ -184,6 +184,9 @@ BACKUP_MARKER = ('.local', 'state', 'shaffy', 'home-backup')
 def _effective_problems(settings):
     servers = settings.get('ai', {}).get('mcp_servers', {})
     problems = []
+    battery = settings.get('power', {}).get('low_battery_hibernate')
+    if battery and not battery['low_percent'] > battery['critical_percent'] > battery['action_percent']:
+        problems.append('power.low_battery_hibernate: require low_percent > critical_percent > action_percent')
     for name, spec in servers.items():
         if not spec.get('enabled', True):
             continue

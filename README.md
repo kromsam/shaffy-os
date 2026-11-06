@@ -240,6 +240,7 @@ value belongs and which commands change the machine.
   [KDE Connect](docs/KDE-CONNECT.md) and
   [login keyring](docs/LOGIN-KEYRING.md).
 - [Home backup](docs/HOME-BACKUP.md).
+- [Critical-battery hibernation](docs/POWER-MANAGEMENT.md).
 - [Updating](docs/UPDATING.md): the machine, this repository's pins and releases.
 - [Maintenance](docs/MAINTENANCE.md): recurring commands, integrations and
   synchronization.

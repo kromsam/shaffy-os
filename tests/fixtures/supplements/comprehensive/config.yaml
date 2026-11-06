@@ -37,6 +37,11 @@ assets:
   "~/Wallpapers/example photo.jpg": assets/wallpapers/example.jpg
   "~/.local/bin/example-launcher": {file: assets/bin/example-launcher, executable: true}
   "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
+power:
+  low_battery_hibernate:
+    low_percent: 18
+    critical_percent: 9
+    action_percent: 4
 tailnet:
   login_server: "https://headscale.example.invalid"
 localsend:

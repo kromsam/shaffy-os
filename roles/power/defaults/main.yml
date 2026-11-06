@@ -1,0 +1,3 @@
+---
+power_config_dir: /etc/UPower/UPower.conf.d
+power_state_dir: /var/lib/shaffy

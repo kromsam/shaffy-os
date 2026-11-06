@@ -347,6 +347,24 @@
         }
       }
     },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "low_battery_hibernate": {
+          "description": "Opt in only after a successful hibernation/resume test. Removing this block restores the packaged critical-battery policy.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["low_percent", "critical_percent", "action_percent"],
+          "properties": {
+            "low_percent": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+            "critical_percent": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+            "action_percent": {"type": "number", "exclusiveMinimum": 0, "maximum": 100}
+          }
+        }
+      }
+    },
     "packages": {
       "description": "Package choices on top of the public groups in defaults/packages/ (docs/SUPPLEMENT.md).",
       "type": "object",
