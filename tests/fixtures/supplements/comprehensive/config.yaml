@@ -2,6 +2,8 @@
 schema_version: 1
 supplement_id: synthetic-desktop
 ai:
+  claude_plugins:
+    example-lsp@example-plugins: example/plugins
   mcp_servers:
     zotero:
       env:
@@ -37,6 +39,8 @@ assets:
   "~/Wallpapers/example photo.jpg": assets/wallpapers/example.jpg
   "~/.local/bin/example-launcher": {file: assets/bin/example-launcher, executable: true}
   "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
+lazyvim:
+  extras: [lazyvim.plugins.extras.lang.ruby]
 power:
   low_battery_hibernate:
     low_percent: 18
@@ -47,9 +51,6 @@ tailnet:
 localsend:
   interface: wlan0
   subnet: 192.0.2.0/24
-writing:
-  language: en-GB
-  docx_reference: "~/Templates/reference.docx"
 identity:
   name: "Test Person"
   email: "test@example.invalid"

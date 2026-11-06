@@ -87,7 +87,9 @@ class RetirementsCarryADateTests(unittest.TestCase):
         text = (ROOT / path).read_text()
         servers = yaml.safe_load(text)['ai']['mcp_servers']
         lines = text.splitlines()
-        for name in [name for name, server in servers.items() if server.get('enabled') is False]:
+        # A name with nothing but `enabled: false` retires a server; one the defaults still
+        # define, like beeper, is offered switched off for a supplement to switch on.
+        for name in [name for name, server in servers.items() if server == {'enabled': False}]:
             above = lines[: lines.index(f'    {name}:')]
             comments = []
             while above and above[-1].lstrip().startswith('#'):

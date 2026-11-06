@@ -16,14 +16,12 @@ before mise activates in a shell.
 | Proton Pass CLI (`pass-cli`) | mise `"aqua:protonpass/pass-cli" = "latest"`; needs a paid Pass plan |
 | workmux | mise `"github:raine/workmux" = "latest"`, using the latest published prebuilt release |
 | Bun | mise `bun = "latest"`, for pstack's PR watcher, orchestration store and statechart scripts |
-| Ruby | mise `ruby` at `latest`, for LazyVim's Ruby language tools and formatters, with the `ruby-lsp` gem that each `mise install` adds |
 | pstack | Native Claude Code and Codex plugin from `michael-denyer/pstack-claude`, tracking `main` |
-| Ruby LSP in Claude Code | Claude Code plugin `ruby-lsp@claude-plugins-official`, from Anthropic's `anthropics/claude-plugins-official` |
 | Zotero MCP | mise `"pypi:zotero-mcp-server"` at `latest`, with the `semantic,pdf` extras, on the system Python and CPU-only PyTorch |
 | tmux, zoxide, GitHub CLI | the `desktop_apps` package group (`github-cli`) |
 
-Project-specific runtime choices belong in a project's `mise.toml` or the
-supplement's mise fragment (`overrides.mise`), which renders as
+Personal runtimes belong in a project's `mise.toml` or the supplement's mise
+fragment (`overrides.mise`), which renders as
 `~/.config/mise/conf.d/90-supplement.toml` beside the public configuration.
 
 ## Install and update
@@ -38,7 +36,9 @@ bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, the a
 The script refuses to run as root. It installs every tool
 `home/dot_config/mise/config.toml` names, with the version and options of the
 home's mise configuration, which the home apply renders from that file; all
-public mise tools use `latest`. With the `zotero` integration managed it also
+public mise tools use `latest`. It installs every tool of the supplement's mise
+fragment as well, with the versions and options the fragment gives them. With
+the `zotero` integration managed it also
 installs Better BibTeX ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)).
 `./bin/shaffy update` runs it again to install updates, after the packages
 ([Updating](UPDATING.md)); running it by hand does the same. Applying the home changes the
@@ -87,11 +87,12 @@ address of a streamable HTTP server that runs on its own (`url`). Claude
 Desktop's configuration holds commands only, so it leaves address servers out;
 it reaches those through its own connectors and extensions.
 
-The public defaults are two servers. Beeper's, at
-`http://127.0.0.1:23373/v0/mcp`, answers while Beeper Desktop runs with its
-Desktop API switched on; each client signs in to it the first time it is used
-(`/mcp` in Claude Code, `codex mcp login beeper` in Codex). In Claude Desktop,
-Beeper's own Beeper Desktop extension does the same.
+The public defaults name two servers. Beeper's, at
+`http://127.0.0.1:23373/v0/mcp`, lets agents read and send chats, so it is off
+until a supplement sets `ai.mcp_servers.beeper.enabled: true`. It answers while
+Beeper Desktop runs with its Desktop API switched on; each client signs in to it
+the first time it is used (`/mcp` in Claude Code, `codex mcp login beeper` in
+Codex). In Claude Desktop, Beeper's own Beeper Desktop extension does the same.
 
 Zotero MCP is a mise tool; each client starts it with
 `mise exec pypi:zotero-mcp-server -- zotero-mcp serve`, and in a shell where mise
@@ -113,24 +114,25 @@ servers. Merely deleting a custom server from the supplement leaves an
 existing client entry alone. An unfamiliar inline TOML entry is refused for
 review rather than rewriting the whole Codex configuration.
 
-## Ruby LSP in Claude Code
+## Other Claude Code plugins
 
-Claude Code's `ruby-lsp` plugin gives agents the Ruby LSP's definitions,
-references and diagnostics in `.rb`, `.rake`, `.gemspec`, `.ru` and `.erb`
-files, as LazyVim's Ruby extra does in the editor. It is public with the rest of
-the Ruby tooling and has no setting. The home apply enables
-`ruby-lsp@claude-plugins-official` in `~/.claude/settings.json` and declares its
-marketplace, and the workspace installer installs it beside pstack. Claude Code's
-built-in plugin directory offers a `ruby-lsp` plugin too, but without the
-language server.
+A supplement adds Claude Code plugins beside pstack with `ai.claude_plugins`,
+which names each plugin as `PLUGIN@MARKETPLACE` with the GitHub repository of
+its marketplace:
 
-The plugin starts the `ruby-lsp` gem of the active Ruby. The public `ruby` entry
-of the mise configuration installs that gem on every `mise install`, so the
-workspace installer and `./bin/shaffy update` add it to the global Ruby, also
-to one installed before. A Ruby that a project pins in its own `mise.toml` does
-not run that hook; give the project's entry the same `postinstall`. To switch the
-plugin off in one project, set it to `false` under `enabledPlugins` in the
-project's `.claude/settings.local.json`.
+```yaml
+ai:
+  claude_plugins:
+    example-lsp@example-plugins: example/plugins
+```
+
+The home apply enables each one in `~/.claude/settings.json` and declares its
+marketplace, and the workspace installer installs and updates it beside pstack.
+A language-server plugin starts a server the machine provides; install that
+server with the supplement too, for example through its mise fragment. Deleting
+a name from the supplement leaves the plugin installed and enabled; remove it
+with `claude plugin uninstall`. To switch a plugin off in one project, set it to
+`false` under `enabledPlugins` in the project's `.claude/settings.local.json`.
 
 ## Proton Pass CLI
 
@@ -288,7 +290,7 @@ remain application data.
 
 After home apply, the workspace installer materializes or refreshes the declared
 plugin in both hosts. `scripts/install-pstack.py` can refresh only the plugins,
-pstack and [Claude Code's Ruby LSP](#ruby-lsp-in-claude-code); it refuses until
+pstack and the [other Claude Code plugins](#other-claude-code-plugins); it refuses until
 the declared settings have been applied. The install record at
 `~/.local/state/shaffy/pstack/installed.json` captures the hosts' reported
 versions for diagnosis. Upstream `main` advances on explicit refresh; there is

@@ -148,11 +148,18 @@ class PinTests(unittest.TestCase):
         lock = self.root / 'home/dot_config/nvim/lazy-lock.json'
         locked = json.loads(lock.read_text())
         moved = dict(locked, **{'lazy.nvim': {'branch': 'main', 'commit': 'f' * 40}})
+        # What rendering a home template needs: the settings loader and the public defaults.
+        for part in ('lib', 'defaults', 'schema', 'home/.chezmoitemplates'):
+            shutil.copytree(ROOT / part, self.root / part, ignore=shutil.ignore_patterns('__pycache__'))
 
         def nvim(command, env, **kwargs):
             config = Path(env['XDG_CONFIG_HOME']) / 'nvim'
             self.assertEqual(env['SHAFFY_LAZY_REFRESH'], '1')
             self.assertTrue((config / '.markdownlint-cli2.yaml').exists())  # dot_ names become dotfiles
+            # Templates render, so the refresh sees the public extras and locks their plugins.
+            extras = json.loads((config / 'lazyvim.json').read_text())['extras']
+            self.assertIn('lazyvim.plugins.extras.lang.markdown', extras)
+            self.assertFalse(list(config.rglob('*.tmpl')))
             self.assertNotIn(str(Path.home()), env['XDG_DATA_HOME'])
             (config / 'lazy-lock.json').write_text(json.dumps(moved, indent=2) + '\n')
             return subprocess.CompletedProcess(command, 0, '', '')

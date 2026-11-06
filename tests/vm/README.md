@@ -242,7 +242,7 @@ answer, and in a Niri session that suspends the guest instead.
 ## The VM supplement
 
 `tests/fixtures/supplements/vm/config.yaml` is `supplement.example` with
-synthetic identity and writing settings and five managed integrations:
+a synthetic identity and five managed integrations:
 `reaper`, `ssh`, `syncthing`, `zettlr` and `zotero`. The other catalogued
 integrations need outside services and stay unrequested: `nextcloud` a
 Nextcloud server, `backup` an SFTP repository and one verified backup before its

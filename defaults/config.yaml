@@ -9,8 +9,10 @@ ai:
     # Remove after 2027-01-16, with the GBrain section of docs/WORKSPACE-TOOLS.md.
     gbrain:
       enabled: false
-    # Beeper Desktop's own server, while Beeper runs with its Desktop API on.
+    # Beeper Desktop's own server, while Beeper runs with its Desktop API on. It lets agents
+    # read and send chats, so a supplement opts in with enabled: true.
     beeper:
+      enabled: false
       url: "http://127.0.0.1:23373/v0/mcp"
     # mise installs the server (home/dot_config/mise/config.toml) and starts it.
     zotero:

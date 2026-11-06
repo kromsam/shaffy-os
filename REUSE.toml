@@ -26,7 +26,7 @@ SPDX-License-Identifier = "MIT"
 path = [
   "home/dot_config/tmux/tmux.conf",
   "home/dot_config/fish/conf.d/60-zoxide.fish",
-  "home/dot_config/nvim/lazyvim.json",
+  "home/dot_config/nvim/lazyvim.json.tmpl",
   "home/dot_config/nvim/lua/plugins/theme.lua",
 ]
 precedence = "override"
@@ -93,20 +93,3 @@ SPDX-FileCopyrightText = [
   "2018 Purism SPC",
 ]
 SPDX-License-Identifier = "MIT"
-
-# The pagebreak Pandoc filter (github.com/pandoc-ext/pagebreak), copied with its licence.
-[[annotations]]
-path = [
-  "home/private_dot_local/private_share/pandoc/filters/pagebreak.lua",
-  "home/private_dot_local/private_share/pandoc/filters/pagebreak-LICENSE",
-]
-precedence = "override"
-SPDX-FileCopyrightText = "2017-2025 Benct Philip Jonsson, Albert Krewinkel"
-SPDX-License-Identifier = "ISC AND MIT"
-
-# A Chicago style from citation-style-language/styles, adapted.
-[[annotations]]
-path = "home/private_dot_local/private_share/zotero-data/styles/chicago-notes-bibliography-subsequent-ibid-no-url.csl"
-precedence = "override"
-SPDX-FileCopyrightText = ["Andrew Dunning", "2026 Sam Simons"]
-SPDX-License-Identifier = "CC-BY-SA-3.0"

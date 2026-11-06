@@ -65,6 +65,15 @@ class ValidInputTests(LoaderCase):
         self.assertEqual(servers['zotero']['command'], '/usr/bin/mise')
         self.assertEqual(servers['notes']['args'], ['--read-only'])
 
+    def test_the_beeper_server_is_off_until_a_supplement_switches_it_on(self):
+        servers = self.load(without=True)['shaffy']['settings']['ai']['mcp_servers']
+        self.assertIs(servers['beeper']['enabled'], False)
+        path = self.supplement(
+            'schema_version: 1\nsupplement_id: t\nai:\n  mcp_servers:\n    beeper:\n      enabled: true\n'
+        )
+        beeper = self.load(supplement=path)['shaffy']['settings']['ai']['mcp_servers']['beeper']
+        self.assertEqual(beeper, {'enabled': True, 'url': 'http://127.0.0.1:23373/v0/mcp'})
+
     def test_explicit_empty_list_is_kept(self):
         path = self.supplement(
             'schema_version: 1\nsupplement_id: t\nai:\n  mcp_servers:\n    zotero:\n      args: []\n'
@@ -105,6 +114,15 @@ class InvalidInputTests(LoaderCase):
             'schema_version: 1\nsupplement_id: t\nai:\n  mcp_servers:\n    zotero:\n      args: serve\n'
         )
         self.assertIn('ai.mcp_servers.zotero.args: must be of type array', message)
+
+    def test_claude_plugins_name_a_marketplace_repository_and_leave_pstack_to_its_switch(self):
+        base = 'schema_version: 1\nsupplement_id: t\nai:\n  claude_plugins:\n'
+        path = self.supplement(base + '    example-lsp@example-plugins: example/plugins\n')
+        plugins = self.load(supplement=path)['shaffy']['settings']['ai']['claude_plugins']
+        self.assertEqual(plugins, {'example-lsp@example-plugins': 'example/plugins'})
+        self.assertIn('example-lsp', self.problems(base + '    example-lsp: example/plugins\n'))
+        for name in ('pstack@pstack-claude', 'fork@pstack-claude', 'old@compound-engineering-plugin'):
+            self.assertIn(name, self.problems(base + f'    {name}: a/b\n'))
 
     def test_yaml_1_2_typing_keeps_yes_a_string_and_rejects_bare_true(self):
         # "yes" is a string in YAML 1.2, as editors read it; bare true is a boolean.

@@ -14,13 +14,6 @@ sys.path.insert(0, str(REPO / 'lib'))
 PSTACK_REPOSITORY = 'michael-denyer/pstack-claude'
 PSTACK_MARKETPLACE = 'pstack-claude'
 PSTACK_PLUGIN = f'pstack@{PSTACK_MARKETPLACE}'
-# The Claude Code plugins Shaffy OS installs, each with the GitHub repository of its
-# marketplace. Claude Code's built-in plugin directory offers ruby-lsp too, but without the
-# language server, which only the entry in Anthropic's marketplace repository declares.
-CLAUDE_PLUGINS = {
-    PSTACK_PLUGIN: PSTACK_REPOSITORY,
-    'ruby-lsp@claude-plugins-official': 'anthropics/claude-plugins-official',
-}
 # Compound Engineering, which pstack replaced: its entries are dropped, and
 # scripts/install-pstack.py uninstalls it. Remove after 2027-01-29, with the CE parts
 # of both scripts and of tests/test_pstack.py.
@@ -165,13 +158,21 @@ def merge_codex_hooks(text, hooks):
     return json.dumps(result, indent=2, ensure_ascii=False) + '\n'
 
 
-def merge_claude_settings(text, pstack, hooks=None):
+def claude_plugins(extra=None):
+    """The Claude Code plugins to install, each with the GitHub repository of its marketplace:
+    pstack and the supplement's `ai.claude_plugins`."""
+    return {PSTACK_PLUGIN: PSTACK_REPOSITORY, **(extra or {})}
+
+
+def merge_claude_settings(text, pstack, hooks=None, plugins=None):
+    """`plugins` are the supplement's other Claude Code plugins, always enabled."""
     result = json.loads(text) if text.strip() else {}
     original = copy.deepcopy(result)
-    result.setdefault('enabledPlugins', {}).update({**dict.fromkeys(CLAUDE_PLUGINS, True), PSTACK_PLUGIN: pstack})
+    declared = claude_plugins(plugins)
+    result.setdefault('enabledPlugins', {}).update({**dict.fromkeys(declared, True), PSTACK_PLUGIN: pstack})
     result['enabledPlugins'].pop(CE_PLUGIN, None)
     marketplaces = result.setdefault('extraKnownMarketplaces', {})
-    for plugin, repository in CLAUDE_PLUGINS.items():
+    for plugin, repository in declared.items():
         marketplaces[plugin.partition('@')[2]] = {'source': {'source': 'github', 'repo': repository}}
     marketplaces.pop(CE_MARKETPLACE, None)
     merge_hooks(result, hooks or {})
@@ -207,7 +208,8 @@ if __name__ == '__main__':
         enabled = data['settings']['ai'].get('pstack', {}).get('enabled')
         servers = mcp_servers()
         if sys.argv[1] == 'claude-settings':
-            output = merge_claude_settings(text, enabled, bound_hooks(data))
+            plugins = data['settings']['ai'].get('claude_plugins')
+            output = merge_claude_settings(text, enabled, bound_hooks(data), plugins)
         elif sys.argv[1] == 'codex-hooks':
             output = merge_codex_hooks(text, bound_hooks(data, codex=True))
         elif sys.argv[1] == 'codex':

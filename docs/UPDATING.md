@@ -40,8 +40,9 @@ one and run it again. A step with nothing to do is skipped.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.
 5. **mise tools, the agent plugins and Better BibTeX**: `scripts/install-workspace-tools.sh`,
-   for every tool of the mise configuration, Zotero MCP among them, pstack and
-   ruby-lsp, and Better BibTeX when the managed Zotero profile has none.
+   for every tool of the mise configuration, Zotero MCP among them, and of the
+   supplement's mise fragment, pstack and the supplement's other Claude Code
+   plugins, and Better BibTeX when the managed Zotero profile has none.
    mise's `latest` is the newest release that is at least three days old
    ([workspace tools](WORKSPACE-TOOLS.md)).
 6. **Yaru icons**: downloads and installs the pinned release, only when the

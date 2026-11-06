@@ -36,7 +36,13 @@ if agent_browser --installed && ! agent_browser --current; then
   rmdir "$HOME/.agent-browser" 2>/dev/null || true
   (cd "$HOME" && mise uninstall --all npm:agent-browser)
 fi
-(cd "$HOME" && mise install -y "${tools[@]}")
+# And every tool of the supplement's mise fragment, with the options the home apply rendered.
+read -ra personal < <(/usr/bin/python3 -c 'import sys, tomllib
+try:
+    print(*tomllib.load(open(sys.argv[1], "rb")).get("tools", {}))
+except FileNotFoundError:
+    print()' "${XDG_CONFIG_HOME:-$HOME/.config}/mise/conf.d/90-supplement.toml")
+(cd "$HOME" && mise install -y "${tools[@]}" "${personal[@]}")
 
 /usr/bin/python3 "$repo/scripts/install-pstack.py"
 # Better BibTeX for the managed Zotero profile; Zotero updates it once it is installed.

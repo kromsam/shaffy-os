@@ -139,8 +139,8 @@ Chromium's sandbox. Without the installer the launcher stays hidden; deleting
 the AppImage's folder uninstalls the app.
 
 The account and profile in `~/.config/BeeperTexts` are Beeper's own. Beeper's
-MCP server is a public default; see [AI tools and MCP
-servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers).
+MCP server is a public default that a supplement switches on; see [AI tools
+and MCP servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers).
 
 <!-- Remove after 2027-01-28, with beeper-v4-bin in defaults/packages/retired.yml. -->
 An installation that had the earlier AUR package `beeper-v4-bin` keeps using
@@ -181,8 +181,9 @@ them in its Niri fragment.
 
 ## LazyVim
 
-`~/.config/nvim` is the LazyVim starter with the Neo-tree, Ruby, Docker, JSON,
-Markdown, TOML, YAML and Tailwind extras. It adds Harper with British English
+`~/.config/nvim` is the LazyVim starter with the Neo-tree, Docker, JSON,
+Markdown, TOML, YAML and Tailwind extras; a supplement enables more with
+`lazyvim.extras`, such as `lazyvim.plugins.extras.lang.ruby`. It adds Harper with British English
 for Markdown and Git commit messages, markdownlint settings, the remote
 clipboard, absolute line numbers and no animated scrolling. `lazy-lock.json`
 pins the plugins. Startup captures those versions before LazyVim's staged
@@ -193,13 +194,15 @@ base16 adapter, with its Rosé Pine Dawn before the first palette exists; see
 Alacritty.
 
 The language tools install through Mason after the system packages and
-`scripts/install-workspace-tools.sh` have supplied npm and Ruby:
+`scripts/install-workspace-tools.sh` have supplied npm and any runtime a
+supplement's extra needs, such as Ruby for the Ruby extra:
 
 ```sh
 mise exec -- nvim --headless -l scripts/bootstrap-lazyvim.lua
 ```
 
-It installs every tool the script lists, writes the result to
+It installs the tools and language servers that the enabled extras, the
+supplement's among them, ask Mason for, writes the result to
 `~/.local/state/nvim/desktop-tools.json` and exits non-zero when one fails.
 Plugins and Mason's tools are runtime data; only the configuration and the plugin
 lock are in the repository.
@@ -234,20 +237,21 @@ Tabbed again.
 
 ## Writing tools
 
-The `writing` group installs Zettlr, Pandoc, qpdf, TeX Live with the European
-languages that `writing.language` can name, LibreOffice, Vale, Harper, English
-spelling and hyphenation dictionaries and the Fira fonts; a supplement adds
-other languages' packages with `packages.extra`, for example
+The `writing` group installs Zettlr, Pandoc, qpdf, TeX Live with its European
+languages, LibreOffice, Vale, Harper and English spelling and hyphenation
+dictionaries; a supplement adds other languages' packages with
+`packages.extra`, for example
 `libreoffice-fresh-nl`, `hunspell-nl` and `hyphen-nl`. Zotero is the CachyOS
 repository's `zotero` package. Reapply with
 `./bin/shaffy apply --system --tags writing`.
 
-The `zettlr` integration renders Zettlr's DOCX and PDF (LuaLaTeX) export
-profiles. They use the Pandoc filters, LaTeX header and citation style that the
-home apply installs under `~/.local/share/pandoc/`: a Chicago notes and
-bibliography style whose entries leave out URLs and DOIs. The settings
-`writing.language` and `writing.docx_reference` fill in the profiles
-([writing settings](SUPPLEMENT.md#writing-and-login)).
+The `zettlr` integration has Zettlr export through the packaged Pandoc and
+hide its toolbar in distraction-free mode. Export profiles, citation styles,
+Pandoc filters and fonts are a house style: a supplement installs its own as
+`assets`, for example under `~/.config/Zettlr/defaults/` and
+`~/.local/share/pandoc/`. An asset under `~/.config/Zettlr/` needs the `zettlr`
+integration managed, and one under `~/.local/share/zotero-data/` the `zotero`
+integration; `check` and the home apply refuse it otherwise.
 
 Zettlr's citations come from Zotero through the Better BibTeX add-on. While the `zotero`
 integration is managed, `scripts/install-workspace-tools.sh` installs a checked

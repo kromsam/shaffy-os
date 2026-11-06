@@ -160,19 +160,13 @@ class WorkspaceToolsTests(unittest.TestCase):
         script = (REPO / 'scripts/install-workspace-tools.sh').read_text()
         self.assertIn('home/dot_config/mise/config.toml', script)
         self.assertNotIn('workmux', script)
-        self.assertNotIn('@', script.replace('"${tools[@]}"', ''))
+        self.assertNotIn('@', script.replace('"${tools[@]}"', '').replace('"${personal[@]}"', ''))
         # Zotero MCP is a mise tool too; the script only removes the copy uv installed before.
         self.assertIn('pypi:zotero-mcp-server', tools)
         self.assertNotIn('uv tool install', script)
         self.assertIn('uv tool uninstall zotero-mcp-server', script)
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
-
-    def test_every_mise_install_leaves_ruby_lsp_in_the_global_ruby(self):
-        # Claude Code's ruby-lsp plugin runs the gem of the active Ruby. `always` also reaches a Ruby
-        # installed before the hook; --conservative leaves an installed gem alone, offline.
-        ruby = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())['tools']['ruby']
-        self.assertEqual(ruby['postinstall'], {'run': 'gem install --conservative ruby-lsp', 'when': 'always'})
 
     def test_tools_install_only_once_the_home_has_this_checkouts_configuration(self):
         # mise takes options from the home's configuration; a tool missing there installs without them.
@@ -198,6 +192,36 @@ class WorkspaceToolsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertIn('run ./bin/shaffy apply --home first', result.stderr)
             self.assertFalse((root / 'calls').exists())
+
+    def test_the_supplements_mise_tools_install_with_the_public_ones(self):
+        public = (HOME / 'dot_config/mise/config.toml').read_text()
+        names = list(tomllib.loads(public)['tools'])
+        for fragment, extra in ((None, []), ('', []), ('[tools]\nexample-runtime = "1.2.3"\n', ['example-runtime'])):
+            with self.subTest(fragment=fragment), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'bin').mkdir()
+                # `mise install` fails, which stops the script before the plugin installers.
+                for name, status in (('mise', '[ "$1" != install ]'), ('uv', 'true')):
+                    (root / 'bin' / name).write_text(f'#!/bin/sh\necho "{name} $*" >> "{root}/calls"\n{status}\n')
+                    (root / 'bin' / name).chmod(0o755)
+                (root / 'config/mise/conf.d').mkdir(parents=True)
+                (root / 'config/mise/config.toml').write_text(public)
+                if fragment is not None:
+                    (root / 'config/mise/conf.d/90-supplement.toml').write_text(fragment)
+                subprocess.run(
+                    ['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
+                    env={
+                        **os.environ,
+                        'XDG_CONFIG_HOME': str(root / 'config'),
+                        'PATH': f'{root / "bin"}:{os.environ["PATH"]}',
+                    },
+                    capture_output=True,
+                    check=False,
+                )
+                installs = [
+                    line for line in (root / 'calls').read_text().splitlines() if line.startswith('mise install')
+                ]
+                self.assertEqual(installs, [' '.join(['mise install -y', *names, *extra])])
 
     def test_launchers_run_installed_tools_without_version_lookups(self):
         # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,

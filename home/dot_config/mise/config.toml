@@ -1,16 +1,11 @@
-# The tools Shaffy OS's own launchers and helpers run. Ruby supplies the editor's
-# Ruby language tools. Project-specific runtime choices belong in the supplement's
-# mise fragment, rendered as conf.d/90-supplement.toml, or in a project's mise.toml.
+# The tools Shaffy OS's own launchers and helpers run. Personal runtimes belong in the
+# supplement's mise fragment, rendered as conf.d/90-supplement.toml, or in a project's mise.toml.
 # Public tools follow latest when installed or updated through mise.
 [tools]
 claude = "latest"
 codex = "latest"
 # pstack's PR watcher, orchestration store and statechart scripts run on Bun.
 bun = "latest"
-# Claude Code's ruby-lsp plugin runs the gem of the active Ruby. Every `mise install` adds it to
-# this Ruby, also when it was installed before, and leaves it alone once there; mise has
-# deprecated ~/.default-gems in favour of such hooks.
-ruby = { version = "latest", postinstall = { run = "gem install --conservative ruby-lsp", when = "always" } }
 "aqua:protonpass/pass-cli" = "latest"
 "github:raine/workmux" = "latest"
 # Zotero MCP with semantic search and PDF reading, on the system Python and CPU-only PyTorch.

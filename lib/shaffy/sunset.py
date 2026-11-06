@@ -1,7 +1,7 @@
 """Transitions with a removal date: retirements and one-off migrations.
 
 A retirement (an entry of home/.chezmoiremove or defaults/packages/retired.yml, a
-public MCP server set to `enabled: false`) or a one-off migration (its script, test
+public MCP server name with nothing but `enabled: false`) or a one-off migration (its script, test
 and runbook) matters only until every installation has applied it. Each carries a
 comment with `Remove after` and a date, three months after the release that made it.
 `./bin/shaffy outdated` names those past their date; they are deleted on dev together

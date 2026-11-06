@@ -3,28 +3,38 @@
 vim.go.loadplugins = true
 dofile(vim.fn.stdpath("config") .. "/init.lua")
 vim.api.nvim_exec_autocmds("User", { pattern = "VeryLazy" })
-require("lazy").load({ plugins = { "mason.nvim" } })
+require("lazy").load({ plugins = { "mason.nvim", "mason-lspconfig.nvim" } })
 local registry = require("mason-registry")
-local wanted = {
-  "stylua",
-  "shfmt",
-  "hadolint",
-  "harper-ls",
-  "markdown-toc",
-  "markdownlint-cli2",
-  "erb-formatter",
-  "erb-lint",
-  "ruby-lsp",
-  "rubocop",
-  "lua-language-server",
-  "json-lsp",
-  "yaml-language-server",
-  "taplo",
-  "tailwindcss-language-server",
-  "dockerfile-language-server",
-  "docker-compose-language-service",
-  "marksman",
-}
+
+-- The Mason packages LazyVim installs for the enabled extras, public and the supplement's:
+-- its tools, and the language servers it sets up through Mason, decided as in
+-- lazyvim/plugins/lsp/init.lua.
+local function wanted_packages()
+  local wanted = {}
+  for _, tool in ipairs(LazyVim.opts("mason.nvim").ensure_installed or {}) do
+    wanted[tool] = true
+  end
+  local packages = require("mason-lspconfig.mappings").get_mason_map().lspconfig_to_package
+  for server, options in pairs(LazyVim.opts("nvim-lspconfig").servers or {}) do
+    options = options == true and {} or not options and { enabled = false } or options
+    if server ~= "*" and options.enabled ~= false and options.mason ~= false and packages[server] then
+      wanted[packages[server]] = true
+    end
+  end
+  for _, server in ipairs(LazyVim.opts("mason-lspconfig.nvim").ensure_installed or {}) do
+    wanted[packages[server] or server] = true
+  end
+  local names = vim.tbl_keys(wanted)
+  table.sort(names)
+  return names
+end
+
+local wanted = wanted_packages()
+-- An empty list means LazyVim's options moved, not that nothing needs installing.
+if #wanted == 0 then
+  print("No Mason packages found in LazyVim's options")
+  vim.cmd("cq")
+end
 registry.refresh(function()
   local pending = 0
   local failures = {}

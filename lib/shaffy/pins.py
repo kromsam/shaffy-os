@@ -256,6 +256,21 @@ def lazyvim(root, upstream, run=subprocess.run):
     return [pin]
 
 
+def render_public(root, template, sandbox):
+    """A home template rendered with the public defaults alone, so the lock covers only the
+    public extras: the sandbox's HOME binds no supplement."""
+    config = sandbox / 'chezmoi.toml'
+    config.write_text(f'persistentState = "{sandbox / "chezmoistate.boltdb"}"\n')
+    return subprocess.run(
+        ['chezmoi', '--config', str(config), '--source', str(root / 'home'), 'execute-template'],
+        input=template.read_text(),
+        capture_output=True,
+        text=True,
+        env={'PATH': os.environ['PATH'], 'HOME': str(sandbox), 'LANG': 'C.UTF-8'},
+        check=True,
+    ).stdout
+
+
 def refresh_lazyvim(root, run=subprocess.run):
     """Update every plugin in a throwaway Neovim home and keep the lock it writes."""
     lock = root / 'home/dot_config/nvim/lazy-lock.json'
@@ -271,7 +286,10 @@ def refresh_lazyvim(root, run=subprocess.run):
                     )
                 )
                 (config / relative).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, config / relative)
+                if source.suffix == '.tmpl':
+                    (config / relative).with_suffix('').write_text(render_public(root, source, sandbox))
+                else:
+                    shutil.copyfile(source, config / relative)
         # lazy.lua holds every plugin to the lock unless SHAFFY_LAZY_REFRESH is set.
         env = {
             **os.environ,

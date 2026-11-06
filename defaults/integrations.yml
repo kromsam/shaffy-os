@@ -47,7 +47,7 @@ reaper:
 
 zettlr:
   scope: home
-  description: Zettlr's export profiles, toolbar, packaged Pandoc and, with zotero managed, citation library
+  description: Zettlr's toolbar, packaged Pandoc and, with zotero managed, citation library
   targets:
     - .config/Zettlr/**
   activation:

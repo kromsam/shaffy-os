@@ -16,13 +16,17 @@ sys.path.insert(0, str(REPO / 'lib'))
 MERGE = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
 MARKETPLACE = MERGE['PSTACK_MARKETPLACE']
 PLUGIN = MERGE['PSTACK_PLUGIN']
-CLAUDE_PLUGINS = MERGE['CLAUDE_PLUGINS']
 
 
-def declared(home, enabled, hooks):
-    """Refuse installation until source-owned settings, the supplement's hooks among them, have been applied."""
+def declared(home, enabled, hooks, plugins=None):
+    """Refuse installation until source-owned settings, the supplement's hooks and plugins among
+    them, have been applied."""
     for path, merge, parse in (
-        (home / '.claude/settings.json', lambda text: MERGE['merge_claude_settings'](text, enabled, hooks), json.loads),
+        (
+            home / '.claude/settings.json',
+            lambda text: MERGE['merge_claude_settings'](text, enabled, hooks, plugins),
+            json.loads,
+        ),
         (home / '.codex/config.toml', lambda text: MERGE['merge_codex'](text, {}, enabled), tomllib.loads),
     ):
         text = path.read_text() if path.exists() else ''
@@ -31,9 +35,9 @@ def declared(home, enabled, hooks):
             raise ValueError('Apply the declared plugin settings with ./bin/shaffy apply --home first.')
 
 
-def commands():
+def commands(plugins=None):
     claude = []
-    for plugin in CLAUDE_PLUGINS:
+    for plugin in MERGE['claude_plugins'](plugins):
         claude += [
             ['claude', 'plugin', 'marketplace', 'update', plugin.partition('@')[2]],
             ['claude', 'plugin', 'install', plugin, '--scope', 'user'],
@@ -77,7 +81,7 @@ def settings_snapshot(home):
     }
 
 
-def reconcile_settings(home, enabled, hooks, original_settings):
+def reconcile_settings(home, enabled, hooks, original_settings, plugins=None):
     """Native installs enable the plugin; restore opt-in through the source apply."""
     current = settings_snapshot(home)
     if not enabled and (
@@ -85,32 +89,32 @@ def reconcile_settings(home, enabled, hooks, original_settings):
         or current['codex'].get('plugins', {}).get(PLUGIN, {}).get('enabled') is not False
     ):
         subprocess.run([str(REPO / 'bin/shaffy'), 'apply', '--home', '--checkout', str(REPO)], check=True, cwd=REPO)
-    declared(home, enabled, hooks)
+    declared(home, enabled, hooks, plugins)
     if settings_snapshot(home) != original_settings:
         raise ValueError(
             'Native plugin refresh changed unrelated settings; review the source-owned diff before continuing.'
         )
 
 
-def refresh(home, enabled, hooks, original_settings, env):
+def refresh(home, enabled, hooks, original_settings, env, plugins=None):
     registry = home / '.claude/plugins/known_marketplaces.json'
     known = json.loads(registry.read_text()) if registry.exists() else {}
     try:
-        for plugin, repository in CLAUDE_PLUGINS.items():
+        for plugin, repository in MERGE['claude_plugins'](plugins).items():
             if plugin.partition('@')[2] not in known:
                 subprocess.run(
                     ['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'marketplace', 'add', repository],
                     check=True,
                     env=env,
                 )
-        for command in commands():
+        for command in commands(plugins):
             subprocess.run(['mise', 'exec', command[0], '--', *command], check=True, env=env)
         # After the upgrade: Codex refuses plugin commands while a declared marketplace is
         # not yet downloaded.
         retire_compound_engineering(home, env)
     finally:
         # Restore source-owned activation even when a later native command fails.
-        reconcile_settings(home, enabled, hooks, original_settings)
+        reconcile_settings(home, enabled, hooks, original_settings, plugins)
 
 
 def main():
@@ -118,14 +122,15 @@ def main():
 
     data = load(REPO)['shaffy']
     enabled = data['settings']['ai']['pstack']['enabled']
+    plugins = data['settings']['ai'].get('claude_plugins')
     hooks = MERGE['bound_hooks'](data)
     home = Path.home()
     if os.getuid() == 0:
         raise ValueError('Run as the desktop user, without sudo.')
-    declared(home, enabled, hooks)
+    declared(home, enabled, hooks, plugins)
     original_settings = settings_snapshot(home)
     env = {**os.environ, 'DISABLE_AUTOUPDATER': '1'}
-    refresh(home, enabled, hooks, original_settings, env)
+    refresh(home, enabled, hooks, original_settings, env, plugins)
     versions = {}
     registry = home / '.claude/plugins/installed_plugins.json'
     if registry.exists():

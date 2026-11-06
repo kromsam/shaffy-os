@@ -11,8 +11,6 @@ packages:
   - hyphen-en
   - vale
   - harper
-  - otf-fira-sans
-  - ttf-firacode-nerd
   - zotero
 required:
   # The role selects LibreOffice's Tabbed interface in the target user's profile.

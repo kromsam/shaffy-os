@@ -157,6 +157,11 @@ class RenderTests(unittest.TestCase):
             self.assertIn(
                 'layout "us,de"\n            variant "intl,"\n            options "grp:alt_shift_toggle"', keyboard
             )
+            extras = json.loads((home / '.config/nvim/lazyvim.json').read_text())['extras']
+            self.assertEqual(extras[-2:], ['lazyvim.plugins.extras.lang.tailwind', 'lazyvim.plugins.extras.lang.ruby'])
+            claude = json.loads((home / '.claude/settings.json').read_text())
+            self.assertIs(claude['enabledPlugins']['example-lsp@example-plugins'], True)
+            self.assertEqual(claude['extraKnownMarketplaces']['example-plugins']['source']['repo'], 'example/plugins')
 
     def test_folder_and_wallpaper_settings_reach_noctalia(self):
         with tempfile.TemporaryDirectory() as keep:
@@ -314,14 +319,9 @@ class RenderTests(unittest.TestCase):
             problems = render(ROOT, supplement=supplement)['problems']
             self.assertIn('assets.~/.config/Zettlr/example photo.jpg: its target is ignored here', '\n'.join(problems))
 
-    def test_account_endpoints_and_writing_settings_render_only_when_set(self):
-        preset = '.config/Zettlr/defaults/Custom - DOCX - standard.yaml'
-        with tempfile.TemporaryDirectory() as keep, tempfile.TemporaryDirectory() as directory:
-            supplement = Path(directory) / 'supplement'
-            shutil.copytree(ROOT / 'tests/fixtures/supplements/comprehensive', supplement)
-            config = supplement / 'config.yaml'
-            config.write_text(config.read_text().replace('  zettlr: disabled', '  zettlr: managed'))
-            self.assertClean(render(ROOT, supplement=supplement, keep=keep))
+    def test_account_endpoints_render_only_when_set(self):
+        with tempfile.TemporaryDirectory() as keep:
+            self.assertClean(render(ROOT, supplement=ROOT / 'tests/fixtures/supplements/comprehensive', keep=keep))
             home = Path(keep) / 'home'
             self.assertIn(
                 'admin_url = "https://headscale.example.invalid"',
@@ -330,18 +330,6 @@ class RenderTests(unittest.TestCase):
             self.assertIn(
                 f'screenshot-path "{home if DIRECT else "/home/tester"}/Bilder/Screenshots/',
                 (home / '.config/niri/cfg/misc.kdl').read_text(),
-            )
-            docx = (home / preset).read_text()
-            self.assertIn('  lang: en-GB', docx)
-            self.assertIn('reference-doc: "${HOME}/Templates/reference.docx"', docx)
-            csl = '.local/share/pandoc/csl/chicago-notes-bibliography-subsequent-ibid-no-url.csl'
-            self.assertEqual(
-                (home / csl).read_text(),
-                (
-                    ROOT
-                    / 'home/private_dot_local/private_share/zotero-data/styles'
-                    / 'chicago-notes-bibliography-subsequent-ibid-no-url.csl'
-                ).read_text(),
             )
         with tempfile.TemporaryDirectory() as keep:
             self.assertClean(render(ROOT, without=True, keep=keep))
@@ -363,7 +351,8 @@ class RenderTests(unittest.TestCase):
                 f'screenshot-path "{home if DIRECT else "/home/tester"}/Screenshots/',
                 (home / '.config/niri/cfg/misc.kdl').read_text(),
             )
-            self.assertTrue((home / '.local/share/pandoc/csl').is_dir())
+            # Export profiles, citation styles and Pandoc filters are a supplement's house style.
+            self.assertFalse((home / '.local/share/pandoc').exists())
             # Docker belongs to the default desktop, so its rootless engine needs no supplement.
             self.assertEqual(
                 os.readlink(home / '.config/systemd/user/default.target.wants/docker.service'),
@@ -395,6 +384,8 @@ class RenderTests(unittest.TestCase):
             self.assertIn(
                 f'"extensions.zotero.dataDir", "{home if DIRECT else "/home/tester"}/.local/share/zotero-data"', prefs
             )
+            # The data directory user.js names exists before Zotero first starts.
+            self.assertTrue((home / '.local/share/zotero-data').is_dir())
             # The folder Better BibTeX's export goes to, which Zettlr cites from.
             self.assertTrue((home / '.local/share/zotero-library').is_dir())
             # A fresh home has no REAPER or Zettlr configuration for their modifiers to change,

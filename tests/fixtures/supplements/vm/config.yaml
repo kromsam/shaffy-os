@@ -8,8 +8,6 @@ supplement_id: vm-desktop
 identity:
   name: "Test Person"
   email: "test@example.invalid"
-writing:
-  language: en-GB
 integrations:
   reaper: managed
   ssh: managed

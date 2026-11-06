@@ -168,7 +168,14 @@ with names relative to the home, preserving all unlisted XDG entries, as
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
 | `ai.pstack.enabled` | Global pstack activation for Claude Code and Codex (default true). False keeps the plugin installed and requires native project opt-in; new repos start off. | Public default applies. | home |
-| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}` or, for a streamable HTTP server that runs on its own, `{enabled, url}`, merged into `~/.claude.json`, Claude Desktop's `~/.config/Claude/claude_desktop_config.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from every client. Claude Desktop's file takes no `url` servers. A leading `~/` in `command` means the home. A name the defaults already have (`beeper`, `zotero`) is changed key by key; a new enabled name needs a `command` or a `url`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `beeper` and `zotero` servers. | home |
+| `ai.mcp_servers.NAME` | An MCP server, `{enabled, command, args, env}` or, for a streamable HTTP server that runs on its own, `{enabled, url}`, merged into `~/.claude.json`, Claude Desktop's `~/.config/Claude/claude_desktop_config.json` and `~/.codex/config.toml`. `enabled` defaults to `true`; `false` removes that named entry from every client. Claude Desktop's file takes no `url` servers. A leading `~/` in `command` means the home. A name the defaults already have (`beeper`, `zotero`) is changed key by key; a new enabled name needs a `command` or a `url`. Other entries stay, and deleting a name from the supplement alone does not remove an existing entry. | The default `zotero` server; the default `beeper` server stays off until `enabled: true`. | home |
+| `ai.claude_plugins` | Claude Code plugins beside pstack, each `PLUGIN@MARKETPLACE: OWNER/REPO`, the GitHub repository of its marketplace. The home apply enables each in `~/.claude/settings.json` and declares its marketplace; the workspace installer installs and updates it. Deleting a name leaves the plugin as it is ([other Claude Code plugins](WORKSPACE-TOOLS.md#other-claude-code-plugins)). | pstack alone. | home |
+
+### lazyvim
+
+| Key | Value and effect | Without it | Applied by |
+| --- | --- | --- | --- |
+| `lazyvim.extras` | LazyVim extras enabled beside the public ones, each by module name such as `lazyvim.plugins.extras.lang.ruby`, added to `~/.config/nvim/lazyvim.json`. `scripts/bootstrap-lazyvim.lua` installs the Mason tools they declare. A runtime an extra needs, such as Ruby, belongs in `overrides.mise`. `lazy-lock.json` pins the public extras' plugins only: an extra that brings plugins of its own, such as `lang.python`, leaves them unpinned, and lazy.nvim's additions to the lock show as drift until the next apply. | The public extras ([LazyVim](DESKTOP-APPLICATIONS.md#lazyvim)). | home |
 
 ### tailnet
 
@@ -200,16 +207,13 @@ The rules carry the comment `shaffy LocalSend`. Removing the section stops later
 applies from adding them but does not delete them; delete them with
 `sudo ufw status numbered` and `sudo ufw delete NUMBER`, highest number first.
 
-### writing and login
+### login
 
 | Key | Value and effect | Without it | Applied by |
 | --- | --- | --- | --- |
-| `writing.language` | A BCP 47 language such as `en-GB`, for hyphenation and quotation marks in Zettlr's DOCX and PDF export profiles. | No language in the profiles. | home |
-| `writing.docx_reference` | A reference `.docx` whose styles DOCX exports take. Write it as a path under the home, starting with `~/`. | Pandoc's default styles. | home |
 | `login.autologin` | `true` makes SDDM start Niri without a second password after the disk is unlocked, and unlocks the keyring with the disk password. Refused unless `/` is on an encrypted device. | SDDM's normal password login. | `login` |
 
-The writing settings reach Zettlr only while the `zettlr` integration is
-managed. Automatic login is described in [login keyring](LOGIN-KEYRING.md).
+Automatic login is described in [login keyring](LOGIN-KEYRING.md).
 
 ### power
 
@@ -278,7 +282,7 @@ fragment runs in every shell, and a Niri fragment can start programs.
 | `overrides.noctalia` | home | `~/.config/noctalia/97-supplement.toml` | After the public fragments, before `99-runtime.toml`, an unmanaged `config.toml` and Noctalia's state, which win for a key they also set. |
 | `overrides.fish` | home | `~/.config/fish/supplement.fish` | Sourced at the end of `config.fish`, after `conf.d/`, so it can replace functions defined there. |
 | `overrides.alacritty` | home | `~/.config/alacritty/supplement.toml` | The last import, so it wins over the generated colours and `shaffy.toml`. |
-| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public tool's `latest` selector. |
+| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public tool's `latest` selector. The workspace installer, and so `./bin/shaffy update`, installs its tools with the public ones. |
 | `overrides.keyboard_hwdb` | system | `/etc/udev/hwdb.d/90-shaffy-keyboard.hwdb` | Keyboard key maps for systemd's hardware database, installed by the `keyboard` role (see [keyboard setup](KEYBOARD-SETUP.md)). |
 
 A home fragment renders into a file that stays when the setting is removed:
@@ -333,7 +337,7 @@ its files and creates its activation only while the supplement asks for it:
 | `reaper` | REAPER's PipeWire audio settings and the yabridge configuration. |
 | `ssh` | The SSH client configuration and the SSH agent socket. |
 | `syncthing` | Syncthing's user service. |
-| `zettlr` | Zettlr's export profiles and two of its settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. With `zotero` managed too, its citation library is Better BibTeX's export. |
+| `zettlr` | Two of Zettlr's settings: the packaged Pandoc instead of the bundled one, and no toolbar in distraction-free mode. With `zotero` managed too, its citation library is Better BibTeX's export. |
 | `zotero` | Zotero's profile, the library location, the local API the MCP server reads, Better BibTeX and the folder it exports to ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)). |
 
 ```yaml
