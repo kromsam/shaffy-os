@@ -5,6 +5,7 @@ validates the structure, and hand-written checks cover what a schema cannot.
 """
 
 import copy
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -26,6 +27,26 @@ SUPPORTED_VERSIONS = (1,)
 SYSTEM_OVERRIDES = ('keyboard_hwdb',)
 SYSTEM_OVERRIDE_LIMIT = 64 * 1024
 IDENTITY_KEYS = ('schema_version', 'supplement_id', 'minimum_release')
+# Lists that gather every layer's items, in layer order, instead of replacing.
+UNION = (('packages', 'extra'), ('lazyvim', 'extras'))
+# Maps whose entries are units; an entry merges key by key over the defaults' one.
+KEYED = (('ai', 'mcp_servers'), ('ai', 'claude_plugins'))
+# Resolved per layer against its own root, never folded.
+FILE_SECTIONS = ('overrides', 'assets')
+
+
+@dataclass(frozen=True)
+class Layer:
+    """One source of settings in merge order: the defaults, a profile, or the supplement."""
+
+    kind: str  # 'defaults', 'profile' or 'supplement'
+    name: str  # 'defaults', 'kromsam/writing' or 'supplement'
+    label: str  # the file messages name: its config.yaml or profile.yaml
+    root: object  # where its references resolve; None for the defaults
+    prefix: str  # root relative to the supplement: '' or 'profiles/kromsam/writing/'
+    data: dict  # its settings: identity and profile keys removed, overrides and assets included
+    requires: tuple = ()
+    issues: str = ''  # where to tell a profile's author (profiles.issues); '' for the others
 
 
 class SettingsError(Exception):
@@ -168,6 +189,80 @@ def merge(base, override):
     return result
 
 
+def _units(data, path=()):
+    """(path, value) for every unit DATA sets: a leaf, a UNION list or a KEYED entry."""
+    for key, value in data.items():
+        here = (*path, key)
+        if here in UNION or path in KEYED or not isinstance(value, dict):
+            yield here, value
+        else:
+            yield from _units(value, here)
+
+
+def _get(data, path, default=None):
+    for part in path:
+        if not isinstance(data, dict) or part not in data:
+            return default
+        data = data[part]
+    return data
+
+
+def _put(data, path, value):
+    for part in path[:-1]:
+        if not isinstance(data.get(part), dict):
+            data[part] = {}
+        data = data[part]
+    data[path[-1]] = value
+
+
+def dotted(path):
+    return '.'.join(map(str, path))
+
+
+def fold(layers):
+    """Merge the layers' settings in order (docs/PROFILES.md, "How layers combine").
+
+    Returns (settings, origin, problems). ORIGIN maps each unit's path to the Layer that set it
+    last, and each UNION item's path (path + (item,)) to the layer that added it first. overrides
+    and assets are not folded: _layer_files resolves them per layer and _assets joins the asset
+    entries. Two profiles that give one unit different values are a problem naming both, unless
+    the supplement sets that unit as well; then the supplement's value, over the defaults' if
+    there is one, replaces both profiles'. With the defaults and a supplement alone the result
+    equals merge(defaults, supplement), which a test holds.
+    """
+    settings, origin, held, contested, base = {}, {}, {}, {}, {}
+    for layer in layers:
+        for path, value in _units({k: v for k, v in layer.data.items() if k not in FILE_SECTIONS}):
+            if path in UNION:
+                items = list(_get(settings, path, []))
+                for item in value:
+                    if item not in items:
+                        items.append(item)
+                        origin[(*path, item)] = layer
+                _put(settings, path, items)
+                continue
+            before = _get(settings, path)
+            if layer.kind == 'defaults':
+                base[path] = value
+            elif layer.kind == 'profile':
+                first = held.setdefault(path, (layer, value))
+                if first[1] != value:
+                    contested.setdefault(path, [first[0]]).append(layer)
+            elif contested.pop(path, None):
+                before = base.get(path)  # config.yaml settles it: neither profile's entry stays
+            if path[:-1] in KEYED and isinstance(value, dict) and isinstance(before, dict):
+                value = merge(before, value)  # an MCP server, field by field over the one before it
+            _put(settings, path, copy.deepcopy(value))
+            origin[path] = layer
+    problems = [
+        f'{dotted(path)}: {" and ".join(layer.name for layer in setters)} set it differently. Write the entry '
+        'you want in config.yaml; it replaces both. If a profile should not set it, tell its author: '
+        + ', '.join(dict.fromkeys(layer.issues for layer in setters))
+        for path, setters in contested.items()
+    ]
+    return settings, origin, problems
+
+
 def check_reference(root, reference, label, folder=False):
     """A referenced file, or FOLDER, must exist inside the supplement, after resolving symlinks."""
     if os.path.isabs(reference):
@@ -216,31 +311,36 @@ def _effective_problems(settings):
     return problems
 
 
+def _strip(data, keys):
+    return {key: value for key, value in data.items() if key not in keys}
+
+
 def load(checkout, supplement=None, without=False, home=None):
-    """Resolve, parse, validate and merge. Raises SelectionError or SettingsError."""
+    """Resolve, parse, validate and fold the layers. Raises SelectionError or SettingsError."""
     checkout = Path(checkout)
     selection = resolve(supplement, without, home)
     schema = json.loads((checkout / 'schema/supplement.schema.json').read_text())
     defaults_path = checkout / 'defaults/config.yaml'
     defaults = parse(defaults_path)
     problems = validate(defaults, defaults_schema(schema), str(defaults_path))
-    overrides, supplement_id = {}, None
+    layers = [Layer('defaults', 'defaults', str(defaults_path), None, '', _strip(defaults, IDENTITY_KEYS))]
+    supplement_id = None
     if selection['mode'] == 'supplement':
-        config = Path(selection['path']) / 'config.yaml'
+        root = Path(selection['path'])
+        config = root / 'config.yaml'
         overrides = parse(config)
         # Too old a checkout would also report the newer fields as unknown keys; say only that.
         too_old = release_problem(checkout, overrides.get('minimum_release'))
         problems += [f'{config}: {too_old}'] if too_old else validate(overrides, schema, str(config))
         supplement_id = overrides.get('supplement_id')
+        layers.append(Layer('supplement', 'supplement', str(config), root, '', _strip(overrides, IDENTITY_KEYS)))
     if problems:
         raise SettingsError(problems)
-    settings = merge(
-        {k: v for k, v in defaults.items() if k not in IDENTITY_KEYS},
-        {k: v for k, v in overrides.items() if k not in IDENTITY_KEYS},
-    )
-    problems = _effective_problems(settings)
+    settings, _, problems = fold(layers)
+    problems += _effective_problems(settings)
+    own = layers[-1].data if layers[-1].kind == 'supplement' else {}
     fragments, written, system_overrides = {}, set(), {}
-    for name, reference in settings.pop('overrides', {}).items():
+    for name, reference in own.get('overrides', {}).items():
         try:
             fragments[name] = check_reference(selection['path'], reference, f'overrides.{name}')
             written.add(os.path.normpath(reference))
@@ -261,7 +361,7 @@ def load(checkout, supplement=None, without=False, home=None):
                 continue
             system_overrides[name] = text
     assets = []
-    for target, value in sorted(settings.pop('assets', {}).items()):
+    for target, value in sorted(own.get('assets', {}).items()):
         reference = value['file'] if isinstance(value, dict) else value
         try:
             path = check_reference(selection['path'], reference, f'assets.{target}')

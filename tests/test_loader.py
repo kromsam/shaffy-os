@@ -101,6 +101,52 @@ class ValidInputTests(LoaderCase):
         self.assertEqual(servers['chat'], {'url': 'http://127.0.0.1:9000/mcp'})
 
 
+class FoldTests(LoaderCase):
+    """The fold of the defaults and a supplement is today's merge; profiles add layers between."""
+
+    def layers(self, supplement):
+        from shaffy.loader import IDENTITY_KEYS, Layer, parse
+
+        defaults = parse(ROOT / 'defaults/config.yaml')
+        overrides = parse(supplement / 'config.yaml')
+
+        def strip(data):
+            return {k: v for k, v in data.items() if k not in IDENTITY_KEYS}
+
+        return [
+            Layer('defaults', 'defaults', 'defaults/config.yaml', None, '', strip(defaults)),
+            Layer('supplement', 'supplement', 'config.yaml', supplement, '', strip(overrides)),
+        ]
+
+    def test_fold_of_defaults_and_supplement_equals_merge(self):
+        from shaffy.loader import fold, merge, parse
+
+        defaults = parse(ROOT / 'defaults/config.yaml')
+        # A union list in the defaults would gather where merge replaces; the equivalence ends there.
+        self.assertNotIn('extra', defaults.get('packages', {}))
+        self.assertNotIn('lazyvim', defaults)
+        for supplement in (FIXTURES / 'comprehensive', FIXTURES / 'vm', ROOT / 'supplement.example'):
+            with self.subTest(supplement=supplement.name):
+                layers = self.layers(supplement)
+                settings, origin, problems = fold(layers)
+                self.assertEqual(problems, [])
+                expected = merge(
+                    *({k: v for k, v in layer.data.items() if k not in ('overrides', 'assets')} for layer in layers)
+                )
+                self.assertEqual(settings, expected)
+                self.assertEqual({layer.name for layer in origin.values()} <= {'defaults', 'supplement'}, True)
+
+    def test_origin_names_the_layer_that_set_each_unit(self):
+        from shaffy.loader import fold
+
+        _, origin, _ = fold(self.layers(FIXTURES / 'comprehensive'))
+        self.assertEqual(origin[('ai', 'mcp_servers', 'zotero')].name, 'supplement')
+        self.assertEqual(origin[('ai', 'mcp_servers', 'beeper')].name, 'defaults')
+        self.assertEqual(origin[('desktop', 'browser')].name, 'defaults')
+        self.assertEqual(origin[('lazyvim', 'extras', 'lazyvim.plugins.extras.lang.ruby')].name, 'supplement')
+        self.assertEqual(origin[('ai', 'claude_plugins', 'example-lsp@example-plugins')].name, 'supplement')
+
+
 class InvalidInputTests(LoaderCase):
     def test_duplicate_key_names_line(self):
         message = self.problems('schema_version: 1\nsupplement_id: a\nsupplement_id: b\n')
