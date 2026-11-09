@@ -1,0 +1,7 @@
+{{- /* Each listed profile's Niri fragment, in the supplement's order (docs/PROFILES.md). config.kdl
+     includes this file just before user.kdl, so the supplement's own fragment still comes last. */ -}}
+{{- range (includeTemplate "shaffy.json" . | fromJson).shaffy.assets }}
+{{-   if eq (dig "fragment" "" .) "niri" }}
+{{-     printf "include %s\n" (trimPrefix ".config/niri/" .target | quote) }}
+{{-   end }}
+{{- end -}}

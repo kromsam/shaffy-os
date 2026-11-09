@@ -21,12 +21,12 @@ if tools[0] != tools[1]:
     sys.exit("The home's mise configuration differs from this checkout's; run ./bin/shaffy apply --home first.")
 PY
 
-# And every tool of the supplement's mise fragment, with the options the home apply rendered.
-read -ra personal < <(/usr/bin/python3 -c 'import sys, tomllib
-try:
-    print(*tomllib.load(open(sys.argv[1], "rb")).get("tools", {}))
-except FileNotFoundError:
-    print()' "${XDG_CONFIG_HOME:-${HOME}/.config}/mise/conf.d/90-supplement.toml")
+# And every tool of the conf.d files mise reads beside it, with their options: the profiles'
+# 80-profile-* and the supplement's 90-supplement.toml among them, in name order.
+read -ra personal < <(/usr/bin/python3 -c 'import pathlib, sys, tomllib
+print(*dict.fromkeys(tool for path in sorted(pathlib.Path(sys.argv[1]).glob("*.toml"))
+                     for tool in tomllib.loads(path.read_text()).get("tools", {})))' \
+  "${XDG_CONFIG_HOME:-${HOME}/.config}/mise/conf.d")
 (cd "${HOME}" && mise install -y "${tools[@]}" "${personal[@]}")
 
 /usr/bin/python3 "${repo}/scripts/install-pstack.py"

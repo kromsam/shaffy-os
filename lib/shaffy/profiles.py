@@ -40,6 +40,16 @@ PLACES = {
     'mise': '.config/mise/conf.d/80-profile-{position:02d}-{slug}.toml',
 }
 
+# How each tool loads a profile's fragment from its place, for the profile schema: the supplement
+# schema's descriptions name the supplement's own files.
+LOADED = {
+    'niri': "profiles.kdl includes it, in list order, just before the supplement's user.kdl",
+    'fish': "profiles.fish sources it, in list order, just before the supplement's supplement.fish",
+    'alacritty': "profiles.toml imports it, in list order, just before the supplement's supplement.toml",
+    'noctalia': "Noctalia reads it after the public 90 to 95 files and before the supplement's 97-supplement.toml",
+    'mise': "mise reads it before the supplement's 90-supplement.toml, which wins a tool or setting both name",
+}
+
 # The keys of a profile.yaml that are not settings: the format, the description and what it needs.
 PROFILE_KEYS = ('schema_version', 'description', 'minimum_release', 'requires')
 
@@ -182,6 +192,8 @@ def profile_schema(schema):
             copied['properties'] = {name: copied['properties'][name] for name in allowed}
         properties[section] = copied
     used = json.dumps(properties)
+    defs = {name: copy.deepcopy(value) for name, value in schema['$defs'].items() if f'#/$defs/{name}' in used}
+    _describe_for_a_profile(properties, defs)
     return {
         '$schema': schema['$schema'],
         'title': 'Shaffy OS profile',
@@ -194,8 +206,37 @@ def profile_schema(schema):
         'additionalProperties': False,
         'required': ['schema_version', 'description'],
         'properties': properties,
-        '$defs': {name: value for name, value in schema['$defs'].items() if f'#/$defs/{name}' in used},
+        '$defs': defs,
     }
+
+
+def _describe_for_a_profile(properties, defs):
+    """Replace the copied descriptions that name the supplement's own files and targets."""
+    defs['reference']['description'] = 'A file inside the profile, relative to its folder.'
+    overrides = properties['overrides']
+    overrides['description'] = (
+        'Native fragments, each a file in the profile, loaded after the public configuration and before the '
+        "supplement's own, in the order config.yaml lists the profiles. They are trusted configuration and may "
+        'run commands.'
+    )
+    for tool, loaded in LOADED.items():
+        target = '~/' + PLACES[tool].replace('{position:02d}-{slug}', 'NN-OWNER-NAME')
+        overrides['properties'][tool]['description'] = (
+            f"Installed as {target}, NN the profile's place in config.yaml's profiles list; {loaded}."
+        )
+    overrides['properties']['keyboard_hwdb']['description'] = (
+        "System scope: a keyboard model's key map, matched by its vendor and product and never by a port, a "
+        "unique id or a serial; installed in /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb before the supplement's map, "
+        'which wins.'
+    )
+    properties['assets']['description'] = (
+        'Files copied into the home, such as fonts, styles and filters: each key is a target under ~/, each value a '
+        "file inside the profile, or {file, executable, private}. config.yaml's entry for a target replaces it."
+    )
+    properties['packages']['description'] = (
+        'Packages on top of the public groups in defaults/packages/; one a group already installs is skipped with '
+        "a note, and config.yaml's packages.omit may leave one out."
+    )
 
 
 def explain(key, profile_id=None):

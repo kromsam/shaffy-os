@@ -70,7 +70,7 @@
       }
     },
     "assets": {
-      "description": "Personal files copied into the home, such as fonts, pictures and launchers: each key is a target under ~/, each value a file inside the supplement, or {file, executable, private}.",
+      "description": "Files copied into the home, such as fonts, styles and filters: each key is a target under ~/, each value a file inside the profile, or {file, executable, private}. config.yaml's entry for a target replaces it.",
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
@@ -123,39 +123,39 @@
       }
     },
     "overrides": {
-      "description": "Native fragments from the supplement, applied after the public configuration. They are trusted configuration and may run commands.",
+      "description": "Native fragments, each a file in the profile, loaded after the public configuration and before the supplement's own, in the order config.yaml lists the profiles. They are trusted configuration and may run commands.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
         "niri": {
           "$ref": "#/$defs/reference",
-          "description": "Included last by ~/.config/niri/config.kdl."
+          "description": "Installed as ~/.config/niri/profiles/NN-OWNER-NAME.kdl, NN the profile's place in config.yaml's profiles list; profiles.kdl includes it, in list order, just before the supplement's user.kdl."
         },
         "noctalia": {
           "$ref": "#/$defs/reference",
-          "description": "Rendered as ~/.config/noctalia/97-supplement.toml."
+          "description": "Installed as ~/.config/noctalia/96-profile-NN-OWNER-NAME.toml, NN the profile's place in config.yaml's profiles list; Noctalia reads it after the public 90 to 95 files and before the supplement's 97-supplement.toml."
         },
         "fish": {
           "$ref": "#/$defs/reference",
-          "description": "Sourced at the end of ~/.config/fish/config.fish."
+          "description": "Installed as ~/.config/fish/profiles/NN-OWNER-NAME.fish, NN the profile's place in config.yaml's profiles list; profiles.fish sources it, in list order, just before the supplement's supplement.fish."
         },
         "alacritty": {
           "$ref": "#/$defs/reference",
-          "description": "Imported last by ~/.config/alacritty/alacritty.toml."
+          "description": "Installed as ~/.config/alacritty/profiles/NN-OWNER-NAME.toml, NN the profile's place in config.yaml's profiles list; profiles.toml imports it, in list order, just before the supplement's supplement.toml."
         },
         "mise": {
           "$ref": "#/$defs/reference",
-          "description": "Rendered as ~/.config/mise/conf.d/90-supplement.toml, which mise loads beside config.toml: personal runtimes and their settings."
+          "description": "Installed as ~/.config/mise/conf.d/80-profile-NN-OWNER-NAME.toml, NN the profile's place in config.yaml's profiles list; mise reads it before the supplement's 90-supplement.toml, which wins a tool or setting both name."
         },
         "keyboard_hwdb": {
           "$ref": "#/$defs/reference",
-          "description": "System scope: installed as /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb, for keyboard key maps (for example Caps Lock as Super on one keyboard)."
+          "description": "System scope: a keyboard model's key map, matched by its vendor and product and never by a port, a unique id or a serial; installed in /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb before the supplement's map, which wins."
         }
       }
     },
     "packages": {
-      "description": "Package choices on top of the public groups in defaults/packages/ (docs/SUPPLEMENT.md).",
+      "description": "Packages on top of the public groups in defaults/packages/; one a group already installs is skipped with a note, and config.yaml's packages.omit may leave one out.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
@@ -208,7 +208,7 @@
     "reference": {
       "type": "string",
       "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000\\n]+$",
-      "description": "A file inside the supplement, relative to its root."
+      "description": "A file inside the profile, relative to its folder."
     },
     "package_list": {
       "type": "array",

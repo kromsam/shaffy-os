@@ -18,6 +18,9 @@ include "runtime-overrides.kdl"
 // windows to make a scratchpad from.
 workspace "scratchpad"
 
+// The profiles' fragments, in the supplement's list order (docs/PROFILES.md).
+include "profiles.kdl"
+
 // The supplement's optional fragment comes last, so its bindings override the
 // public ones. Niri inserts outputs and other multipart sections instead of merging
 // them, so each output keeps one owner (desktop.displays).

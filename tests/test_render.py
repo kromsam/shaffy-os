@@ -1,19 +1,24 @@
 """Render the managed home for a synthetic user and validate it."""
 
+import fnmatch
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import sandbox
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shaffy import profiles, sandbox
 from shaffy.sandbox import RenderError, render
+from support import host_test, vendor_profile
 
 # The public Git defaults every rendered ~/.config/git/config ends with.
 GIT_DEFAULTS = (
@@ -32,6 +37,43 @@ GIT_GITHUB = (
     '[credential "https://github.com"]\n    helper =\n    helper = !/usr/bin/gh auth git-credential\n'
     '[credential "https://gist.github.com"]\n    helper =\n    helper = !/usr/bin/gh auth git-credential\n'
 )
+
+# Two synthetic profiles with a fragment for every home tool; both bind Mod+F11, and alice also
+# Mod+F12, which the comprehensive fixture's own user.kdl binds too.
+PROFILE_MANIFEST = (
+    'schema_version: 1\ndescription: Synthetic fragments for every home tool.\noverrides:\n'
+    '  niri: niri.kdl\n  fish: shell.fish\n  alacritty: alacritty.toml\n  noctalia: noctalia.toml\n  mise: mise.toml\n'
+)
+PROFILE_FRAGMENTS = {
+    'alice/tools': {
+        'niri.kdl': 'binds {\n    Mod+F11 { spawn "true"; }\n    Mod+F12 { spawn "false"; }\n}\n',
+        'shell.fish': (
+            'function fish_greeting\n    echo alice-greeting\nend\n\nfunction example_profile\n    echo alice\nend\n'
+        ),
+        'alacritty.toml': '[font]\nsize = 9.0\n',
+        'noctalia.toml': '[osd]\nposition = "bottom_center"\n',
+        'mise.toml': '[env]\nEXAMPLE_PROFILE = "alice"\n',
+    },
+    'bob/keys': {
+        'niri.kdl': 'binds {\n    Mod+F11 { spawn "false"; }\n}\n',
+        'shell.fish': 'function example_profile\n    echo bob\nend\n',
+        'alacritty.toml': '[window]\nopacity = 0.9\n',
+        'noctalia.toml': '[osd]\nposition = "top_center"\n',
+        'mise.toml': '[env]\nEXAMPLE_PROFILE = "bob"\n',
+    },
+}
+
+
+def with_profiles(directory, fixture=ROOT / 'tests/fixtures/supplements/comprehensive'):
+    """A copy of FIXTURE in DIRECTORY that lists the two synthetic profiles, vendored."""
+    supplement = Path(directory) / 'supplement'
+    shutil.copytree(fixture, supplement)
+    for profile_id, fragments in PROFILE_FRAGMENTS.items():
+        vendor_profile(supplement, profile_id, {'profile.yaml': PROFILE_MANIFEST, **fragments})
+    with open(supplement / 'config.yaml', 'a') as stream:
+        stream.write('profiles:\n' + ''.join(f'  - {profile_id}\n' for profile_id in PROFILE_FRAGMENTS))
+    return supplement
+
 
 DIRECT = os.environ.get('SHAFFY_RENDER_DIRECT') == '1'
 TOOLS = ('chezmoi', 'niri', 'noctalia', 'fish', 'xdg-user-dir')
@@ -247,6 +289,7 @@ class RenderTests(unittest.TestCase):
                 [
                     '~/.config/alacritty/themes/noctalia.toml',
                     '~/.config/alacritty/shaffy.toml',
+                    '~/.config/alacritty/profiles.toml',
                     '~/.config/alacritty/supplement.toml',
                 ],
             )
@@ -282,6 +325,88 @@ class RenderTests(unittest.TestCase):
             shell = (home / '.config/noctalia/90-shell.toml').read_text()
             self.assertEqual(shell.count('"/usr/share/noctalia/assets/noctalia-wallpaper.png"'), 3)
             self.assertFalse((home / '.local/share/wallpapers').exists())
+
+    def test_without_profiles_the_index_files_are_empty(self):
+        with tempfile.TemporaryDirectory() as keep:
+            self.assertClean(render(ROOT, without=True, keep=keep))
+            home = Path(keep) / 'home'
+            for target in (
+                '.config/niri/profiles.kdl',
+                '.config/fish/profiles.fish',
+                '.config/alacritty/profiles.toml',
+            ):
+                self.assertEqual((home / target).read_text(), '', target)
+            for place in profiles.places().values():
+                self.assertEqual(list(home.glob(place)), [], place)
+
+    def test_profile_fragments_load_in_list_order_before_the_supplements(self):
+        """Each tool loads the profiles' fragments in config.yaml's order, then the supplement's.
+
+        Which of two Niri files wins a key: Niri's include documentation (docs/wiki/Configuration:-
+        Include.md in github.com/niri-wm/niri, since 25.11) says includes are positional and override
+        what was set before them, and that binds override previously-defined conflicting keys. So
+        bob's Mod+F11 wins over alice's, and the supplement's Mod+F12 over alice's. niri validate
+        accepts a key bound in two included files but cannot show which one wins; this test holds
+        the order that gives the documentation's rule this meaning.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            supplement = with_profiles(directory)
+            keep = Path(directory) / 'keep'
+            keep.mkdir()
+            self.assertClean(render(ROOT, supplement=supplement, keep=keep))
+            config = keep / 'home/.config'
+            self.assertEqual(
+                (config / 'niri/profiles.kdl').read_text(),
+                'include "profiles/01-alice-tools.kdl"\ninclude "profiles/02-bob-keys.kdl"\n',
+            )
+            self.assertIn('Mod+F11 { spawn "false"; }', (config / 'niri/profiles/02-bob-keys.kdl').read_text())
+            includes = re.findall(r'^include "(.*)"$', (config / 'niri/config.kdl').read_text(), re.M)
+            self.assertEqual(includes[-2:], ['profiles.kdl', 'user.kdl'])
+            self.assertEqual(
+                (config / 'fish/profiles.fish').read_text(),
+                'source $__fish_config_dir/"profiles/01-alice-tools.fish"\n'
+                'source $__fish_config_dir/"profiles/02-bob-keys.fish"\n',
+            )
+            fish = subprocess.run(
+                ['fish', '-c', 'fish_greeting; example_profile'],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env={
+                    'HOME': str(keep / 'home'),
+                    'XDG_CONFIG_HOME': str(config),
+                    'PATH': '/usr/bin:/bin',
+                    'LANG': 'C.UTF-8',
+                },
+                check=False,
+            )
+            self.assertEqual(fish.stdout.split(), ['synthetic-supplement-greeting', 'bob'], fish.stderr)
+            imports = tomllib.loads((config / 'alacritty/profiles.toml').read_text())['general']['import']
+            self.assertEqual(
+                imports,
+                ['~/.config/alacritty/profiles/01-alice-tools.toml', '~/.config/alacritty/profiles/02-bob-keys.toml'],
+            )
+            parent = tomllib.loads((config / 'alacritty/alacritty.toml').read_text())['general']['import']
+            self.assertEqual(parent[-2:], ['~/.config/alacritty/profiles.toml', '~/.config/alacritty/supplement.toml'])
+            # Noctalia and mise read their folders in name order: the public files, the profiles', the supplement's.
+            noctalia = sorted(path.name for path in (config / 'noctalia').glob('9*.toml'))
+            self.assertEqual(
+                noctalia[noctalia.index('95-desktop-apps.toml') :],
+                [
+                    '95-desktop-apps.toml',
+                    '96-profile-01-alice-tools.toml',
+                    '96-profile-02-bob-keys.toml',
+                    '97-supplement.toml',
+                    '99-runtime.toml',
+                ],
+            )
+            self.assertEqual(
+                sorted(path.name for path in (config / 'mise/conf.d').iterdir()),
+                ['80-profile-01-alice-tools.toml', '80-profile-02-bob-keys.toml', '90-supplement.toml'],
+            )
+            self.assertEqual(
+                (config / 'mise/conf.d/80-profile-02-bob-keys.toml').read_text(), '[env]\nEXAMPLE_PROFILE = "bob"\n'
+            )
 
     def test_identity_and_folders_render_from_the_settings(self):
         with tempfile.TemporaryDirectory() as keep:
@@ -566,6 +691,79 @@ class RenderTests(unittest.TestCase):
             problems = render(checkout, without=True)['problems']
             self.assertTrue(any(p.startswith('niri: ') for p in problems), problems)
             self.assertTrue(any(p.startswith('fish: .config/fish/conf.d/40-mise.fish') for p in problems), problems)
+
+
+@host_test('chezmoi renders the removal template', tools=('chezmoi',))
+class RemovalTemplateTests(unittest.TestCase):
+    """home/dot_config/.chezmoiremove.tmpl over a home that holds fragments of profiles that left."""
+
+    def test_every_removal_pattern_is_relative_to_the_config_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            supplement = root / 'supplement'
+            supplement.mkdir()
+            (supplement / 'config.yaml').write_text('schema_version: 1\nsupplement_id: t\nprofiles: [alice/notes]\n')
+            vendor_profile(
+                supplement,
+                'alice/notes',
+                {
+                    'profile.yaml': 'schema_version: 1\ndescription: x\n'
+                    'overrides:\n  fish: a.fish\n  noctalia: a.toml\n',
+                    'a.fish': '# alice\n',
+                    'a.toml': '[osd]\nposition = "top_center"\n',
+                },
+            )
+            home = root / 'home'
+            state = home / '.local/state/shaffy'
+            state.mkdir(parents=True)
+            (state / 'binding.json').write_text(
+                json.dumps({'binding': {'mode': 'supplement', 'path': str(supplement)}})
+            )
+            stale = [
+                '.config/niri/profiles/01-gone-old.kdl',
+                '.config/fish/profiles/02-gone-old.fish',
+                '.config/alacritty/profiles/05-gone-old.toml',
+                '.config/noctalia/96-profile-02-gone-old.toml',
+                '.config/mise/conf.d/80-profile-01-gone-old.toml',
+            ]
+            kept = [
+                '.config/fish/profiles/01-alice-notes.fish',  # alice/notes is still listed
+                '.config/noctalia/96-profile-01-alice-notes.toml',
+                '.config/noctalia/97-supplement.toml',
+                '.config/mise/conf.d/90-supplement.toml',
+                '.config/mise/conf.d/50-mine.toml',
+            ]
+            for target in stale + kept:
+                (home / target).parent.mkdir(parents=True, exist_ok=True)
+                (home / target).write_text('# planted\n')
+            (root / 'chezmoi.toml').write_text(f'persistentState = "{root / "state.boltdb"}"\n')
+            result = subprocess.run(
+                [
+                    'chezmoi',
+                    '--config',
+                    str(root / 'chezmoi.toml'),
+                    '--source',
+                    str(ROOT / 'home'),
+                    '--destination',
+                    str(home),
+                    'execute-template',
+                    '--file',
+                    str(ROOT / 'home/dot_config/.chezmoiremove.tmpl'),
+                ],
+                capture_output=True,
+                text=True,
+                env={'HOME': str(home), 'PATH': '/usr/bin:/bin', 'XDG_RUNTIME_DIR': directory, 'LANG': 'C.UTF-8'},
+                timeout=60,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertEqual(sorted(lines), sorted(target.removeprefix('.config/') for target in stale))
+        places = [pattern.removeprefix('.config/') for pattern in profiles.places().values()]
+        for line in lines:
+            with self.subTest(line=line):
+                self.assertFalse(line.startswith(('/', '.config/')))  # chezmoi aborts the apply on an absolute one
+                self.assertTrue(any(fnmatch.fnmatchcase(line, place) for place in places))
 
 
 @unittest.skipIf(REASON, f'render sandbox unavailable: {REASON}')

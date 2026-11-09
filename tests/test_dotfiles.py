@@ -478,6 +478,20 @@ class ClaimTests(unittest.TestCase):
         self.assertEqual(conflicts('.config/app', 'folder', claims, private=True), [])
         self.assertEqual(conflicts('.config/other.conf', claims=claims), [])
 
+    def test_dotfiles_may_not_write_into_profile_places(self):
+        # Claimed whether or not a profile is listed: the fixture lists none.
+        for target in (
+            '.config/niri/profiles/01-alice-notes.kdl',
+            '.config/fish/profiles/12-bob-tools.fish',
+            '.config/alacritty/profiles/02-alice-notes.toml',
+            '.config/noctalia/96-profile-01-alice-notes.toml',
+            '.config/mise/conf.d/80-profile-03-alice-notes.toml',
+        ):
+            with self.subTest(target=target):
+                self.assertOwner(target, 'upstream: lib/shaffy/profiles.py')
+        self.assertEqual(self.refused('.config/niri/profiles', 'folder'), [])
+        self.assertEqual(self.refused('.config/niri/profiles/notes.txt'), [])
+
     def test_drop_ins_and_new_files_are_the_dotfiles_own(self):
         for target in (
             '.config/fish/conf.d/50-mine.fish',

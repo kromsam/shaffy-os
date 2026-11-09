@@ -1,0 +1,7 @@
+{{- /* Each listed profile's Fish fragment, in the supplement's order (docs/PROFILES.md). config.fish
+     sources this file just before supplement.fish, so the supplement's own fragment still runs last. */ -}}
+{{- range (includeTemplate "shaffy.json" . | fromJson).shaffy.assets }}
+{{-   if eq (dig "fragment" "" .) "fish" }}
+{{-     printf "source $__fish_config_dir/%s\n" (trimPrefix ".config/fish/" .target | quote) }}
+{{-   end }}
+{{- end -}}

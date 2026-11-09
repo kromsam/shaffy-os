@@ -20,6 +20,24 @@ SCHEMA = json.loads((ROOT / 'schema/supplement.schema.json').read_text())
 HWDB_MAPS = sorted(Path('/usr/lib/udev/hwdb.d').glob('*keyboard*.hwdb'))
 
 
+def without_descriptions(value):
+    if isinstance(value, dict):
+        return {key: without_descriptions(item) for key, item in value.items() if key != 'description'}
+    return value
+
+
+def descriptions(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == 'description' and isinstance(item, str):
+                yield item
+            else:
+                yield from descriptions(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from descriptions(item)
+
+
 class FormatTests(unittest.TestCase):
     def test_every_supplement_section_is_allowed_or_excluded_with_a_reason(self):
         sections = {name: spec.get('properties', {}) for name, spec in SCHEMA['properties'].items()}
@@ -66,8 +84,10 @@ class FormatTests(unittest.TestCase):
         )
         self.assertEqual(list(schema['properties']['ai']['properties']), ['mcp_servers', 'claude_plugins'])
         self.assertEqual(list(schema['properties']['packages']['properties']), ['extra'])
-        self.assertEqual(schema['properties']['overrides'], SCHEMA['properties']['overrides'])
-        self.assertEqual(schema['properties']['assets'], SCHEMA['properties']['assets'])
+        for section in ('overrides', 'assets'):
+            self.assertEqual(
+                without_descriptions(schema['properties'][section]), without_descriptions(SCHEMA['properties'][section])
+            )
         self.assertEqual(
             schema['properties']['requires']['items']['pattern'],
             SCHEMA['properties']['integrations']['propertyNames']['pattern'],
@@ -75,6 +95,24 @@ class FormatTests(unittest.TestCase):
         self.assertEqual(set(schema['$defs']), {'mcp_server', 'reference', 'package_list'})
         for key in ('desktop', 'supplement_id', 'integrations', 'dotfiles', 'profiles'):
             self.assertNotIn(key, schema['properties'])
+
+    def test_the_profile_schema_says_where_a_profiles_files_go(self):
+        schema = profiles.profile_schema(SCHEMA)
+        fragments = schema['properties']['overrides']['properties']
+        self.assertIn('~/.config/niri/profiles/NN-OWNER-NAME.kdl', fragments['niri']['description'])
+        self.assertIn('~/.config/mise/conf.d/80-profile-NN-OWNER-NAME.toml', fragments['mise']['description'])
+        for tool, place in profiles.PLACES.items():
+            with self.subTest(tool=tool):
+                target = '~/' + place.replace('{position:02d}-{slug}', 'NN-OWNER-NAME')
+                self.assertIn(target, fragments[tool]['description'])
+        # None of the supplement's own targets or files is described as the profile's.
+        supplement = set(descriptions(SCHEMA['properties']['overrides'])) | set(
+            descriptions(SCHEMA['$defs']['reference'])
+        )
+        supplement.add(SCHEMA['properties']['assets']['description'])
+        found = set(descriptions(schema))
+        self.assertEqual(found & supplement, set())
+        self.assertFalse([text for text in found if 'inside the supplement' in text])
 
     def test_profile_schema_file_is_derived(self):
         self.assertEqual(

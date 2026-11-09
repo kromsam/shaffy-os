@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy.apply import FakeSnapper
+from support import vendor_profile
 from test_render import REASON
 
 FIXTURE = ROOT / 'tests/fixtures/supplements/comprehensive'
@@ -393,6 +394,35 @@ class HomeApplyTests(unittest.TestCase):
         op = self.record()['last_completed_op']
         copy = self.state / 'runs' / op / 'before' / '.local/bin/example-retired'
         self.assertEqual(copy.read_text(), 'probe\n')
+
+    def test_a_profile_fragment_that_left_is_removed_and_the_second_apply_changes_nothing(self):
+        fragments = {'shell.toml': '[osd]\nposition = "bottom_center"\n', 'tools.toml': '[env]\nEXAMPLE = "alice"\n'}
+        manifest = 'schema_version: 1\ndescription: x\noverrides:\n  noctalia: shell.toml\n  mise: tools.toml\n'
+        vendor_profile(self.supplement, 'alice/notes', {'profile.yaml': manifest, **fragments})
+        config = self.supplement / 'config.yaml'
+        unlisted = config.read_text()
+        config.write_text(unlisted + 'profiles: [alice/notes]\n')
+        self.attach()
+        first = self.shaffy('apply', '--home')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        placed = {
+            '.config/noctalia/96-profile-01-alice-notes.toml': fragments['shell.toml'],
+            '.config/mise/conf.d/80-profile-01-alice-notes.toml': fragments['tools.toml'],
+        }
+        for target, content in placed.items():
+            self.assertEqual((self.home / target).read_text(), content, target)
+        config.write_text(unlisted)  # the profile leaves the list; its vendored copy stays
+        second = self.shaffy('apply', '--home')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        op = self.record()['last_completed_op']
+        for target, content in placed.items():
+            with self.subTest(target=target):
+                self.assertFalse((self.home / target).exists())  # Noctalia and mise would still read it
+                self.assertEqual((self.state / 'runs' / op / 'before' / target).read_text(), content)
+        self.assertTrue((self.home / '.config/mise/conf.d/90-supplement.toml').exists())
+        third = self.shaffy('apply', '--home')
+        self.assertEqual(third.returncode, 0, third.stderr)
+        self.assertIn('(0 target(s) changed)', third.stdout)
 
     def test_the_renamed_niri_and_noctalia_files_replace_the_old_names(self):
         # Remove after 2027-02-06, with the old names in home/.chezmoiremove.

@@ -1,0 +1,19 @@
+{{- /* Not a retirement list (those stay in home/.chezmoiremove with their dates): every file in a
+     profile fragment place that the settings no longer render, so a profile that leaves the list,
+     or a fragment it drops, stops loading at the next apply (docs/PROFILES.md, "Removing a
+     profile"). chezmoi reads these patterns relative to ~/.config and aborts the whole apply on an
+     absolute one, so only trimmed paths are emitted. */ -}}
+{{- template "guard" . -}}
+{{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
+{{- $config := printf "%s/.config/" .chezmoi.destDir }}
+{{- $current := list }}
+{{- range $shaffy.assets }}
+{{-   if dig "fragment" "" . }}{{ $current = append $current .target }}{{ end }}
+{{- end }}
+{{- range $pattern := $shaffy.fragment_places }}
+{{-   range glob (joinPath $.chezmoi.destDir $pattern) }}
+{{-     if and (hasPrefix $config .) (not (has (printf ".config/%s" (trimPrefix $config .)) $current)) }}
+{{-       printf "%s\n" (trimPrefix $config .) }}
+{{-     end }}
+{{-   end }}
+{{- end -}}

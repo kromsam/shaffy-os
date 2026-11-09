@@ -21,7 +21,7 @@ import tempfile
 import tomllib
 from typing import Literal, NamedTuple
 
-from . import desktop_key
+from . import desktop_key, profiles
 from .capture import CaptureError, capture, tree
 from .selection import resolve, state_dir
 
@@ -360,7 +360,8 @@ def _claims(checkout, shaffy):
       template that reads `.shaffy.overrides.NAME` is owned by that fragment;
     - every integration's targets, except those of one the settings release: the person has
       taken them over, so they yield, home/ entries included;
-    - home/.chezmoiremove's lines, desktop_key.TARGET and the assets' targets;
+    - home/.chezmoiremove's lines, desktop_key.TARGET, the assets' targets and every place a
+      profile's fragment may render, listed or not (profiles.places());
     - Shaffy OS's state folder, its chezmoi state's folder and its cache, and plain chezmoi's
       configuration and source folders, with everything they hold;
     - every folder on the way to any of these, as a plain folder unless it is claimed already.
@@ -398,6 +399,7 @@ def _claims(checkout, shaffy):
     more += [(line, 'upstream', 'home/.chezmoiremove') for line in lines if line and not line.startswith('#')]
     more += [(desktop_key.TARGET, 'upstream', 'lib/shaffy/desktop_key.py')]
     more += [(asset['target'], 'assets', asset['target']) for asset in shaffy['assets']]
+    more += [(pattern, 'upstream', 'lib/shaffy/profiles.py') for pattern in profiles.places().values()]
     more += [(f'{folder}/**', 'upstream', via) for folder, via in _folders(checkout)]
     for target, owner, via in more:
         if GLOB.search(target):

@@ -229,6 +229,37 @@ class WorkspaceToolsTests(unittest.TestCase):
                 ]
                 self.assertEqual(installs, [' '.join(['mise install -y', *names, *extra])])
 
+    def test_installer_reads_every_conf_d_file(self):
+        public = (HOME / 'dot_config/mise/config.toml').read_text()
+        names = list(tomllib.loads(public)['tools'])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'bin').mkdir()
+            for name, status in (('mise', '[ "$1" != install ]'), ('uv', 'true')):
+                (root / 'bin' / name).write_text(f'#!/bin/sh\necho "{name} $*" >> "{root}/calls"\n{status}\n')
+                (root / 'bin' / name).chmod(0o755)
+            conf = root / 'config/mise/conf.d'
+            conf.mkdir(parents=True)
+            (root / 'config/mise/config.toml').write_text(public)
+            (conf / '90-supplement.toml').write_text('[tools]\nexample-runtime = "1.2.3"\nexample-shared = "2"\n')
+            (conf / '80-profile-02-bob-tools.toml').write_text('[tools]\nexample-bob = "latest"\n')
+            (conf / '80-profile-01-alice-notes.toml').write_text('[tools]\nexample-shared = "1"\n[env]\nX = "1"\n')
+            (conf / '81-env-only.toml').write_text('[env]\nY = "1"\n')
+            subprocess.run(
+                ['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
+                env={
+                    **os.environ,
+                    'XDG_CONFIG_HOME': str(root / 'config'),
+                    'PATH': f'{root / "bin"}:{os.environ["PATH"]}',
+                },
+                capture_output=True,
+                check=False,
+            )
+            installs = [line for line in (root / 'calls').read_text().splitlines() if line.startswith('mise install')]
+        # In name order, each tool once; mise takes each one's version from the file that wins.
+        expected = ['example-shared', 'example-bob', 'example-runtime']
+        self.assertEqual(installs, [' '.join(['mise install -y', *names, *expected])])
+
     def test_launchers_run_installed_tools_without_version_lookups(self):
         # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,
         # with mise's default exec_auto_install, installs whatever is newer first.

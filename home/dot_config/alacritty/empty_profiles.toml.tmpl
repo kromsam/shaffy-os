@@ -1,0 +1,17 @@
+{{- /* Each listed profile's Alacritty fragment, in the supplement's order (docs/PROFILES.md).
+     alacritty.toml imports this file just before supplement.toml, and Alacritty loads an import's
+     own imports first, so the supplement's fragment still wins. */ -}}
+{{- $imports := list }}
+{{- range (includeTemplate "shaffy.json" . | fromJson).shaffy.assets }}
+{{-   if eq (dig "fragment" "" .) "alacritty" }}
+{{-     $imports = append $imports (printf "~/%s" .target) }}
+{{-   end }}
+{{- end }}
+{{- with $imports -}}
+[general]
+import = [
+{{- range . }}
+  {{ quote . }},
+{{- end }}
+]
+{{ end -}}
