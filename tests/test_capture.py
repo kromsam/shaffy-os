@@ -12,10 +12,12 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy import capture as capture_module
 from shaffy.capture import CaptureError, capture, verify
 from shaffy.loader import load
 from shaffy.selection import SelectionError, resolve
+from support import vendor_profile
 
 
 class _Case(unittest.TestCase):
@@ -231,6 +233,67 @@ class DotfilesCaptureTests(_Case):
                 change(Path(manifest['directory']) / 'supplement/dotfiles')
                 with self.assertRaisesRegex(CaptureError, reason):
                     verify(manifest['directory'])
+
+
+class ProfileCaptureTests(_Case):
+    """A listed profile's files travel through reference_paths, so the capture needs no change."""
+
+    def setUp(self):
+        super().setUp()
+        manifest = (
+            'schema_version: 1\ndescription: x\noverrides:\n  fish: a.fish\n'
+            'assets:\n  "~/.local/share/example/x": x.txt\n'
+        )
+        vendor_profile(
+            self.supplement, 'alice/notes', {'profile.yaml': manifest, 'a.fish': '# alice\n', 'x.txt': 'x\n'}
+        )
+        vendor_profile(self.supplement, 'bob/notes', {'profile.yaml': 'schema_version: 1\ndescription: y\n'})
+        with open(self.supplement / 'config.yaml', 'a') as stream:
+            stream.write('profiles:\n  - alice/notes\n')
+
+    def test_a_capture_holds_the_lock_and_the_listed_profiles_files_only(self):
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-p1', load)
+        captured = sorted(name for name in manifest['files'] if name.startswith('supplement/profiles/'))
+        self.assertEqual(
+            captured,
+            [
+                'supplement/profiles/alice/notes/a.fish',
+                'supplement/profiles/alice/notes/profile.yaml',
+                'supplement/profiles/alice/notes/x.txt',
+                'supplement/profiles/lock.json',
+            ],
+        )
+        verify(manifest['directory'])
+
+    def test_a_profile_file_changed_during_capture_is_refused(self):
+        original = shutil.copyfile
+
+        def copy_then_edit(source, destination):
+            result = original(source, destination)
+            if Path(source).name == 'a.fish':
+                Path(source).write_text('# edited meanwhile\n')
+            return result
+
+        with (
+            mock.patch.object(capture_module.shutil, 'copyfile', copy_then_edit),
+            self.assertRaisesRegex(CaptureError, 'changed while it was captured'),
+        ):
+            capture(ROOT, self.selection, self.tmp / 'state', 'op-p2', load)
+        self.assertFalse((self.tmp / 'state/runs/op-p2').exists())
+
+    def test_settings_from_the_capture_equal_the_live_ones_with_profiles(self):
+        live = load(ROOT, supplement=self.supplement)['shaffy']
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-p3', load)
+        (self.supplement / 'profiles/alice/notes/a.fish').write_text('# edited later\n')
+        captured = load(ROOT, supplement=Path(manifest['directory']) / 'supplement')['shaffy']
+        self.assertEqual(captured['settings'], live['settings'])
+        self.assertEqual(captured['profiles'], live['profiles'])
+        self.assertEqual(
+            [(a['target'], a['sha256'], a['layer']) for a in captured['assets']],
+            [(a['target'], a['sha256'], a['layer']) for a in live['assets']],
+        )
+        fragment = next(a for a in captured['assets'] if a.get('fragment') == 'fish')
+        self.assertEqual(Path(fragment['path']).read_text(), '# alice\n')
 
 
 class MarkerTests(_Case):

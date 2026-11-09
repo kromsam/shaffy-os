@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy.fastload import load_data
 from shaffy.loader import SettingsError, check_reference, load
 from shaffy.selection import SelectionError
-from support import host_test, serial
+from support import host_test, serial, vendor_profile
 
 FIXTURES = ROOT / 'tests/fixtures/supplements'
 
@@ -631,6 +631,7 @@ class AssetTests(LoaderCase):
                     'sha256': hashlib.sha256(b'font').hexdigest(),
                     'executable': False,
                     'private': False,
+                    'layer': 'supplement',
                 }
             ],
         )
@@ -766,9 +767,293 @@ class IntegrationTests(LoaderCase):
         self.assertIn('outside: a home activation path starts with ~/', problems)
 
 
+class ProfileTests(LoaderCase):
+    """Vendored profiles are layers between the defaults and the supplement, which wins."""
+
+    HEAD = 'schema_version: 1\nsupplement_id: t\n'
+    MANIFEST = 'schema_version: 1\ndescription: Example settings.\n'
+
+    def listing(self, *ids, extra=''):
+        return self.supplement(self.HEAD + 'profiles:\n' + ''.join(f'  - {i}\n' for i in ids) + extra)
+
+    def vendor(self, supplement, profile_id, manifest='', files=None, **kw):
+        return vendor_profile(supplement, profile_id, {'profile.yaml': self.MANIFEST + manifest, **(files or {})}, **kw)
+
+    def refused(self, supplement):
+        with self.assertRaises(SettingsError) as caught:
+            self.load(supplement=supplement)
+        return '\n'.join(caught.exception.problems)
+
+    def test_a_profile_sits_between_the_defaults_and_the_supplement(self):
+        supplement = self.listing('alice/notes', extra='ai:\n  mcp_servers:\n    zotero:\n      args: [serve]\n')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'ai:\n  mcp_servers:\n    zotero:\n      env:\n        ZOTERO_LOCAL_WRITE: "true"\n'
+            '    notes:\n      command: example-notes\n',
+        )
+        data = self.load(supplement=supplement)['shaffy']
+        zotero = data['settings']['ai']['mcp_servers']['zotero']
+        self.assertEqual(zotero['command'], '/usr/bin/mise')  # the defaults'
+        self.assertEqual(
+            zotero['env'], {'ZOTERO_LOCAL': 'true', 'ZOTERO_LOCAL_WRITE': 'true'}
+        )  # the profile's over them
+        self.assertEqual(zotero['args'], ['serve'])  # config.yaml's over both
+        self.assertEqual(data['provenance'], {'ai.mcp_servers.notes': 'alice/notes'})
+        self.assertEqual([profile['id'] for profile in data['profiles']], ['alice/notes'])
+        self.assertEqual(data['profiles'][0]['description'], 'Example settings.')
+        self.assertEqual(data['profiles'][0]['source'], 'https://github.com/example/profiles')
+
+    def test_two_profiles_that_disagree_are_named_until_the_supplement_writes_the_entry(self):
+        supplement = self.listing('alice/notes', 'bob/notes')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'ai:\n  mcp_servers:\n    notes:\n      command: one\n',
+            source='https://github.com/alice/profiles',
+        )
+        self.vendor(
+            supplement,
+            'bob/notes',
+            'ai:\n  mcp_servers:\n    notes:\n      command: two\n      args: [x]\n',
+            source='https://codeberg.org/bob/profiles',
+        )
+        message = self.refused(supplement)
+        self.assertIn('ai.mcp_servers.notes: alice/notes and bob/notes set it differently', message)
+        self.assertIn(
+            'tell its author: https://github.com/alice/profiles/issues, https://codeberg.org/bob/profiles', message
+        )
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('ai:\n  mcp_servers:\n    notes:\n      command: three\n')
+        notes = self.load(supplement=supplement)['shaffy']['settings']['ai']['mcp_servers']['notes']
+        self.assertEqual(notes, {'command': 'three'})  # no field of either profile
+
+    def test_equal_entries_from_two_profiles_are_no_conflict(self):
+        supplement = self.listing('alice/notes', 'bob/notes')
+        for profile_id in ('alice/notes', 'bob/notes'):
+            self.vendor(supplement, profile_id, 'ai:\n  mcp_servers:\n    notes:\n      command: one\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(data['settings']['ai']['mcp_servers']['notes'], {'command': 'one'})
+        self.assertIn('ai.mcp_servers.notes', data['provenance'])
+
+    def test_extra_packages_and_lazyvim_extras_gather_every_layer(self):
+        supplement = self.listing('alice/notes', 'bob/notes', extra='packages:\n  extra: [example-c]\n')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'packages:\n  extra: [example-a]\nlazyvim:\n  extras: [lazyvim.plugins.extras.lang.ruby]\n',
+        )
+        self.vendor(supplement, 'bob/notes', 'packages:\n  extra: [example-b, example-a]\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(data['packages']['extra'], ['example-a', 'example-b', 'example-c'])
+        self.assertEqual(data['settings']['lazyvim']['extras'], ['lazyvim.plugins.extras.lang.ruby'])
+        self.assertEqual(data['provenance']['packages.extra.example-a'], 'alice/notes')
+        self.assertEqual(data['provenance']['packages.extra.example-b'], 'bob/notes')
+        self.assertNotIn('packages.extra.example-c', data['provenance'])
+
+    def test_profile_fragments_become_assets_at_their_place_in_order(self):
+        supplement = self.listing('alice/notes', 'bob/notes', extra='overrides:\n  fish: own.fish\n')
+        (supplement / 'own.fish').write_text('# the supplement\n')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'overrides:\n  fish: a.fish\n  mise: tools.toml\n',
+            {'a.fish': '# alice\n', 'tools.toml': '[tools]\n'},
+        )
+        self.vendor(supplement, 'bob/notes', 'overrides:\n  fish: b.fish\n', {'b.fish': '# bob\n'})
+        data = self.load(supplement=supplement)['shaffy']
+        by_target = {asset['target']: asset for asset in data['assets']}
+        self.assertEqual(
+            sorted(by_target),
+            [
+                '.config/fish/profiles/01-alice-notes.fish',
+                '.config/fish/profiles/02-bob-notes.fish',
+                '.config/mise/conf.d/80-profile-01-alice-notes.toml',
+            ],
+        )
+        alice = by_target['.config/fish/profiles/01-alice-notes.fish']
+        self.assertEqual((alice['layer'], alice['fragment'], alice['executable']), ('alice/notes', 'fish', False))
+        self.assertEqual(Path(alice['path']).read_text(), '# alice\n')
+        self.assertEqual(data['overrides'], {'fish': str(supplement / 'own.fish')})  # the supplement's stay as today
+        self.assertEqual(data['fragment_places']['fish'], '.config/fish/profiles/*.fish')
+        self.assertIn('profiles/lock.json', data['reference_paths'])
+        self.assertIn('profiles/alice/notes/tools.toml', data['reference_paths'])
+        self.assertIn('profiles/bob/notes/profile.yaml', data['reference_paths'])
+        resolved = sorted({str((supplement / path).resolve()) for path in data['reference_paths']})
+        self.assertEqual(resolved, data['references'])  # what the cache stamps is what a capture copies
+
+    def test_keyboard_maps_concatenate_in_layer_order_with_headers(self):
+        alice = 'evdev:input:b0003v0001p0002*\n KEYBOARD_KEY_70039=leftmeta\n'
+        own = 'evdev:input:b0003v0003p0004*\n KEYBOARD_KEY_70039=esc'
+        supplement = self.listing('alice/keys', extra='overrides:\n  keyboard_hwdb: own.hwdb\n')
+        (supplement / 'own.hwdb').write_text(own)
+        self.vendor(supplement, 'alice/keys', 'overrides:\n  keyboard_hwdb: keys.hwdb\n', {'keys.hwdb': alice})
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(
+            data['system_overrides']['keyboard_hwdb'],
+            f'# Shaffy OS: from profile alice/keys\n{alice}\n# Shaffy OS: from the supplement\n{own}\n',
+        )
+        self.assertEqual(list(data['overrides']), ['keyboard_hwdb'])
+        self.assertEqual(data['assets'], [])  # a system fragment is no home asset
+
+    def test_a_keyboard_map_that_names_one_unit_is_refused(self):
+        supplement = self.listing('alice/keys')
+        text = (
+            'evdev:input:b0003v0001p0002*\n KEYBOARD_KEY_70039=leftmeta\n'
+            'evdev:name:X:phys:usb-1/input0:*\n KEYBOARD_KEY_70039=esc\n'
+        )
+        self.vendor(supplement, 'alice/keys', 'overrides:\n  keyboard_hwdb: keys.hwdb\n', {'keys.hwdb': text})
+        message = self.refused(supplement)
+        self.assertIn(f'{supplement}/profiles/alice/keys/keys.hwdb:3: this match names one unit', message)
+        self.assertIn('Tell the author: https://github.com/example/profiles/issues', message)
+
+    def test_two_profiles_one_asset_target_conflict_and_the_supplement_settles_it(self):
+        supplement = self.listing('alice/notes', 'bob/notes')
+        for profile_id, content in (('alice/notes', 'a\n'), ('bob/notes', 'b\n')):
+            self.vendor(supplement, profile_id, 'assets:\n  "~/.local/share/example/x": x.txt\n', {'x.txt': content})
+        message = self.refused(supplement)
+        self.assertIn('assets.~/.local/share/example/x: alice/notes and bob/notes set it differently', message)
+        (supplement / 'mine.txt').write_text('mine\n')
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('assets:\n  "~/.local/share/example/x": mine.txt\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual([(a['layer'], Path(a['path']).name) for a in data['assets']], [('supplement', 'mine.txt')])
+        self.assertEqual(
+            sorted(data['notes']),
+            [
+                "assets.~/.local/share/example/x: config.yaml replaces alice/notes's file",
+                "assets.~/.local/share/example/x: config.yaml replaces bob/notes's file",
+            ],
+        )
+        # Equal entries are kept once.
+        self.vendor(supplement, 'bob/notes', 'assets:\n  "~/.local/share/example/x": x.txt\n', {'x.txt': 'a\n'})
+        (supplement / 'config.yaml').write_text(self.HEAD + 'profiles: [alice/notes, bob/notes]\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual([a['layer'] for a in data['assets']], ['alice/notes'])
+
+    def test_asset_flags_never_attach_to_another_layers_file(self):
+        supplement = self.listing('alice/notes', extra='assets:\n  "~/.local/bin/example": mine\n')
+        (supplement / 'mine').write_text('#!/bin/sh\n')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'assets:\n  "~/.local/bin/example": {file: tool, executable: true}\n',
+            {'tool': '#!/bin/sh\nexit 1\n'},
+        )
+        assets = self.load(supplement=supplement)['shaffy']['assets']
+        self.assertEqual([(a['layer'], a['executable']) for a in assets], [('supplement', False)])
+
+    def test_a_hand_edited_vendored_file_is_refused_with_the_way_upstream(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'overrides:\n  fish: a.fish\n', {'a.fish': '# alice\n'})
+        with open(supplement / 'profiles/alice/notes/a.fish', 'a') as stream:
+            stream.write('# mine\n')
+        message = self.refused(supplement)
+        self.assertIn(
+            f'{supplement}/profiles/alice/notes/a.fish: differs from alice/notes as vendored at 0000000', message
+        )
+        self.assertIn("alice/notes: a vendored profile stays its author's", message)
+        self.assertIn('./bin/shaffy profile propose alice/notes (https://github.com/example/profiles/issues)', message)
+        self.assertIn('git restore profiles/alice/notes', message)
+
+    def test_a_listed_profile_that_is_not_vendored_names_profile_add(self):
+        supplement = self.listing('alice/notes')
+        self.assertIn('profiles: alice/notes is not vendored; ./bin/shaffy profile add', self.refused(supplement))
+        self.vendor(supplement, 'bob/notes')
+        self.assertIn('alice/notes is not vendored', self.refused(supplement))
+
+    def test_a_required_integration_must_be_managed_by_the_supplement(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'requires: [zotero]\n')
+        self.assertIn(
+            'integrations.zotero: alice/notes requires it managed; set integrations.zotero: managed '
+            '(docs/SUPPLEMENT.md#integrations)',
+            self.refused(supplement),
+        )
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('integrations:\n  zotero: managed\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(data['integrations']['zotero']['state'], 'managed')
+        self.assertEqual(data['profiles'][0]['requires'], ['zotero'])
+        self.vendor(supplement, 'alice/notes', 'requires: [dropbox]\n')
+        self.assertIn('integrations.dropbox: there is no such integration', self.refused(supplement))
+
+    def test_too_new_a_profile_reports_only_that(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'minimum_release: v2026.10.20\ncolour: blue\n')
+        with mock.patch('shaffy.loader.release', return_value='v2026.10.19'):
+            message = self.refused(supplement)
+        self.assertEqual(
+            message,
+            f'{supplement}/profiles/alice/notes/profile.yaml: minimum_release: profile alice/notes needs Shaffy OS '
+            'v2026.10.20 or later; this checkout is at v2026.10.19; update it to a newer release',
+        )
+
+    def test_a_profile_may_not_set_what_config_yaml_owns(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'desktop:\n  browser: example.desktop\n')
+        message = self.refused(supplement)
+        self.assertIn('profile.yaml: desktop.browser: a profile cannot set this', message)
+        self.assertIn('./bin/shaffy profile propose alice/notes --to shaffy --key desktop.browser', message)
+        self.assertNotIn('unknown key', message)
+
+    def test_profile_references_stay_inside_the_profile(self):
+        supplement = self.listing('alice/notes')
+        (supplement / 'secret.fish').write_text('# the supplement\n')
+        self.vendor(supplement, 'alice/notes', 'overrides:\n  fish: shared.fish\n')
+        (supplement / 'profiles/alice/notes/shared.fish').symlink_to('../../../secret.fish')
+        message = self.refused(supplement)
+        self.assertIn("profile.yaml: overrides.fish: 'shared.fish' resolves outside the profile", message)
+        (supplement / 'profiles/alice/notes/shared.fish').unlink()
+        (supplement / 'profiles/alice/notes/shared.fish').write_text('# unlocked\n')
+        self.assertIn('profiles/alice/notes/shared.fish: not in profiles/lock.json', self.refused(supplement))
+
+    def test_a_supplement_reference_into_profiles_is_refused(self):
+        supplement = self.listing('alice/notes', extra='overrides:\n  fish: profiles/alice/notes/a.fish\n')
+        self.vendor(supplement, 'alice/notes', files={'a.fish': '# alice\n'})
+        self.assertIn("overrides.fish: 'profiles/alice/notes/a.fish' leads into profiles/", self.refused(supplement))
+        (supplement / 'config.yaml').write_text(self.HEAD + 'dotfiles: profiles/alice\n')
+        self.assertIn("dotfiles: 'profiles/alice' leads into profiles/", self.refused(supplement))
+
+    def test_an_effective_problem_names_the_profile_that_set_the_entry(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(
+            supplement,
+            'alice/notes',
+            'ai:\n  mcp_servers:\n    notes:\n      command: a\n      url: "http://127.0.0.1:1/mcp"\n',
+        )
+        self.assertIn(
+            f'{supplement}/profiles/alice/notes/profile.yaml: ai.mcp_servers.notes: has both a command and a url',
+            self.refused(supplement),
+        )
+
+    def test_unlisted_vendored_profiles_are_not_read(self):
+        supplement = self.supplement(self.HEAD + 'overrides:\n  fish: own.fish\n')
+        (supplement / 'own.fish').write_text('# the supplement\n')
+        before = self.load(supplement=supplement)['shaffy']
+        self.vendor(supplement, 'alice/notes', 'overrides:\n  fish: a.fish\n', {'a.fish': '# alice\n'})
+        (supplement / 'profiles/lock.json').write_text('not even json\n')
+        after = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(after['references'], before['references'])
+        self.assertEqual(after['reference_paths'], ['own.fish'])
+        self.assertEqual(after['profiles'], [])
+
+    def test_the_cache_notices_an_edited_vendored_file(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'overrides:\n  fish: a.fish\n', {'a.fish': '# alice\n'})
+        cache = self.tmp / 'cache'
+        first = load_data(ROOT, supplement=supplement, home=self.home, directory=cache)
+        self.assertEqual(first['shaffy']['profiles'][0]['id'], 'alice/notes')
+        self.assertEqual(load_data(ROOT, supplement=supplement, home=self.home, directory=cache), first)
+        (supplement / 'profiles/alice/notes/a.fish').write_text('# edited\n')
+        with self.assertRaisesRegex(SettingsError, 'differs from alice/notes'):
+            load_data(ROOT, supplement=supplement, home=self.home, directory=cache)
+
+
 class CachedPathTests(LoaderCase):
-    def run_fast(self, *args):
+    def run_fast(self, *args, supplement=None):
         env = {'HOME': str(self.home), 'XDG_RUNTIME_DIR': str(self.tmp), 'PATH': os.environ['PATH']}
+        choice = ['--supplement', str(supplement)] if supplement else ['--without-supplement']
         return subprocess.run(
             [
                 '/usr/bin/python3',
@@ -777,7 +1062,7 @@ class CachedPathTests(LoaderCase):
                 '-X',
                 'importtime',
                 str(ROOT / 'lib/shaffy/fastload.py'),
-                '--without-supplement',
+                *choice,
                 *args,
             ],
             capture_output=True,
@@ -786,15 +1071,29 @@ class CachedPathTests(LoaderCase):
             check=False,
         )
 
-    def test_cache_hit_imports_neither_yaml_nor_jsonschema(self):
-        first = self.run_fast()
+    def hits_without_yaml(self, supplement=None):
+        first = self.run_fast(supplement=supplement)
         self.assertEqual(first.returncode, 0, first.stderr)
         self.assertIn('jsonschema', first.stderr)  # a miss runs the full loader
-        second = self.run_fast()
+        second = self.run_fast(supplement=supplement)
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(json.loads(second.stdout), json.loads(first.stdout))
         imported = [line.split('|')[-1].strip() for line in second.stderr.splitlines()]
         self.assertFalse({'yaml', 'jsonschema'} & set(imported), imported)
+        return json.loads(second.stdout)['shaffy']
+
+    def test_cache_hit_imports_neither_yaml_nor_jsonschema(self):
+        self.hits_without_yaml()
+
+    def test_cache_hit_with_a_vendored_profile_imports_neither_yaml_nor_jsonschema(self):
+        supplement = self.supplement('schema_version: 1\nsupplement_id: t\nprofiles: [alice/notes]\n')
+        vendor_profile(
+            supplement,
+            'alice/notes',
+            {'profile.yaml': 'schema_version: 1\ndescription: x\noverrides:\n  fish: a.fish\n', 'a.fish': '# a\n'},
+        )
+        data = self.hits_without_yaml(supplement)
+        self.assertEqual([asset['fragment'] for asset in data['assets']], ['fish'])
 
     def test_changed_input_invalidates_the_cache(self):
         path = self.supplement('schema_version: 1\nsupplement_id: t\n')

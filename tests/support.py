@@ -7,14 +7,17 @@ and collections. Controller tests use synthetic settings and temporary files;
 they do not require this machine's configuration.
 """
 
+import hashlib
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'lib'))
 SKIP_HOST = os.environ.get('SHAFFY_SKIP_HOST_TESTS') == '1'
 
 
@@ -51,3 +54,21 @@ def host_test(reason, *, tools=(), paths=(), reflink=False):
     if SKIP_HOST:
         return unittest.skip(f'host-bound ({reason}); SHAFFY_SKIP_HOST_TESTS=1')
     return unittest.skipIf(bool(missing), f'host-bound ({reason}); missing: {", ".join(missing)}')
+
+
+def vendor_profile(supplement, profile_id, files, *, source='https://github.com/example/profiles', commit='0' * 40):
+    """Vendor a synthetic profile into SUPPLEMENT as `./bin/shaffy profile add` leaves one: FILES
+    ({path: text or bytes}) under profiles/OWNER/NAME and a lock entry with their digests."""
+    from shaffy import profiles, vendor
+
+    content = {name: text.encode() if isinstance(text, str) else text for name, text in files.items()}
+    locked = profiles.Locked(
+        profile_id,
+        source,
+        profile_id.split('/')[1],
+        'HEAD',
+        commit,
+        {name: hashlib.sha256(data).hexdigest() for name, data in content.items()},
+    )
+    vendor.install(supplement, profile_id, content, locked)
+    return locked

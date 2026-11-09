@@ -3,6 +3,7 @@
 import fnmatch
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,8 +11,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy import profiles
 from shaffy.loader import parse, validate
+from support import vendor_profile
 
 SCHEMA = json.loads((ROOT / 'schema/supplement.schema.json').read_text())
 HWDB_MAPS = sorted(Path('/usr/lib/udev/hwdb.d').glob('*keyboard*.hwdb'))
@@ -195,6 +198,92 @@ class ReadProfileTests(unittest.TestCase):
                     self.assertIn(f'assets.{target}: a profile may not write under {prefix}', problems[0])
         _, fine = self.read('schema_version: 1\ndescription: x\nassets:\n  "~/.local/share/x": files/x\n')
         self.assertEqual(fine, [])
+
+
+class LockTests(unittest.TestCase):
+    FILES = {'profile.yaml': 'schema_version: 1\ndescription: x\noverrides:\n  fish: a.fish\n', 'a.fish': '# a\n'}
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def test_the_lock_reads_back_and_names_its_problems(self):
+        locked = vendor_profile(self.root, 'alice/notes', self.FILES)
+        self.assertEqual(profiles.read_lock(self.root), ({'alice/notes': locked}, []))
+        lock = self.root / 'profiles/lock.json'
+        text = lock.read_text()
+        self.assertTrue(text.endswith('\n'))
+        for broken, reason in (
+            ('{', 'cannot be read as JSON'),
+            ('{"lock_version": 2, "profiles": {}}', 'lock_version 1'),
+            (text.replace('"commit": "' + '0' * 40, '"commit": "abc'), 'alice/notes: commit is the 40-hex commit'),
+            (text.replace('alice/notes', 'Alice/notes'), "'Alice/notes' is not a profile ID"),
+            (text.replace('"profile.yaml"', '"other.yaml"'), 'profile.yaml among them'),
+            (text.replace('"ref": "HEAD"', '"ref": ""'), 'ref names what update follows'),
+        ):
+            with self.subTest(reason=reason):
+                lock.write_text(broken)
+                entries, problems = profiles.read_lock(self.root)
+                self.assertEqual(entries, {})
+                self.assertEqual(len(problems), 1, problems)
+                self.assertTrue(problems[0].startswith(f'{lock}: '), problems)
+                self.assertIn(reason, problems[0])
+        lock.unlink()
+        self.assertEqual(profiles.read_lock(self.root), ({}, []))
+
+    def test_a_missing_file_a_link_and_a_changed_byte_each_name_their_file(self):
+        vendor_profile(self.root, 'alice/notes', self.FILES)
+        folder = self.root / 'profiles/alice/notes'
+        found, problems = profiles.vendored(self.root, ['alice/notes'])
+        self.assertEqual(problems, [])
+        self.assertEqual((found[0].folder, found[0].prefix), (folder, 'profiles/alice/notes/'))
+        self.assertEqual(
+            profiles.files(found),
+            ['profiles/lock.json', 'profiles/alice/notes/a.fish', 'profiles/alice/notes/profile.yaml'],
+        )
+        (self.root / 'elsewhere').write_text('# a\n')
+        for change, reason in (
+            (lambda: None, 'a.fish: missing from alice/notes as vendored at 0000000'),
+            (lambda: (folder / 'a.fish').symlink_to('../../../elsewhere'), 'a.fish: is a link'),
+            (
+                lambda: (folder / 'a.fish').write_text('# b\n'),
+                'a.fish: differs from alice/notes as vendored at 0000000',
+            ),
+        ):
+            with self.subTest(reason=reason):
+                (folder / 'a.fish').unlink(missing_ok=True)
+                change()
+                found, problems = profiles.vendored(self.root, ['alice/notes'])
+                self.assertEqual(found, [])
+                self.assertEqual(len(problems), 2, problems)
+                self.assertIn(reason, problems[0])
+                self.assertIn('./bin/shaffy profile propose alice/notes', problems[1])
+        shutil.rmtree(folder)
+        _, problems = profiles.vendored(self.root, ['alice/notes'])
+        self.assertEqual(
+            problems, [f'{folder}: missing; run ./bin/shaffy profile update alice/notes or git restore profiles/']
+        )
+
+    def test_nothing_is_read_for_an_empty_list(self):
+        (self.root / 'profiles').mkdir()
+        (self.root / 'profiles/lock.json').write_text('{')
+        self.assertEqual(profiles.vendored(self.root, []), ([], []))
+        self.assertEqual(profiles.files([]), [])
+
+    def test_install_converges_on_the_same_bytes(self):
+        from shaffy import vendor
+
+        locked = vendor_profile(self.root, 'alice/notes', self.FILES)
+        vendor_profile(self.root, 'bob/notes', {'profile.yaml': 'schema_version: 1\ndescription: y\n'})
+        lock = (self.root / 'profiles/lock.json').read_bytes()
+        (self.root / 'profiles/alice/notes/stale').write_text('left over\n')
+        vendor.install(self.root, 'alice/notes', {k: v.encode() for k, v in self.FILES.items()}, locked)
+        self.assertEqual((self.root / 'profiles/lock.json').read_bytes(), lock)
+        self.assertEqual(
+            sorted(p.name for p in (self.root / 'profiles/alice/notes').iterdir()), ['a.fish', 'profile.yaml']
+        )
+        self.assertEqual(sorted(json.loads(lock)['profiles']), ['alice/notes', 'bob/notes'])
 
 
 class ImportTests(unittest.TestCase):

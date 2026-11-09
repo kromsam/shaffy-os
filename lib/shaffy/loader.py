@@ -16,6 +16,7 @@ from urllib.parse import quote
 import jsonschema
 import yaml
 
+from . import profiles
 from .integrations import load_catalogue
 from .integrations import resolve as resolve_integrations
 from .packages import load_groups
@@ -147,19 +148,19 @@ def validate(data, schema, label):
     return [f'{label}: ' + ': '.join(_describe(error)) for error in errors]
 
 
-def release_problem(checkout, wanted):
-    """Why this checkout is older than the supplement's minimum_release, or None."""
+def release_problem(checkout, wanted, needs='this supplement'):
+    """Why this checkout is older than the minimum_release NEEDS asks for, or None."""
     if not isinstance(wanted, str) or not release_key(wanted):
         return None  # absent, or malformed, which the schema reports
     have = release(checkout)
     if have is None:
         return (
-            f'minimum_release: this supplement needs Shaffy OS {wanted} or later, and no release '
+            f'minimum_release: {needs} needs Shaffy OS {wanted} or later, and no release '
             "tag is reachable from this checkout's HEAD; fetch the tags (git fetch --tags)"
         )
     if release_key(have) < release_key(wanted):
         return (
-            f'minimum_release: this supplement needs Shaffy OS {wanted} or later; this checkout '
+            f'minimum_release: {needs} needs Shaffy OS {wanted} or later; this checkout '
             f'is at {have}; update it to a newer release'
         )
     return None
@@ -254,36 +255,58 @@ def fold(layers):
                 value = merge(before, value)  # an MCP server, field by field over the one before it
             _put(settings, path, copy.deepcopy(value))
             origin[path] = layer
-    problems = [
-        f'{dotted(path)}: {" and ".join(layer.name for layer in setters)} set it differently. Write the entry '
+    return settings, origin, [_contested(dotted(path), setters) for path, setters in contested.items()]
+
+
+def _contested(what, setters):
+    """The problem of one entry that two or more profiles, SETTERS, give different values."""
+    return (
+        f'{what}: {" and ".join(layer.name for layer in setters)} set it differently. Write the entry '
         'you want in config.yaml; it replaces both. If a profile should not set it, tell its author: '
         + ', '.join(dict.fromkeys(layer.issues for layer in setters))
-        for path, setters in contested.items()
-    ]
-    return settings, origin, problems
+    )
 
 
-def check_reference(root, reference, label, folder=False):
-    """A referenced file, or FOLDER, must exist inside the supplement, after resolving symlinks."""
+def check_reference(root, reference, label, folder=False, within='the supplement'):
+    """A referenced file, or FOLDER, must exist inside ROOT, WITHIN in messages, after resolving symlinks."""
     if os.path.isabs(reference):
-        raise SettingsError([f'{label}: {reference!r} must be relative to the supplement'])
+        raise SettingsError([f'{label}: {reference!r} must be relative to {within}'])
     root = os.path.realpath(root)
     target = os.path.realpath(os.path.join(root, reference))
     if os.path.commonpath([root, target]) != root:
-        raise SettingsError([f'{label}: {reference!r} resolves outside the supplement'])
+        raise SettingsError([f'{label}: {reference!r} resolves outside {within}'])
     if folder and target == root:
-        raise SettingsError([f'{label}: {reference!r} is the supplement itself; name a folder inside it'])
+        raise SettingsError([f'{label}: {reference!r} is {within} itself; name a folder inside it'])
     if not (os.path.isdir if folder else os.path.isfile)(target):
         kind = ' as a folder' if folder else ''
-        raise SettingsError([f'{label}: {reference!r} does not exist in the supplement{kind}'])
+        raise SettingsError([f'{label}: {reference!r} does not exist in {within}{kind}'])
     return target
+
+
+def _into_profiles(root, reference, target):
+    """Whether REFERENCE, written in config.yaml, or the TARGET it resolves to lies in profiles/,
+    the folder ./bin/shaffy profile writes."""
+    written = os.path.normpath(reference)
+    folder = os.path.realpath(os.path.join(root, profiles.FOLDER))
+    return (
+        written == profiles.FOLDER
+        or written.startswith(profiles.FOLDER + '/')
+        or os.path.commonpath([folder, target]) == folder
+    )
 
 
 # restic-home writes its verification marker here, so a backup must include it.
 BACKUP_MARKER = ('.local', 'state', 'shaffy', 'home-backup')
 
 
-def _effective_problems(settings):
+def _effective_problems(settings, origin=None):
+    """Problems of the folded result; one about a profile's entry carries that profile's file."""
+    origin = origin or {}
+
+    def where(path):
+        layer = origin.get(path)
+        return f'{layer.label}: ' if layer is not None and layer.kind == 'profile' else 'effective settings: '
+
     servers = settings.get('ai', {}).get('mcp_servers', {})
     problems = []
     battery = settings.get('power', {}).get('low_battery_hibernate')
@@ -295,12 +318,13 @@ def _effective_problems(settings):
     for name, spec in servers.items():
         if not spec.get('enabled', True):
             continue
+        label = where(('ai', 'mcp_servers', name)) + f'ai.mcp_servers.{name}'
         if 'command' not in spec and 'url' not in spec:
-            problems.append(f'effective settings: ai.mcp_servers.{name}: needs a command or a url')
+            problems.append(f'{label}: needs a command or a url')
         elif 'command' in spec and 'url' in spec:
-            problems.append(f'effective settings: ai.mcp_servers.{name}: has both a command and a url')
+            problems.append(f'{label}: has both a command and a url')
         elif 'url' in spec and ('args' in spec or 'env' in spec):
-            problems.append(f'effective settings: ai.mcp_servers.{name}: args and env need a command')
+            problems.append(f'{label}: args and env need a command')
     for exclude in settings.get('backup', {}).get('excludes', []):
         parts = tuple(part for part in exclude[2:].split('/') if part)
         if parts == BACKUP_MARKER[: len(parts)]:
@@ -315,6 +339,237 @@ def _strip(data, keys):
     return {key: value for key, value in data.items() if key not in keys}
 
 
+def _asset(layer, target, path, reference, label, executable=False, private=False, fragment=None):
+    """(entry, problem) for one file LAYER installs at TARGET: whole, with its layer named."""
+    try:
+        with open(path, 'rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+    except OSError as error:
+        return None, f'{label}: {reference!r} cannot be read: {error.strerror}'
+    entry = {
+        'target': target,
+        'path': path,
+        'url': 'file://' + quote(path),
+        'sha256': digest,
+        'executable': executable,
+        'private': private,
+        'layer': layer.name,
+    }
+    if fragment:
+        entry['fragment'] = fragment
+    return entry, None
+
+
+def _layer_files(layer, position):
+    """A layer's overrides and assets, resolved against its own root; returns
+    (fragments, assets, hwdb, written, problems).
+
+    The supplement's home fragments stay {name: path}; a profile's become asset entries at
+    profiles.place(tool, position, layer.name) with `fragment: tool`. keyboard_hwdb comes back
+    as text for _hwdb, and a profile's text with a line profiles.hwdb_unit_matches finds is a
+    problem naming the file and line. Every asset entry is whole and carries its layer. WRITTEN
+    holds the paths relative to the supplement (layer.prefix + reference). A supplement reference
+    into profiles/ is refused.
+    """
+    profile = layer.kind == 'profile'
+    within = 'the profile' if profile else 'the supplement'
+    prefix = f'{layer.label}: ' if profile else ''
+    fragments, assets, hwdb, written, problems = {}, [], None, set(), []
+
+    def locate(reference, key):
+        path = check_reference(layer.root, reference, prefix + key, within=within)
+        if not profile and _into_profiles(layer.root, reference, path):
+            raise SettingsError(
+                [
+                    f'{key}: {reference!r} leads into {profiles.FOLDER}/, which ./bin/shaffy profile writes; '
+                    'list the profile under profiles: instead'
+                ]
+            )
+        written.add(layer.prefix + os.path.normpath(reference))
+        return path
+
+    for name, reference in layer.data.get('overrides', {}).items():
+        key = f'overrides.{name}'
+        try:
+            path = locate(reference, key)
+        except SettingsError as error:
+            problems += error.problems
+            continue
+        if name not in SYSTEM_OVERRIDES:
+            if not profile:
+                fragments[name] = path
+                continue
+            target = profiles.place(name, position, layer.name)
+            entry, problem = _asset(layer, target, path, reference, prefix + key, fragment=name)
+            if entry:
+                assets.append(entry)
+            else:
+                problems.append(problem)
+            continue
+        # System-scope fragments travel inside the loaded settings, so root reads them from its
+        # verified copy of the operation's settings rather than from the user's files.
+        if not profile:
+            fragments[name] = path
+        try:
+            with open(path, encoding='utf-8') as stream:
+                text = stream.read(SYSTEM_OVERRIDE_LIMIT + 1)
+        except (OSError, UnicodeDecodeError) as error:
+            problems.append(f'{prefix}{key}: cannot be read as text: {error}')
+            continue
+        if len(text) > SYSTEM_OVERRIDE_LIMIT:
+            problems.append(f'{prefix}{key}: larger than {SYSTEM_OVERRIDE_LIMIT} characters')
+            continue
+        units = profiles.hwdb_unit_matches(text) if profile else []
+        if units:
+            tell = f' Tell the author: {layer.issues}' if layer.issues else ''
+            problems += [
+                f'{path}:{line}: this match names one unit (a port position, a unique id or a serial). A profile '
+                f'shares a map for a keyboard model: match its vendor and product (evdev:input:b0003vXXXXpYYYY*).{tell}'
+                for line in units
+            ]
+            continue
+        hwdb = text
+    for target, value in sorted(layer.data.get('assets', {}).items()):
+        key = f'assets.{target}'
+        reference = value['file'] if isinstance(value, dict) else value
+        try:
+            path = locate(reference, key)
+        except SettingsError as error:
+            problems += error.problems
+            continue
+        entry, problem = _asset(
+            layer,
+            target[2:],
+            path,
+            reference,
+            prefix + key,
+            executable=bool(isinstance(value, dict) and value.get('executable')),
+            private=bool(isinstance(value, dict) and value.get('private')),
+        )
+        if entry:
+            assets.append(entry)
+        else:
+            problems.append(problem)
+    return fragments, assets, hwdb, written, problems
+
+
+def _hwdb(parts):
+    """(text, problems) from [(layer, text)] in layer order. The supplement's map alone is installed
+    as it is, as today. With a profile's map, each part is headed by a comment naming its layer and
+    the parts are separated by a blank line, so no record runs into the next and udev's last entry
+    wins for the supplement. (None, []) without parts; a text past SYSTEM_OVERRIDE_LIMIT names the
+    largest parts."""
+    if not parts:
+        return None, []
+    if len(parts) == 1 and parts[0][0].kind == 'supplement':
+        return parts[0][1], []
+    text = '\n'.join(
+        '# Shaffy OS: from '
+        + (f'profile {layer.name}' if layer.kind == 'profile' else 'the supplement')
+        + '\n'
+        + part.rstrip('\n')
+        + '\n'
+        for layer, part in parts
+    )
+    if len(text) > SYSTEM_OVERRIDE_LIMIT:
+        largest = sorted(parts, key=lambda item: len(item[1]), reverse=True)[:2]
+        return None, [
+            f'overrides.keyboard_hwdb: the maps together are larger than {SYSTEM_OVERRIDE_LIMIT} characters; '
+            'the largest: ' + ', '.join(f'{layer.name} ({len(part)} characters)' for layer, part in largest)
+        ]
+    return text, []
+
+
+def _assets(entries):
+    """(assets, problems, notes) from [(layer, entry)]: one entry per target. The supplement's
+    replaces a profile's, with a note; two profiles' entries that differ are a problem naming
+    both, unless the supplement has the target; identical ones are kept once."""
+    by_target = {}
+    for layer, entry in entries:
+        by_target.setdefault(entry['target'], []).append((layer, entry))
+    assets, problems, notes = [], [], []
+    for target, candidates in sorted(by_target.items()):
+        own = [entry for layer, entry in candidates if layer.kind == 'supplement']
+        theirs = [(layer, entry) for layer, entry in candidates if layer.kind == 'profile']
+        if own:
+            assets.append(own[0])
+            notes += [f"assets.~/{target}: config.yaml replaces {layer.name}'s file" for layer, _ in theirs]
+        elif len({(entry['sha256'], entry['executable'], entry['private']) for _, entry in theirs}) > 1:
+            problems.append(_contested(f'assets.~/{target}', [layer for layer, _ in theirs]))
+        else:
+            assets.append(theirs[0][1])
+    return assets, problems, notes
+
+
+def _profile_layer(checkout, schema, profile):
+    """(Layer, summary, problems) for one vendored profile, read as the format asks."""
+    locked = profile.locked
+    label = str(profile.folder / profiles.MANIFEST)
+    try:
+        data, problems = profiles.read_profile(
+            profile.folder,
+            schema,
+            label,
+            parse=parse,
+            validate=validate,
+            release_problem=lambda wanted: release_problem(checkout, wanted, f'profile {locked.id}'),
+            profile_id=locked.id,
+        )
+    except SettingsError as error:
+        return None, None, error.problems
+    requires = data.get('requires') if isinstance(data.get('requires'), list) else []
+    layer = Layer(
+        'profile',
+        locked.id,
+        label,
+        profile.folder,
+        profile.prefix,
+        _strip(data, profiles.PROFILE_KEYS),
+        tuple(requires),
+        profiles.issues(locked),
+    )
+    summary = {
+        'id': locked.id,
+        'description': data.get('description'),
+        'source': locked.source,
+        'path': locked.path,
+        'ref': locked.ref,
+        'commit': locked.commit,
+        'requires': list(requires),
+    }
+    return layer, summary, problems
+
+
+def check_profile(checkout, folder, label=None, profile_id=None, issues=''):
+    """Problems of one profile folder, as a load finds them, without the fold:
+    profiles.read_profile with this module's parse, validate and release check, then _layer_files
+    on it (every reference inside the folder after links, the keyboard map's text, no match that
+    names one unit). Vendoring runs it on the staged copy and profile check on an author's working
+    tree, so a profile that vendors also loads."""
+    checkout, folder = Path(checkout), Path(folder)
+    label = label or str(folder / profiles.MANIFEST)
+    schema = json.loads((checkout / 'schema/supplement.schema.json').read_text())
+    needs = f'profile {profile_id}' if profile_id else 'this profile'
+    try:
+        data, problems = profiles.read_profile(
+            folder,
+            schema,
+            label,
+            parse=parse,
+            validate=validate,
+            release_problem=lambda wanted: release_problem(checkout, wanted, needs),
+            profile_id=profile_id,
+        )
+    except SettingsError as error:
+        return error.problems
+    if problems:
+        return problems
+    layer = Layer(
+        'profile', profile_id or 'profile', label, folder, '', _strip(data, profiles.PROFILE_KEYS), (), issues
+    )
+    return _layer_files(layer, 1)[4]
+
+
 def load(checkout, supplement=None, without=False, home=None):
     """Resolve, parse, validate and fold the layers. Raises SelectionError or SettingsError."""
     checkout = Path(checkout)
@@ -324,7 +579,7 @@ def load(checkout, supplement=None, without=False, home=None):
     defaults = parse(defaults_path)
     problems = validate(defaults, defaults_schema(schema), str(defaults_path))
     layers = [Layer('defaults', 'defaults', str(defaults_path), None, '', _strip(defaults, IDENTITY_KEYS))]
-    supplement_id = None
+    supplement_id, root, found, summaries = None, None, [], []
     if selection['mode'] == 'supplement':
         root = Path(selection['path'])
         config = root / 'config.yaml'
@@ -333,63 +588,52 @@ def load(checkout, supplement=None, without=False, home=None):
         too_old = release_problem(checkout, overrides.get('minimum_release'))
         problems += [f'{config}: {too_old}'] if too_old else validate(overrides, schema, str(config))
         supplement_id = overrides.get('supplement_id')
-        layers.append(Layer('supplement', 'supplement', str(config), root, '', _strip(overrides, IDENTITY_KEYS)))
-    if problems:
-        raise SettingsError(problems)
-    settings, _, problems = fold(layers)
-    problems += _effective_problems(settings)
-    own = layers[-1].data if layers[-1].kind == 'supplement' else {}
-    fragments, written, system_overrides = {}, set(), {}
-    for name, reference in own.get('overrides', {}).items():
-        try:
-            fragments[name] = check_reference(selection['path'], reference, f'overrides.{name}')
-            written.add(os.path.normpath(reference))
-        except SettingsError as error:
-            problems += error.problems
-    # System-scope fragments travel inside the loaded settings, so root reads them from its
-    # verified copy of the operation's settings rather than from the user's files.
-    for name in SYSTEM_OVERRIDES:
-        if name in fragments:
-            try:
-                with open(fragments[name], encoding='utf-8') as stream:
-                    text = stream.read(SYSTEM_OVERRIDE_LIMIT + 1)
-            except (OSError, UnicodeDecodeError) as error:
-                problems.append(f'overrides.{name}: cannot be read as text: {error}')
-                continue
-            if len(text) > SYSTEM_OVERRIDE_LIMIT:
-                problems.append(f'overrides.{name}: larger than {SYSTEM_OVERRIDE_LIMIT} characters')
-                continue
-            system_overrides[name] = text
-    assets = []
-    for target, value in sorted(own.get('assets', {}).items()):
-        reference = value['file'] if isinstance(value, dict) else value
-        try:
-            path = check_reference(selection['path'], reference, f'assets.{target}')
-        except SettingsError as error:
-            problems += error.problems
-            continue
-        try:
-            with open(path, 'rb') as stream:
-                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-        except OSError as error:
-            problems.append(f'assets.{target}: {reference!r} cannot be read: {error.strerror}')
-            continue
-        written.add(os.path.normpath(reference))
-        assets.append(
-            {
-                'target': target[2:],
-                'path': path,
-                'url': 'file://' + quote(path),
-                'sha256': digest,
-                'executable': bool(isinstance(value, dict) and value.get('executable')),
-                'private': bool(isinstance(value, dict) and value.get('private')),
-            }
+        if not problems:
+            # Each listed profile is one more layer, its bytes verified against the lock first.
+            found, problems = profiles.vendored(root, overrides.get('profiles', []))
+            for profile in found:
+                layer, summary, read_problems = _profile_layer(checkout, schema, profile)
+                problems += read_problems
+                if layer is not None:
+                    layers.append(layer)
+                    summaries.append(summary)
+        layers.append(
+            Layer('supplement', 'supplement', str(config), root, '', _strip(overrides, (*IDENTITY_KEYS, 'profiles')))
         )
+    if problems:
+        raise SettingsError(problems)  # later checks would only repeat what a bad layer says
+    settings, origin, problems = fold(layers)
+    problems += _effective_problems(settings, origin)
+    fragments, entries, parts, written = {}, [], [], set()
+    for position, layer in enumerate(layers):
+        own, layer_assets, hwdb, layer_written, layer_problems = _layer_files(layer, position)
+        fragments.update(own)
+        entries += [(layer, entry) for entry in layer_assets]
+        if hwdb is not None:
+            parts.append((layer, hwdb))
+        written |= layer_written
+        problems += layer_problems
+    assets, asset_problems, notes = _assets(entries)
+    hwdb, hwdb_problems = _hwdb(parts)
+    problems += asset_problems + hwdb_problems
+    # A profile may only name files the lock verified.
+    locked = set(profiles.files(found))
+    for path in sorted(written - locked):
+        if path.startswith(profiles.FOLDER + '/'):
+            profile_id = '/'.join(path.split('/')[1:3])
+            problems.append(
+                f'{path}: not in {profiles.LOCK}; run ./bin/shaffy profile update {profile_id} or git restore '
+                f'{profiles.FOLDER}/'
+            )
     # Only the folder is checked here; the capture copies the files in it.
     dotfiles = settings.pop('dotfiles', None)
     if dotfiles is not None:
         try:
-            check_reference(selection['path'], dotfiles, 'dotfiles', folder=True)
+            target = check_reference(root, dotfiles, 'dotfiles', folder=True)
+            if _into_profiles(root, dotfiles, target):
+                raise SettingsError(
+                    [f'dotfiles: {dotfiles!r} leads into {profiles.FOLDER}/, which ./bin/shaffy profile writes']
+                )
             dotfiles = os.path.normpath(dotfiles)
         except SettingsError as error:
             problems += error.problems
@@ -397,24 +641,34 @@ def load(checkout, supplement=None, without=False, home=None):
     packages, choice_problems = resolve_packages(groups, retired, settings)
     problems += group_problems or choice_problems
     catalogue, catalogue_problems = load_catalogue(checkout, parse)
-    integrations, request_problems = resolve_integrations(catalogue, settings)
+    required = {}
+    for layer in layers:
+        for name in layer.requires:
+            required.setdefault(name, []).append(layer.name)
+    integrations, request_problems = resolve_integrations(catalogue, settings, required)
     problems += catalogue_problems or request_problems
     if problems:
         raise SettingsError(problems)
     # `references` are resolved paths, for cache stamps; `reference_paths` are the paths as
-    # config.yaml writes them, which a capture must reproduce even through symlinks.
+    # config.yaml and the lock write them, which a capture must reproduce even through symlinks.
+    references = {*fragments.values(), *(entry['path'] for _, entry in entries)}
+    references |= {os.path.realpath(root / path) for path in locked}
     return {
         'shaffy': {
             'schema_version': 1,
             'selection': {**selection, 'supplement_id': supplement_id},
             'settings': settings,
             'overrides': fragments,
-            'references': sorted({*fragments.values(), *(a['path'] for a in assets)}),
-            'reference_paths': sorted(written),
+            'references': sorted(references),
+            'reference_paths': sorted(written | locked),
             'assets': assets,
             'dotfiles': dotfiles,  # the folder as config.yaml names it, or None
-            'system_overrides': system_overrides,
+            'system_overrides': {'keyboard_hwdb': hwdb} if hwdb is not None else {},
             'packages': packages,
             'integrations': integrations,
+            'profiles': summaries,  # in merge order
+            'provenance': {dotted(path): layer.name for path, layer in origin.items() if layer.kind == 'profile'},
+            'fragment_places': profiles.places(),
+            'notes': notes,
         }
     }

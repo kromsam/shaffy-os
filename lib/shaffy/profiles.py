@@ -12,6 +12,7 @@ packages.load_groups takes parse, so it never imports the loader. vendor.py fetc
 
 import copy
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -257,6 +258,147 @@ def read_profile(folder, schema, label, *, parse, validate, release_problem, pro
                 'never access or the state of the tools that manage the home'
             )
     return data, problems
+
+
+# -- the vendored state: read by every load ---------------------------------------------------
+
+
+def digests(folder, names):
+    """{name: SHA-256} of NAMES inside FOLDER; raises ValueError naming a link or an unreadable file."""
+    result = {}
+    for name in names:
+        path = Path(folder) / name
+        if path.is_symlink():
+            raise ValueError(f'{path}: is a link, and a vendored file never is')
+        try:
+            with open(path, 'rb') as stream:
+                result[name] = hashlib.file_digest(stream, 'sha256').hexdigest()
+        except OSError as error:
+            raise ValueError(f'{path}: cannot be read: {error.strerror}') from error
+    return result
+
+
+def _entry_problem(profile_id, entry):
+    """Why one lock entry is not one the loader can trust, or None."""
+    if not ID.match(profile_id):
+        return f'{profile_id!r} is not a profile ID (OWNER/NAME)'
+    if not isinstance(entry, dict) or set(entry) != {'source', 'path', 'ref', 'commit', 'files'}:
+        return f'{profile_id}: an entry has source, path, ref, commit and files'
+    if not isinstance(entry['source'], str) or not entry['source'].startswith('https://'):
+        return f'{profile_id}: source is the https URL of a Git repository'
+    if not isinstance(entry['path'], str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]*', entry['path']):
+        return f'{profile_id}: path is the profile folder in its repository, one level deep'
+    if not isinstance(entry['ref'], str) or not entry['ref']:
+        return f'{profile_id}: ref names what update follows'
+    if not isinstance(entry['commit'], str) or not COMMIT.match(entry['commit']):
+        return f'{profile_id}: commit is the 40-hex commit that was vendored'
+    files = entry['files']
+    if (
+        not isinstance(files, dict)
+        or MANIFEST not in files
+        or not all(
+            isinstance(name, str)
+            and name
+            and not name.startswith('/')
+            and '..' not in name.split('/')
+            and isinstance(digest, str)
+            and DIGEST.match(digest)
+            for name, digest in files.items()
+        )
+    ):
+        return f'{profile_id}: files maps each vendored path, {MANIFEST} among them, to its SHA-256'
+    return None
+
+
+def read_lock(root):
+    """The lock's entries by ID, or problems naming profiles/lock.json; a missing lock is empty."""
+    path = Path(root) / LOCK
+    if not path.exists():
+        return {}, []
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        return {}, [f'{path}: cannot be read as JSON: {error}']
+    if (
+        not isinstance(data, dict)
+        or data.get('lock_version') != LOCK_VERSION
+        or not isinstance(data.get('profiles'), dict)
+    ):
+        return {}, [
+            f'{path}: not a lock this Shaffy OS reads (lock_version {LOCK_VERSION} with a profiles mapping); '
+            f'run ./bin/shaffy profile update, or git restore {FOLDER}/'
+        ]
+    lock, problems = {}, []
+    for profile_id, entry in data['profiles'].items():
+        problem = _entry_problem(profile_id, entry)
+        if problem:
+            problems.append(f'{path}: {problem}')
+            continue
+        lock[profile_id] = Locked(
+            profile_id, entry['source'], entry['path'], entry['ref'], entry['commit'], dict(entry['files'])
+        )
+    return lock, problems
+
+
+def vendored(root, listed):
+    """The profiles config.yaml lists, in its order, each verified against the lock.
+
+    A listed ID the lock lacks names `profile add`. A locked file that is missing, a link, or
+    differs from its SHA-256 is a problem naming that file, followed by one line per profile:
+    keep the change in config.yaml, draft it for the author with `profile propose ID` (with its
+    issues link), git restore the copy. A missing folder says "run profile update ID or git
+    restore profiles/", and a folder that differs adds "if a profile command was interrupted,
+    run it again". Without a list nothing is read.
+    """
+    if not listed:
+        return [], []
+    root = Path(root)
+    lock, problems = read_lock(root)
+    if problems:
+        return [], problems
+    found = []
+    for profile_id in listed:
+        locked = lock.get(profile_id)
+        if locked is None:
+            problems.append(
+                f'profiles: {profile_id} is not vendored; ./bin/shaffy profile add OWNER/REPO NAME vendors it '
+                f'under {FOLDER}/, or drop it from the list'
+            )
+            continue
+        folder = root / FOLDER / profile_id
+        if not folder.is_dir():
+            problems.append(f'{folder}: missing; run ./bin/shaffy profile update {profile_id} or git restore {FOLDER}/')
+            continue
+        wrong = []
+        for name, digest in sorted(locked.files.items()):
+            if not (folder / name).exists() and not (folder / name).is_symlink():
+                wrong.append(f'{folder / name}: missing from {profile_id} as vendored at {locked.commit[:7]}')
+                continue
+            try:
+                actual = digests(folder, [name])[name]
+            except ValueError as error:
+                wrong.append(str(error))
+                continue
+            if actual != digest:
+                wrong.append(f'{folder / name}: differs from {profile_id} as vendored at {locked.commit[:7]}')
+        if wrong:
+            problems += wrong
+            problems.append(
+                f"{profile_id}: a vendored profile stays its author's. Keep your change in config.yaml, which wins "
+                f'over every profile; draft it for the author with ./bin/shaffy profile propose {profile_id} '
+                f'({issues(locked)}); then restore the copy with git restore {FOLDER}/{profile_id}. If a profile '
+                'command was interrupted, run it again.'
+            )
+            continue
+        found.append(Vendored(locked, folder, f'{FOLDER}/{profile_id}/'))
+    return found, problems
+
+
+def files(found):
+    """Every file the load rests on, relative to the supplement: the lock and each locked file."""
+    if not found:
+        return []
+    return [LOCK, *(profile.prefix + name for profile in found for name in sorted(profile.locked.files))]
 
 
 if __name__ == '__main__':  # regenerate schema/profile.schema.json from the supplement schema

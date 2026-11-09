@@ -81,14 +81,30 @@ def _requirement(required, settings):
     }
 
 
-def resolve(catalogue, settings):
-    """{name: {state, scope, targets, activation}} for every catalogued integration, or problems."""
+def resolve(catalogue, settings, required=None):
+    """{name: {state, scope, targets, activation}} for every catalogued integration, or problems.
+
+    REQUIRED, {integration: [profile ids]}, is what the listed profiles require: each must be in
+    the catalogue and managed in the settings, or a problem names the profile and the line to add.
+    A profile never sets an integration's state; the supplement decides.
+    """
     requested = settings.get('integrations', {})
     problems = [
         f'integrations.{name}: there is no such integration in defaults/integrations.yml'
         for name in requested
         if name not in catalogue
     ]
+    for name, needed_by in (required or {}).items():
+        who = ' and '.join(needed_by)
+        if name not in catalogue:
+            problems.append(
+                f'integrations.{name}: there is no such integration in defaults/integrations.yml; {who} requires it'
+            )
+        elif requested.get(name) != 'managed':
+            problems.append(
+                f'integrations.{name}: {who} requires it managed; set integrations.{name}: managed '
+                '(docs/SUPPLEMENT.md#integrations)'
+            )
     problems += [
         f'integrations.{name}: managing it needs the {catalogue[name]["requires_setting"]} settings'
         for name, state in requested.items()
