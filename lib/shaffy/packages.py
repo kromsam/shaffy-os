@@ -2,9 +2,10 @@
 
 defaults/packages/<group>.yml holds a role's repository `packages`, optional
 `aur` entries and `required` subset; retired.yml the public retirements. A
-supplement's `packages.extra` installs more, `packages.omit` leaves group
-packages out without uninstalling them, and `packages.remove` removes more.
-Removal happens only because a package is listed, never by inference.
+supplement's `packages.extra`, and its profiles', installs more, `packages.omit`
+leaves group packages and profiles' extras out without uninstalling them, and
+`packages.remove` removes more. Removal happens only because a package is listed,
+never by inference.
 """
 
 from pathlib import Path
@@ -104,8 +105,15 @@ def load_groups(checkout, parse):
     return groups, retired, problems
 
 
-def resolve(groups, retired, settings):
-    """The effective package state, or problems for choices that contradict the groups."""
+def resolve(groups, retired, settings, origin=None):
+    """The effective package state, problems for choices that contradict the groups, and notes.
+
+    ORIGIN maps ('packages', 'extra', NAME) to the settings layer that added NAME (loader.fold).
+    A profile's extra that a group installs is skipped with a note for its author, never refused,
+    so a release that adopts a package cannot break every user of the profile; the supplement's
+    is refused, as before. `omit` may also name a profile's extra, which leaves it out without
+    uninstalling it, and `remove` of a package a profile's extra installs names that profile.
+    """
     chosen = settings.get('packages', {})
     extra, omit, remove = (chosen.get(key, []) for key in ('extra', 'omit', 'remove'))
     owner = {
@@ -114,30 +122,47 @@ def resolve(groups, retired, settings):
         for name in data['packages'] + [entry['name'] for entry in data['aur']]
     }
     required = {name: group for group, data in groups.items() for name in data['required']}
-    problems = []
+    layers = {name: (origin or {}).get(('packages', 'extra', name)) for name in extra}
+    profile = {name: layer for name, layer in layers.items() if layer is not None and layer.kind == 'profile'}
+    problems, notes = [], []
     for name in omit:
         if name in required:
             problems.append(f'packages.omit: {name} is required by the {required[name]} group')
-        elif name not in owner:
+        elif name not in owner and name not in profile:
             problems.append(f'packages.omit: {name} is in no package group, so there is nothing to omit')
     for name in extra:
-        if name in owner:
+        if name in owner and name in profile:
+            notes.append(
+                f'packages.extra: {name}, which {profile[name].name} adds, is in the {owner[name]} group now, so '
+                f'the profile need not list it; tell its author: {profile[name].issues}'
+            )
+        elif name in owner:
             problems.append(f'packages.extra: {name} is already in the {owner[name]} group')
-    installed = {name for name in owner if name not in omit} | set(extra)
+    kept = [name for name in extra if name not in owner and name not in omit]
+    installed = {name for name in owner if name not in omit} | set(kept)
     aur = {group: [entry for entry in data['aur'] if entry['name'] not in omit] for group, data in groups.items()}
     for name in remove:
         if name in PROTECTED:
             problems.append(f'packages.remove: {name} is needed by Shaffy OS itself')
         elif name in installed:
-            problems.append(
-                f'packages.remove: {name} is also installed'
-                + (f' by the {owner[name]} group; omit it too' if name in owner else ' by packages.extra')
-            )
+            if name in owner:
+                by = f'the {owner[name]} group; omit it too'
+            elif name in profile:
+                by = f'packages.extra of profile {profile[name].name}; omit it too'
+            else:
+                by = 'packages.extra'
+            problems.append(f'packages.remove: {name} is also installed by {by}')
     # An extra package the settings ask for outranks a public retirement.
-    removed = sorted((set(retired) - set(extra)) | set(remove))
-    return {
-        'groups': {group: [name for name in data['packages'] if name not in omit] for group, data in groups.items()},
-        'aur': aur,
-        'extra': list(extra),
-        'remove': removed,
-    }, problems
+    removed = sorted((set(retired) - set(kept)) | set(remove))
+    return (
+        {
+            'groups': {
+                group: [name for name in data['packages'] if name not in omit] for group, data in groups.items()
+            },
+            'aur': aur,
+            'extra': kept,
+            'remove': removed,
+        },
+        problems,
+        notes,
+    )

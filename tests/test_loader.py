@@ -1049,6 +1049,88 @@ class ProfileTests(LoaderCase):
         with self.assertRaisesRegex(SettingsError, 'differs from alice/notes'):
             load_data(ROOT, supplement=supplement, home=self.home, directory=cache)
 
+    def test_a_profiles_extra_already_in_a_group_is_a_note_not_an_error(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(supplement, 'alice/notes', 'packages:\n  extra: [zotero, example-a]\n')
+        data = self.load(supplement=supplement)['shaffy']
+        self.assertEqual(data['packages']['extra'], ['example-a'])
+        self.assertIn('zotero', data['packages']['groups']['writing'])  # the group installs it
+        self.assertEqual(
+            data['notes'],
+            [
+                'packages.extra: zotero, which alice/notes adds, is in the writing group now, so the profile need not '
+                'list it; tell its author: https://github.com/example/profiles/issues'
+            ],
+        )
+        # The supplement's own is still refused, also when a profile lists it too.
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('packages:\n  extra: [zotero]\n')
+        self.assertIn('packages.extra: zotero is already in the writing group', self.refused(supplement))
+
+    def test_omit_leaves_out_a_profiles_extra(self):
+        supplement = self.listing('alice/notes', extra='packages:\n  omit: [example-a]\n')
+        self.vendor(supplement, 'alice/notes', 'packages:\n  extra: [example-a, example-b]\n')
+        packages = self.load(supplement=supplement)['shaffy']['packages']
+        self.assertEqual(packages['extra'], ['example-b'])
+        self.assertNotIn('example-a', packages['remove'])  # left out, not uninstalled
+        (supplement / 'config.yaml').write_text(
+            self.HEAD + 'profiles: [alice/notes]\npackages:\n  omit: [example-a]\n  remove: [example-a]\n'
+        )
+        packages = self.load(supplement=supplement)['shaffy']['packages']
+        self.assertEqual((packages['extra'], packages['remove']), (['example-b'], ['example-a']))
+        (supplement / 'config.yaml').write_text(self.HEAD + 'packages:\n  omit: [example-a]\n')
+        self.assertIn('packages.omit: example-a is in no package group', self.refused(supplement))
+
+    def test_remove_of_a_profiles_extra_names_the_profile(self):
+        supplement = self.listing('alice/notes', extra='packages:\n  remove: [example-a]\n')
+        self.vendor(supplement, 'alice/notes', 'packages:\n  extra: [example-a]\n')
+        self.assertIn(
+            'packages.remove: example-a is also installed by packages.extra of profile alice/notes; omit it too',
+            self.refused(supplement),
+        )
+
+    def test_a_package_config_yaml_lists_too_is_the_supplements(self):
+        supplement = self.listing('alice/notes', extra='packages:\n  extra: [example-a]\n  remove: [example-a]\n')
+        self.vendor(supplement, 'alice/notes', 'packages:\n  extra: [example-a]\n')
+        message = self.refused(supplement)
+        self.assertIn('packages.remove: example-a is also installed by packages.extra', message)
+        self.assertNotIn('alice/notes', message)
+        (supplement / 'config.yaml').write_text(
+            self.HEAD + 'profiles: [alice/notes]\npackages:\n  extra: [example-a]\n'
+        )
+        self.assertNotIn('packages.extra.example-a', self.load(supplement=supplement)['shaffy']['provenance'])
+
+    def test_two_profiles_that_require_one_integration_are_both_named(self):
+        supplement = self.listing('alice/notes', 'bob/notes')
+        for profile_id in ('alice/notes', 'bob/notes'):
+            self.vendor(supplement, profile_id, 'requires: [zotero]\n')
+        self.assertIn(
+            'integrations.zotero: alice/notes and bob/notes require it managed; set integrations.zotero: managed',
+            self.refused(supplement),
+        )
+
+    def test_one_marketplace_maps_to_one_repository(self):
+        plugins = 'ai:\n  claude_plugins:\n'
+        supplement = self.listing('alice/notes', extra=plugins + '    own@example-plugins: other/plugins\n')
+        self.vendor(supplement, 'alice/notes', plugins + '    shared@example-plugins: example/plugins\n')
+        self.assertIn(
+            'ai.claude_plugins: the marketplace example-plugins is named with example/plugins (shared@example-plugins '
+            'from alice/notes) and other/plugins (own@example-plugins from config.yaml); one marketplace is one '
+            "repository. Write these plugins in config.yaml with the one you want; it replaces a profile's entry. "
+            'If a profile names the wrong one, tell its author: https://github.com/example/profiles/issues',
+            self.refused(supplement),
+        )
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('    shared@example-plugins: other/plugins\n')
+        settled = self.load(supplement=supplement)['shaffy']['settings']['ai']['claude_plugins']
+        self.assertEqual(set(settled.values()), {'other/plugins'})
+        # Within config.yaml alone, too: merge-ai-config.py would keep only one of the two.
+        message = self.problems(
+            self.HEAD + plugins + '    a@example-plugins: example/plugins\n    b@example-plugins: other/plugins\n'
+        )
+        self.assertIn('the marketplace example-plugins is named with example/plugins (a@example-plugins from', message)
+        self.assertNotIn('tell its author', message)
+
 
 class CachedPathTests(LoaderCase):
     def run_fast(self, *args, supplement=None):

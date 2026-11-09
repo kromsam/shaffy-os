@@ -224,12 +224,13 @@ def fold(layers):
     """Merge the layers' settings in order (docs/PROFILES.md, "How layers combine").
 
     Returns (settings, origin, problems). ORIGIN maps each unit's path to the Layer that set it
-    last, and each UNION item's path (path + (item,)) to the layer that added it first. overrides
-    and assets are not folded: _layer_files resolves them per layer and _assets joins the asset
-    entries. Two profiles that give one unit different values are a problem naming both, unless
-    the supplement sets that unit as well; then the supplement's value, over the defaults' if
-    there is one, replaces both profiles'. With the defaults and a supplement alone the result
-    equals merge(defaults, supplement), which a test holds.
+    last, and each UNION item's path (path + (item,)) to the layer that added it first, or to the
+    supplement when config.yaml lists it as well. overrides and assets are not folded:
+    _layer_files resolves them per layer and _assets joins the asset entries. Two profiles that
+    give one unit different values are a problem naming both, unless the supplement sets that unit
+    as well; then the supplement's value, over the defaults' if there is one, replaces both
+    profiles'. With the defaults and a supplement alone the result equals merge(defaults,
+    supplement), which a test holds.
     """
     settings, origin, held, contested, base = {}, {}, {}, {}, {}
     for layer in layers:
@@ -240,6 +241,8 @@ def fold(layers):
                     if item not in items:
                         items.append(item)
                         origin[(*path, item)] = layer
+                    elif layer.kind == 'supplement':
+                        origin[(*path, item)] = layer  # config.yaml asks for it too: it stays without the profile
                 _put(settings, path, items)
                 continue
             before = _get(settings, path)
@@ -299,8 +302,16 @@ def _into_profiles(root, reference, target):
 BACKUP_MARKER = ('.local', 'state', 'shaffy', 'home-backup')
 
 
+def _named(layer):
+    """How a message names the layer that set a value."""
+    if layer is None or layer.kind == 'supplement':
+        return 'config.yaml'
+    return layer.name if layer.kind == 'profile' else 'the public defaults'
+
+
 def _effective_problems(settings, origin=None):
-    """Problems of the folded result; one about a profile's entry carries that profile's file."""
+    """Problems of the folded result; one about a profile's entry carries that profile's file, and
+    a marketplace written with two repositories names the layer of each plugin."""
     origin = origin or {}
 
     def where(path):
@@ -325,6 +336,27 @@ def _effective_problems(settings, origin=None):
             problems.append(f'{label}: has both a command and a url')
         elif 'url' in spec and ('args' in spec or 'env' in spec):
             problems.append(f'{label}: args and env need a command')
+    # Claude Code knows a marketplace by its name alone, and merge-ai-config.py writes one repository
+    # per name, so a second repository would silently serve the first one's plugins.
+    marketplaces = {}
+    for plugin, repository in sorted(settings.get('ai', {}).get('claude_plugins', {}).items()):
+        marketplaces.setdefault(plugin.partition('@')[2], {}).setdefault(repository, []).append(plugin)
+    for marketplace, repositories in marketplaces.items():
+        if len(repositories) < 2:
+            continue
+        setters = {
+            plugin: origin.get(('ai', 'claude_plugins', plugin)) for group in repositories.values() for plugin in group
+        }
+        named = ' and '.join(
+            f'{repository} (' + ', '.join(f'{plugin} from {_named(setters[plugin])}' for plugin in plugins) + ')'
+            for repository, plugins in sorted(repositories.items())
+        )
+        authors = dict.fromkeys(layer.issues for layer in setters.values() if layer and layer.kind == 'profile')
+        problems.append(
+            f'ai.claude_plugins: the marketplace {marketplace} is named with {named}; one marketplace is one '
+            "repository. Write these plugins in config.yaml with the one you want; it replaces a profile's entry."
+            + (f' If a profile names the wrong one, tell its author: {", ".join(authors)}' if authors else '')
+        )
     for exclude in settings.get('backup', {}).get('excludes', []):
         parts = tuple(part for part in exclude[2:].split('/') if part)
         if parts == BACKUP_MARKER[: len(parts)]:
@@ -638,8 +670,9 @@ def load(checkout, supplement=None, without=False, home=None):
         except SettingsError as error:
             problems += error.problems
     groups, retired, group_problems = load_groups(checkout, parse)
-    packages, choice_problems = resolve_packages(groups, retired, settings)
+    packages, choice_problems, package_notes = resolve_packages(groups, retired, settings, origin)
     problems += group_problems or choice_problems
+    notes += package_notes
     catalogue, catalogue_problems = load_catalogue(checkout, parse)
     required = {}
     for layer in layers:

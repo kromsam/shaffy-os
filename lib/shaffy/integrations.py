@@ -95,14 +95,12 @@ def resolve(catalogue, settings, required=None):
         if name not in catalogue
     ]
     for name, needed_by in (required or {}).items():
-        who = ' and '.join(needed_by)
+        who = ' and '.join(needed_by) + (' require' if len(needed_by) > 1 else ' requires')
         if name not in catalogue:
-            problems.append(
-                f'integrations.{name}: there is no such integration in defaults/integrations.yml; {who} requires it'
-            )
+            problems.append(f'integrations.{name}: there is no such integration in defaults/integrations.yml; {who} it')
         elif requested.get(name) != 'managed':
             problems.append(
-                f'integrations.{name}: {who} requires it managed; set integrations.{name}: managed '
+                f'integrations.{name}: {who} it managed; set integrations.{name}: managed '
                 '(docs/SUPPLEMENT.md#integrations)'
             )
     problems += [
