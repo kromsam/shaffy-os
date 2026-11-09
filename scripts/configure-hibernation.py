@@ -5,7 +5,8 @@ CachyOS swaps to zram, which cannot hold a hibernation image. With a size, this 
 top-level Btrfs subvolume @swap mounted at /swap, outside snapper's configurations, a swap file
 of that size at a lower priority than zram, and a drop-in for CachyOS's limine-entry-tool that
 adds resume= and resume_offset= to the kernels' command line. It regenerates the Limine entries
-with limine-mkinitcpio, as a kernel update does, and reads each entry back. An @swap whose swap
+with limine-mkinitcpio, as a kernel update does, reads each entry back and checks that the
+loader holds the new configuration's checksum and signature. An @swap whose swap
 file already has that size is adopted. Without a size, it removes its drop-in and fstab lines
 and switches its swap file off, but keeps the file and the subvolume. It refuses a resume it did
 not configure itself, and it never reboots or touches Secure Boot keys. Of /etc/default/limine it
@@ -15,6 +16,8 @@ KERNEL_CMDLINE[default]= , which would replace what the drop-in adds, becomes +=
 
 import argparse
 from datetime import UTC, datetime
+import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -39,6 +42,16 @@ BEGIN = '# BEGIN Managed by Shaffy OS (the power role): power.hibernation\n'
 END = '# END Managed by Shaffy OS (the power role): power.hibernation\n'
 RESUME = ('resume=', 'resume_offset=')
 DEFAULT_LINE = re.compile(r'\s*KERNEL_CMDLINE\[default\]\s*\+?=')
+# Where CachyOS's Limine tooling installs the loader on the EFI system partition (x86_64), and the lock
+# its tools hold while they change that partition.
+LOADER = 'EFI/limine/limine_x64.efi'
+LOCK = '/run/lock/boot-partition.lock'
+# What a loader problem after a rebuild asks of the person; the next apply rebuilds and checks again.
+UNBOOTABLE = (
+    'Do not restart until it is solved: sudo limine-mkinitcpio shows what its boot hooks report, and with '
+    'Secure Boot, sudo /usr/bin/python3 -I scripts/configure-secure-boot.py shows the boot chain. The next '
+    'apply rebuilds the boot images and checks them again'
+)
 # The files the entry tool reads, in its order (load_config in /usr/lib/limine/limine-common-functions).
 LIMINE_CONFIG = (
     '/usr/share/limine-entry-tool.d/*.conf',
@@ -132,6 +145,89 @@ def kernel_entries(text, machine_id, names):
     return marked or under(lambda title, options: title in names)
 
 
+def limine_settings(path):
+    """KEY=value settings as CachyOS's Limine tools read them, the last one winning; they take
+    ENABLE_ENROLL_LIMINE_CONFIG from /etc/default/limine only. `path` maps a name to the root this runs on.
+    configure-hibernation.py and configure-boot-splash.py hold this function and the three below alike."""
+    values = {}
+    for pattern in LIMINE_CONFIG:
+        if pattern == '/etc/default/limine':
+            values.pop('ENABLE_ENROLL_LIMINE_CONFIG', None)
+        folder, _, name = pattern.rpartition('/')
+        for file in sorted(p for p in path(folder).glob(name) if p.is_file()):
+            for line in file.read_text().splitlines():
+                match = re.fullmatch(r'\s*([A-Za-z_]\w*)\s*=\s*(.*)', line)
+                if match:
+                    values[match[1]] = match[2].removesuffix('"').removeprefix('"')
+    return values
+
+
+def limine_mkinitcpio(path, run, conf, enrolled):
+    """Rebuild every kernel's boot image as a kernel update does, and return what limine-mkinitcpio prints.
+    Its boot hooks enrol limine.conf's checksum in the loader and sign the loader with sbctl's keys, but
+    limine-mkinitcpio fails for a hook only when that hook runs last, so the loader is checked either way."""
+    try:
+        output, failed = run('limine-mkinitcpio'), None
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        output, failed = '', error
+    problems = loader_problems(path, run, conf, enrolled)
+    if problems:
+        reason = (getattr(failed, 'stderr', None) or str(failed)).strip()[-1000:]
+        cause = f'limine-mkinitcpio failed ({reason}), and ' if failed else 'after limine-mkinitcpio, '
+        raise RuntimeError(f'{cause}{"; ".join(problems)}. {UNBOOTABLE}') from failed
+    if failed:
+        raise failed
+    return output
+
+
+def loader_problems(path, run, conf, enrolled):
+    """What would keep the loader from starting the rebuilt entries as before: limine.conf's checksum, where
+    enrolment is on, and its signature, where sbctl has keys."""
+    try:
+        status = path('/usr/bin/sbctl').is_file() and sbctl_json(run, 'status', '--json')
+    except RuntimeError, subprocess.CalledProcessError:
+        status = None  # as the boot hooks take it: they sign only when sbctl answers that it has keys
+    signing = bool((status or {}).get('installed'))
+    if not (enrolled or signing):
+        return []
+    loader = f'{conf.rsplit("/", 1)[0]}/{LOADER}'
+    lock = path(LOCK)
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, 'a') as handle:
+        # limine-snapper-sync puts the unenrolled, unsigned loader back while it holds this lock.
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        missing = [name for name in (conf, loader) if not path(name).is_file()]
+        if missing:
+            return [f'{name} is missing' for name in missing]
+        problems = []
+        checksum = hashlib.blake2b(path(conf).read_bytes()).hexdigest().encode()
+        if enrolled and checksum not in path(loader).read_bytes():
+            problems.append(
+                f'{loader} does not hold the checksum of {conf}, so Limine would refuse the configuration or '
+                'start without checking the boot files'
+            )
+        if signing:
+            found = sbctl_json(run, 'verify', '--json', loader) or []
+            if not any(item.get('file_name') == loader and item.get('is_signed') == 1 for item in found):
+                problems.append(f"{loader} is not signed with sbctl's keys, so Secure Boot would refuse it")
+    return problems
+
+
+def sbctl_json(run, *arguments):
+    """What sbctl prints as JSON. A runner may mix sbctl's error output in, so lines before it are passed over."""
+    output = run('sbctl', *arguments)
+    lines = output.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(('{', '[', 'null')):
+            try:
+                return json.JSONDecoder().raw_decode(''.join(lines[index:]).lstrip())[0]
+            except ValueError:
+                continue
+    if output.strip():
+        raise RuntimeError(f'sbctl {" ".join(arguments)} printed no JSON:\n{output.strip()[-1000:]}')
+    return None
+
+
 def handover(places):
     return (
         'hibernation is set up outside Shaffy OS, and power.hibernation adds no second resume:\n'
@@ -203,25 +299,12 @@ class Hibernation:
             raise RuntimeError('the Btrfs filesystem of / spans several devices, where a swap file cannot live')
         return {'device': device, 'uuid': root['uuid'], 'number': number, 'encrypted': kind == 'crypt'}
 
-    def limine_settings(self):
-        """KEY=value settings as load_config reads them; ENABLE_ENROLL_LIMINE_CONFIG only from /etc/default/limine."""
-        values = {}
-        for pattern in LIMINE_CONFIG:
-            if pattern == '/etc/default/limine':
-                values.pop('ENABLE_ENROLL_LIMINE_CONFIG', None)
-            for path in self.config_files(pattern):
-                for line in active_lines(path):
-                    match = re.fullmatch(r'\s*([A-Za-z_]\w*)\s*=\s*(.*)', line)
-                    if match:
-                        values[match[1]] = match[2].removesuffix('"').removeprefix('"')
-        return values
-
     def limine(self):
         """limine.conf, once it is clear that CachyOS's entry tool writes it and can rewrite it safely."""
         for tool in ('limine-entry-tool', 'limine-mkinitcpio'):
             if not self.path(f'/usr/bin/{tool}').is_file():
                 raise RuntimeError(f"/usr/bin/{tool} is missing: power.hibernation needs Limine with CachyOS's tooling")
-        settings = self.limine_settings()
+        settings = limine_settings(self.path)
         if settings.get('ENABLE_UKI') == 'yes':
             raise RuntimeError('ENABLE_UKI=yes: power.hibernation cannot read the command line inside a unified image')
         hooks = self.path('/etc/boot/hooks/post.d')
@@ -251,7 +334,9 @@ class Hibernation:
             re.findall(r'(?m)^(PRETTY_NAME|NAME)="?([^"\n]*)"?$', release.read_text() if release.exists() else '')
         )
         return [
-            n for n in (self.limine_settings().get('TARGET_OS_NAME'), found.get('PRETTY_NAME'), found.get('NAME')) if n
+            n
+            for n in (limine_settings(self.path).get('TARGET_OS_NAME'), found.get('PRETTY_NAME'), found.get('NAME'))
+            if n
         ]
 
     def initramfs(self, encrypted):
@@ -448,7 +533,8 @@ class Hibernation:
         build without failing, so the entries are read back."""
         self.copy(conf)
         self.keep(regenerate=True)
-        self.run('limine-mkinitcpio')
+        enrolled = limine_settings(self.path).get('ENABLE_ENROLL_LIMINE_CONFIG') == 'yes'
+        limine_mkinitcpio(self.path, self.run, conf, enrolled)
         problems = self.entry_problems(conf, ours, present)
         if problems:
             raise RuntimeError(

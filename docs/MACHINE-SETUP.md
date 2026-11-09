@@ -224,7 +224,10 @@ value replaces it.
   kernel update does, never with `plymouth-set-default-theme -R` or a plain
   `mkinitcpio`. Its boot hooks renew the hashes in Limine's configuration, enrol
   that configuration in the loader and, with Secure Boot set up, sign the
-  loader again with your keys. The role touches no keys and never reboots.
+  loader again with your keys. `limine-mkinitcpio` fails for a hook only when
+  that hook runs last, so the role then checks the loader's checksum and
+  signature itself, and fails the apply with a request not to restart if either
+  is wrong. The role touches no keys and never reboots.
 - **Shaffy OS:** with `login.autologin`, the Plymouth prompt is the only
   password at start-up: SDDM starts Niri and the keyring opens with the same
   password ([login keyring](LOGIN-KEYRING.md)).

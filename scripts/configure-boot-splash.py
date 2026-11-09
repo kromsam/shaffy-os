@@ -8,12 +8,15 @@ a theme's links into the initramfs without their targets, and the disk password 
 The selection is Theme= in /etc/plymouth/plymouthd.conf. The script replaces only a selection that
 CachyOS's installer made or that it made itself, and refuses another. After a change it rebuilds the
 boot images once with limine-mkinitcpio, as a kernel update does, so CachyOS's boot hooks renew Limine's
-hashes and, where Secure Boot is set up, enrol its configuration and sign the loader again. It never
-touches Secure Boot keys and never reboots.
+hashes and, where Secure Boot is set up, enrol its configuration and sign the loader again; since
+limine-mkinitcpio reports a failing hook only when it runs last, it then checks the loader itself. It
+never touches Secure Boot keys and never reboots.
 """
 
 import argparse
 from datetime import UTC, datetime
+import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -31,6 +34,23 @@ CONF = '/etc/plymouth/plymouthd.conf'
 # AMD GPU, and without a Theme= Plymouth falls back to its own default.
 INSTALLED = (None, 'cachyos-bootanimation', BASE)
 NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*')
+# Where CachyOS's Limine tooling installs the loader on the EFI system partition (x86_64), and the lock
+# its tools hold while they change that partition.
+LOADER = 'EFI/limine/limine_x64.efi'
+LOCK = '/run/lock/boot-partition.lock'
+# What a loader problem after a rebuild asks of the person; the next apply rebuilds and checks again.
+UNBOOTABLE = (
+    'Do not restart until it is solved: sudo limine-mkinitcpio shows what its boot hooks report, and with '
+    'Secure Boot, sudo /usr/bin/python3 -I scripts/configure-secure-boot.py shows the boot chain. The next '
+    'apply rebuilds the boot images and checks them again'
+)
+# The files the entry tool reads, in its order (load_config in /usr/lib/limine/limine-common-functions).
+LIMINE_CONFIG = (
+    '/usr/share/limine-entry-tool.d/*.conf',
+    '/etc/limine-entry-tool.conf',
+    '/etc/limine-entry-tool.d/*.conf',
+    '/etc/default/limine',
+)
 
 
 def run(*command):
@@ -96,6 +116,89 @@ def write(path, data):
         os.fsync(handle.fileno())
     os.chmod(temporary, 0o644)
     os.replace(temporary, path)
+
+
+def limine_settings(path):
+    """KEY=value settings as CachyOS's Limine tools read them, the last one winning; they take
+    ENABLE_ENROLL_LIMINE_CONFIG from /etc/default/limine only. `path` maps a name to the root this runs on.
+    configure-hibernation.py and configure-boot-splash.py hold this function and the three below alike."""
+    values = {}
+    for pattern in LIMINE_CONFIG:
+        if pattern == '/etc/default/limine':
+            values.pop('ENABLE_ENROLL_LIMINE_CONFIG', None)
+        folder, _, name = pattern.rpartition('/')
+        for file in sorted(p for p in path(folder).glob(name) if p.is_file()):
+            for line in file.read_text().splitlines():
+                match = re.fullmatch(r'\s*([A-Za-z_]\w*)\s*=\s*(.*)', line)
+                if match:
+                    values[match[1]] = match[2].removesuffix('"').removeprefix('"')
+    return values
+
+
+def limine_mkinitcpio(path, run, conf, enrolled):
+    """Rebuild every kernel's boot image as a kernel update does, and return what limine-mkinitcpio prints.
+    Its boot hooks enrol limine.conf's checksum in the loader and sign the loader with sbctl's keys, but
+    limine-mkinitcpio fails for a hook only when that hook runs last, so the loader is checked either way."""
+    try:
+        output, failed = run('limine-mkinitcpio'), None
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        output, failed = '', error
+    problems = loader_problems(path, run, conf, enrolled)
+    if problems:
+        reason = (getattr(failed, 'stderr', None) or str(failed)).strip()[-1000:]
+        cause = f'limine-mkinitcpio failed ({reason}), and ' if failed else 'after limine-mkinitcpio, '
+        raise RuntimeError(f'{cause}{"; ".join(problems)}. {UNBOOTABLE}') from failed
+    if failed:
+        raise failed
+    return output
+
+
+def loader_problems(path, run, conf, enrolled):
+    """What would keep the loader from starting the rebuilt entries as before: limine.conf's checksum, where
+    enrolment is on, and its signature, where sbctl has keys."""
+    try:
+        status = path('/usr/bin/sbctl').is_file() and sbctl_json(run, 'status', '--json')
+    except RuntimeError, subprocess.CalledProcessError:
+        status = None  # as the boot hooks take it: they sign only when sbctl answers that it has keys
+    signing = bool((status or {}).get('installed'))
+    if not (enrolled or signing):
+        return []
+    loader = f'{conf.rsplit("/", 1)[0]}/{LOADER}'
+    lock = path(LOCK)
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, 'a') as handle:
+        # limine-snapper-sync puts the unenrolled, unsigned loader back while it holds this lock.
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        missing = [name for name in (conf, loader) if not path(name).is_file()]
+        if missing:
+            return [f'{name} is missing' for name in missing]
+        problems = []
+        checksum = hashlib.blake2b(path(conf).read_bytes()).hexdigest().encode()
+        if enrolled and checksum not in path(loader).read_bytes():
+            problems.append(
+                f'{loader} does not hold the checksum of {conf}, so Limine would refuse the configuration or '
+                'start without checking the boot files'
+            )
+        if signing:
+            found = sbctl_json(run, 'verify', '--json', loader) or []
+            if not any(item.get('file_name') == loader and item.get('is_signed') == 1 for item in found):
+                problems.append(f"{loader} is not signed with sbctl's keys, so Secure Boot would refuse it")
+    return problems
+
+
+def sbctl_json(run, *arguments):
+    """What sbctl prints as JSON. A runner may mix sbctl's error output in, so lines before it are passed over."""
+    output = run('sbctl', *arguments)
+    lines = output.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(('{', '[', 'null')):
+            try:
+                return json.JSONDecoder().raw_decode(''.join(lines[index:]).lstrip())[0]
+            except ValueError:
+                continue
+    if output.strip():
+        raise RuntimeError(f'sbctl {" ".join(arguments)} printed no JSON:\n{output.strip()[-1000:]}')
+    return None
 
 
 class Splash:
@@ -172,12 +275,6 @@ class Splash:
                 'KERNEL_CMDLINE[default] in /etc/default/limine and reboot, or set desktop.boot_splash: false'
             )
         # With an enrolled configuration, Limine refuses entries whose checksum no hook re-enrolled.
-        default = self.path('/etc/default/limine')
-        enrolled = [
-            match[1]
-            for line in (default.read_text().splitlines() if default.is_file() else [])
-            if (match := re.fullmatch(r'\s*ENABLE_ENROLL_LIMINE_CONFIG\s*=\s*"?(\w*)"?\s*', line))
-        ]
         hooks = self.path('/etc/boot/hooks/post.d')
         enrols = hooks.is_dir() and any(
             not hook.name.endswith('.disabled')
@@ -185,7 +282,7 @@ class Splash:
             and 'limine-enroll-config' in (os.readlink(hook) if hook.is_symlink() else hook.name)
             for hook in hooks.iterdir()
         )
-        if enrolled[-1:] == ['yes'] and not enrols:
+        if limine_settings(self.path).get('ENABLE_ENROLL_LIMINE_CONFIG') == 'yes' and not enrols:
             raise RuntimeError(
                 "Limine's configuration is enrolled (ENABLE_ENROLL_LIMINE_CONFIG=yes), but no hook in "
                 '/etc/boot/hooks/post.d/ runs limine-enroll-config: Limine would refuse the rebuilt entries'
@@ -193,6 +290,13 @@ class Splash:
         plugin = self.path(f'/usr/lib/plymouth/{module(theme_file)}.so')
         if not plugin.is_file():
             raise RuntimeError(f'{theme} needs the Plymouth plugin {plugin.name}, which is not installed')
+
+    def limine_conf(self, settings):
+        """limine.conf on the EFI system partition: where ESP_PATH says, else where CachyOS's tools look."""
+        esp = settings.get('ESP_PATH') or next(
+            (e for e in ('/efi', '/boot', '/boot/efi', '/limine') if self.path(f'{e}/limine.conf').is_file()), '/boot'
+        )
+        return f'{esp.rstrip("/")}/limine.conf'
 
     def converge(self, theme):
         """Install shaffy-os when it is `theme`, select `theme` and rebuild after a change; return whether
@@ -252,7 +356,9 @@ class Splash:
         if not lines or lines[-1].strip() != theme:
             found = lines[-1].strip() if lines else 'nothing'
             raise RuntimeError(f'plymouth-set-default-theme reads {found}, not {theme}, from {CONF}')
-        output = self.run('limine-mkinitcpio')
+        settings = limine_settings(self.path)
+        enrolled = settings.get('ENABLE_ENROLL_LIMINE_CONFIG') == 'yes'
+        output = limine_mkinitcpio(self.path, self.run, self.limine_conf(settings), enrolled)
         # It skips a kernel whose image fails to build and still succeeds, so its own errors are read.
         failed = re.findall(r'mkinitcpio failed for kernel \S+', output)
         if failed:

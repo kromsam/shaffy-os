@@ -1,6 +1,7 @@
 """Swap and resume for hibernation, against a fake CachyOS in a temporary root: Btrfs on LUKS, Limine
 and CachyOS's entry tool, whose commands act on the files there."""
 
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -51,6 +52,8 @@ class FakeMachine:
         self.swapfiles = set()  # the files mkswapfile made, which blkid and map-swapfile accept
         self.store = root / '.subvolume-swap'  # what @swap holds while it is not mounted at /swap
         self.fail, self.skip, self.duplicate, self.partial = set(), set(), False, False
+        self.hooks_fail, self.hooks_last, self.signed, self.keys = set(), True, False, True
+        self.esp, self.noise, self.status_fails = 'boot', '', False
         self.cmdlines = {}
         files = {
             'etc/fstab': FSTAB,
@@ -112,6 +115,31 @@ class FakeMachine:
         lines += ['    cmdline: quiet rw rootflags=subvol=/@/.snapshots/1/snapshot', '']
         lines += ['/Windows Boot Manager', 'protocol: efi', 'path: boot():/EFI/Microsoft/Boot/bootmgfw.efi']
         self.host('/boot/limine.conf').write_text('\n'.join(lines) + '\n')
+        self.hooks()
+
+    def hooks(self):
+        """CachyOS's boot hooks after limine-mkinitcpio: limine.conf's checksum into the loader where enrolment
+        is on, then sbctl's signature where sbctl has keys. A failing hook fails limine-mkinitcpio only when it
+        runs last, as the enrolment hook does on a fresh installation; otherwise it is only reported."""
+        esp = self.root / self.esp
+        default = self.root / 'etc/default/limine'
+        if default.is_file() and 'ENABLE_ENROLL_LIMINE_CONFIG=yes' in default.read_text():
+            conf = (esp / 'limine.conf').read_bytes()
+            checksum = b'stale' if 'enrol' in self.hooks_fail else hashlib.blake2b(conf).hexdigest().encode()
+            loader = esp / 'EFI/limine/limine_x64.efi'
+            loader.parent.mkdir(parents=True, exist_ok=True)
+            loader.write_bytes(b'limine ' + checksum)
+        self.signed = (self.root / 'usr/bin/sbctl').is_file() and self.keys and 'sign' not in self.hooks_fail
+        return bool(self.hooks_fail) and self.hooks_last
+
+    def sbctl(self, command):
+        """sbctl, which may print a warning before its JSON; `status` fails where it cannot read the firmware."""
+        if command == ('sbctl', 'status', '--json'):
+            if self.status_fails:
+                raise subprocess.CalledProcessError(1, command, '', 'no EFI variables')
+            return self.noise + json.dumps({'installed': self.keys})
+        assert command[:3] == ('sbctl', 'verify', '--json'), command
+        return self.noise + json.dumps([{'file_name': command[3], 'is_signed': 1}] if self.signed else None)
 
     def mount_swap(self):
         mountpoint = self.host('/swap')
@@ -221,6 +249,10 @@ class FakeMachine:
                 return 'Reading the configuration\n' + self.cmdline(kernel) + '\n'
             case ('limine-mkinitcpio',):
                 self.regenerate()
+                if self.hooks_fail and self.hooks_last:
+                    raise subprocess.CalledProcessError(3, command, '', 'ERROR: post hook failed (exit code 3)')
+            case ('sbctl', *_):
+                return self.sbctl(command)
             case _:
                 raise AssertionError(f'unexpected command {command}')
         return ''
@@ -437,6 +469,34 @@ class HibernationTests(unittest.TestCase):
         self.machine.calls.clear()
         self.assertFalse(self.converge(1)[0])
         self.assertEqual(self.machine.writes(), [])
+
+    def test_the_loader_must_start_the_regenerated_entries(self):
+        # CachyOS's hooks only warn when they fail to enrol limine.conf in the loader or to sign it.
+        self.machine.host('/etc/default/limine').write_text(
+            self.read('etc/default/limine') + 'ENABLE_ENROLL_LIMINE_CONFIG=yes\n'
+        )
+        self.machine.host('/usr/bin/sbctl').write_text('')
+        for last in (True, False):
+            for failing, problem in (
+                ('enrol', '/boot/EFI/limine/limine_x64.efi does not hold the checksum of /boot/limine.conf'),
+                ('sign', "/boot/EFI/limine/limine_x64.efi is not signed with sbctl's keys"),
+            ):
+                with self.subTest(failing=failing, last=last):
+                    self.machine.hooks_fail, self.machine.hooks_last = {failing}, last
+                    with self.assertRaisesRegex(RuntimeError, re.escape(problem) + '.*Do not restart'):
+                        self.converge(1)
+                    self.assertTrue(self.record()['regenerate'])
+        self.machine.hooks_fail = set()
+        self.assertTrue(self.converge(1)[0])  # the next apply regenerates and checks again
+        self.assertFalse(self.record()['regenerate'])
+        self.assertIn(('sbctl', 'verify', '--json', '/boot/EFI/limine/limine_x64.efi'), self.machine.calls)
+        self.assertTrue((self.root / 'run/lock/boot-partition.lock').is_file())
+
+    def test_without_sbctl_keys_the_loader_needs_no_signature(self):
+        self.machine.host('/usr/bin/sbctl').write_text('')
+        self.machine.keys = False
+        self.assertTrue(self.converge(1)[0])
+        self.assertEqual([c for c in self.machine.calls if c[0] == 'sbctl'], [('sbctl', 'status', '--json')])
 
     def test_an_interrupted_swap_file_is_made_again(self):
         self.machine.partial = True

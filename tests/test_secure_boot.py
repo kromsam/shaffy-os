@@ -490,7 +490,7 @@ class PrepareTests(SecureBootCase):
     def test_power_hibernation_still_regenerates_with_this_configuration(self):
         self.set_up()
         hibernation = HIBERNATION['Hibernation'](self.root, self.machine, self.state, False, lambda path: 0)
-        self.assertEqual(hibernation.limine_settings()['ENABLE_ENROLL_LIMINE_CONFIG'], 'yes')
+        self.assertEqual(HIBERNATION['limine_settings'](hibernation.path)['ENABLE_ENROLL_LIMINE_CONFIG'], 'yes')
         self.assertEqual(hibernation.limine(), '/boot/limine.conf')
         # A regeneration, such as power.hibernation or the boot splash runs, enrols and signs again.
         self.machine.host(f'boot/{MACHINE_ID}/{KERNEL}/initramfs-{KERNEL}').write_text('initramfs with a resume')

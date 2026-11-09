@@ -24,11 +24,15 @@ SENSITIVE = (
 )
 # The sensitive operations a routine apply may run, each only creating what is missing and deleting
 # nothing: power.hibernation's swap file in a subvolume of its own, when the supplement asks for it,
-# and the rootless Docker engine's data subvolume, created once before the engine first starts.
+# and the rootless Docker engine's data subvolume, created once before the engine first starts. The two
+# scripts that rebuild the boot images also read sbctl, only as test_sbctl_is_only_read allows.
 OPT_IN = {
-    'scripts/configure-hibernation.py': {'mkswap', 'btrfs subvolume'},
+    'scripts/configure-hibernation.py': {'mkswap', 'btrfs subvolume', 'sbctl'},
+    'scripts/configure-boot-splash.py': {'sbctl'},
     'roles/workflows/tasks/docker-data.yml': {'btrfs subvolume'},
 }
+# What those scripts may ask sbctl after a rebuild: whether it has keys, and whether the loader is signed.
+SBCTL_READS = {'status', 'verify'}
 
 
 def included_roles(node):
@@ -90,6 +94,20 @@ class RoutineApplyTests(unittest.TestCase):
             and word not in OPT_IN.get(str(path.relative_to(ROOT)), ())
         ]
         self.assertEqual(found, [])
+
+    def test_sbctl_is_only_read(self):
+        # Their one sbctl command is in sbctl_json, and every call of it names a subcommand that only reads.
+        for name, words in OPT_IN.items():
+            if 'sbctl' in words:
+                text = (ROOT / name).read_text()
+                self.assertEqual((text.count("'sbctl'"), text.count('"sbctl"')), (1, 0), name)
+                self.assertIn("output = run('sbctl', *arguments)", text, name)
+                self.assertEqual(text.count('/usr/bin/sbctl'), 1, name)  # only to see whether it is installed
+                self.assertIn("path('/usr/bin/sbctl').is_file()", text, name)
+                calls = re.findall(r"sbctl_json\(run, '([\w-]+)'", text)
+                self.assertTrue(calls, name)
+                self.assertLessEqual(set(calls), SBCTL_READS, name)
+                self.assertEqual(text.count('sbctl_json('), len(calls) + 1, name)  # its definition and these calls
 
     def test_secure_boot_is_set_up_by_hand_only(self):
         # It runs sbctl, so the test above also fails once a routine role or a home source names it.

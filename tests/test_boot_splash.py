@@ -4,8 +4,12 @@ root; and the role that runs it."""
 
 import configparser
 from contextlib import redirect_stderr
+import hashlib
+import inspect
 import io
+import json
 from pathlib import Path
+import re
 import runpy
 import shutil
 import struct
@@ -51,6 +55,8 @@ class FakeMachine:
         self.root, self.calls, self.images = root, [], {}
         self.fail = self.skip = False
         self.reads = None  # what plymouth-set-default-theme reads instead, when set
+        self.hooks_fail, self.hooks_last, self.signed, self.keys = set(), True, False, True
+        self.esp, self.noise, self.status_fails = 'boot', '', False
         files = {
             'etc/plymouth/plymouthd.conf': INSTALLED_CONF,
             'usr/share/plymouth/plymouthd.defaults': '[Daemon]\nTheme=bgrt\n',
@@ -99,8 +105,36 @@ class FakeMachine:
                 | {'theme': theme}
                 for kernel in KERNELS
             }
+            if self.hooks():
+                raise RuntimeError('limine-mkinitcpio failed with status 3:\nERROR: post hook failed (exit code 1)')
             return 'Building initramfs for linux-cachyos\n'
+        if command[0] == 'sbctl':
+            return self.sbctl(command)
         raise AssertionError(f'unexpected command {command}')
+
+    def hooks(self):
+        """CachyOS's boot hooks after limine-mkinitcpio: limine.conf's checksum into the loader where enrolment
+        is on, then sbctl's signature where sbctl has keys. A failing hook fails limine-mkinitcpio only when it
+        runs last, as the enrolment hook does on a fresh installation; otherwise it is only reported."""
+        esp = self.root / self.esp
+        default = self.root / 'etc/default/limine'
+        if default.is_file() and 'ENABLE_ENROLL_LIMINE_CONFIG=yes' in default.read_text():
+            conf = (esp / 'limine.conf').read_bytes()
+            checksum = b'stale' if 'enrol' in self.hooks_fail else hashlib.blake2b(conf).hexdigest().encode()
+            loader = esp / 'EFI/limine/limine_x64.efi'
+            loader.parent.mkdir(parents=True, exist_ok=True)
+            loader.write_bytes(b'limine ' + checksum)
+        self.signed = (self.root / 'usr/bin/sbctl').is_file() and self.keys and 'sign' not in self.hooks_fail
+        return bool(self.hooks_fail) and self.hooks_last
+
+    def sbctl(self, command):
+        """sbctl, which may print a warning before its JSON; `status` fails where it cannot read the firmware."""
+        if command == ('sbctl', 'status', '--json'):
+            if self.status_fails:
+                raise RuntimeError('sbctl failed with status 1:\\nno EFI variables')
+            return self.noise + json.dumps({'installed': self.keys})
+        assert command[:3] == ('sbctl', 'verify', '--json'), command
+        return self.noise + json.dumps([{'file_name': command[3], 'is_signed': 1}] if self.signed else None)
 
     def rebuilds(self):
         return self.calls.count(('limine-mkinitcpio',))
@@ -249,6 +283,58 @@ class ConvergeTests(unittest.TestCase):
         self.assertEqual(self.converge('shaffy-os'), (False, []))
         self.assertEqual(self.machine.calls, [])
         self.assertEqual(tree(self.root), before)
+
+    def boot_chain(self, esp='boot', default='ESP_PATH="/boot"\nENABLE_ENROLL_LIMINE_CONFIG=yes\n'):
+        """Limine's settings, its enrolment hook, limine.conf on the EFI system partition and sbctl."""
+        for name, text in (
+            ('etc/default/limine', default),
+            ('etc/boot/hooks/post.d/90-limine-enroll-config', '#!/bin/sh\n'),
+            (f'{esp}/limine.conf', 'timeout: 5\n'),
+            ('usr/bin/sbctl', ''),
+        ):
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text(text)
+        (self.root / 'etc/boot/hooks/post.d/90-limine-enroll-config').chmod(0o755)
+        self.machine.esp = esp
+
+    def test_the_loader_must_start_the_rebuilt_images(self):
+        # CachyOS's hooks enrol limine.conf in the loader and sign it; limine-mkinitcpio fails for them only when
+        # the failing hook runs last, so the loader is checked either way.
+        self.boot_chain()
+        for last in (True, False):
+            for failing, problem in (
+                ('enrol', '/boot/EFI/limine/limine_x64.efi does not hold the checksum of /boot/limine.conf'),
+                ('sign', "/boot/EFI/limine/limine_x64.efi is not signed with sbctl's keys"),
+            ):
+                with self.subTest(failing=failing, last=last):
+                    self.machine.hooks_fail, self.machine.hooks_last = {failing}, last
+                    with self.assertRaisesRegex(RuntimeError, re.escape(problem) + '.*Do not restart'):
+                        self.converge('shaffy-os')
+                    self.assertTrue(self.record()['rebuild'])
+        self.machine.hooks_fail = set()
+        self.assertEqual(self.converge('shaffy-os'), (True, []))  # the next apply rebuilds and checks again
+        self.assertFalse(self.record()['rebuild'])
+
+    def test_the_loader_is_found_and_read_as_cachyos_finds_it(self):
+        # Without ESP_PATH, CachyOS's tools find limine.conf on /efi; a warning may come before sbctl's JSON.
+        self.boot_chain(esp='efi', default='ENABLE_ENROLL_LIMINE_CONFIG=yes\n')
+        self.machine.noise = 'warning: a firmware quirk\n'
+        self.assertEqual(self.converge('shaffy-os'), (True, []))
+        self.assertIn(('sbctl', 'verify', '--json', '/efi/EFI/limine/limine_x64.efi'), self.machine.calls)
+
+    def test_an_sbctl_that_cannot_answer_has_no_keys(self):
+        # As the boot hooks take it, so a rebuild without enrolment asks for no signature.
+        self.boot_chain(default='ESP_PATH="/boot"\n')
+        self.machine.status_fails = True
+        self.assertEqual(self.converge('shaffy-os'), (True, []))
+        self.assertNotIn(('sbctl', 'verify'), [c[:2] for c in self.machine.calls])
+
+    def test_both_scripts_that_rebuild_check_the_loader_alike(self):
+        hibernation = runpy.run_path(str(ROOT / 'scripts/configure-hibernation.py'))
+        for name in ('limine_settings', 'limine_mkinitcpio', 'loader_problems', 'sbctl_json'):
+            self.assertEqual(inspect.getsource(hibernation[name]), inspect.getsource(SCRIPT[name]), name)
+        for name in ('LOADER', 'LOCK', 'UNBOOTABLE', 'LIMINE_CONFIG'):
+            self.assertEqual(hibernation[name], SCRIPT[name], name)
 
     def test_a_check_reports_without_writing(self):
         before = tree(self.root)

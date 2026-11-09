@@ -80,8 +80,13 @@ again.
 `90-limine-enroll-config` hook enrols the new `limine.conf`'s checksum in the
 Limine loader and signs the loader with sbctl's keys, as after every kernel
 update. The role refuses to regenerate when enrolment is on and that hook is
-missing, since Limine would then refuse its own configuration. It never
-touches the keys. Under Secure Boot, hibernation also depends on the kernel's
+missing, since Limine would then refuse its own configuration.
+`limine-mkinitcpio` fails for a hook only when that hook runs last, so after
+every rebuild the role checks that the loader holds the new `limine.conf`'s
+checksum and, where sbctl has keys, its signature. If either is missing, the
+apply fails and says not to restart; the next apply regenerates and checks
+again. It never touches the keys. Under
+Secure Boot, hibernation also depends on the kernel's
 lockdown mode, so test it again after enabling Secure Boot
 ([machine setup](MACHINE-SETUP.md#secure-boot)).
 
