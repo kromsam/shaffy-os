@@ -39,22 +39,40 @@ directly. Labels, releases, tags and secrets are not managed.
 Private vulnerability reporting is enabled on the repository by hand. The
 provider (6.13.0) has no resource for it, so the code does not hold it.
 
-The state is encrypted, and so are saved plans. Create the Proton Pass item
-`OpenTofu state` in the vault `Shaffy OS` once, with a random passphrase of at
-least 16 characters in its password field. The runner reads it, takes the token
-from `gh auth token --user kromsam`, and keeps the state in
-`~/.local/state/shaffy-os-infra/github.tfstate`, outside every checkout:
+The runner takes a token from the environment. Make a fine-grained personal
+access token with the resource owner `kromsam`, for `kromsam/shaffy-os` alone,
+and the repository permission Administration set to read and write. Metadata
+read comes with it. Export it, then run the runner from the repository root:
 
 ```sh
+export GITHUB_TOKEN=...
 scripts/github-settings.sh init
 scripts/github-settings.sh plan
 scripts/github-settings.sh apply
 ```
 
-Plan and apply are the maintainer's. The runner refuses under an agent. The
-first plan reports the existing settings as imports. OpenTofu pins the same
-version in `infra/github/versions.tf` and `mise.dev.toml`, and the provider in
-`versions.tf` and `.terraform.lock.hcl`.
+The state lives in `~/.local/state/shaffy-os-infra/github.tfstate`, outside
+every checkout. It holds only settings that GitHub shows publicly, so it is not
+encrypted and it is disposable. When it is lost, run `init` again. The import
+blocks in `infra/github/imports.tf` rebuild it from GitHub. The first plan of a
+rebuilt state shows the imports and one in-place update on `github_repository`.
+That update only records the two OpenTofu-side flags `archive_on_destroy` and
+`ignore_vulnerability_alerts_during_read`. Anything else in the plan is drift to
+understand before an apply.
+
+Plan and apply are the maintainer's. The runner refuses under an agent.
+
+`infra/github/tests/protections.tftest.hcl` runs in CI with `tofu test` against
+a mocked provider. It needs no credentials. It fails when a change allows the
+deletion or force push of `main` or `dev`, drops the `selftest` or `system`
+check from `main`, drops the deletion or update rule of the `v*` tags, adds a
+bypass actor or sets an enforcement other than `active`. The test turns the
+import blocks off with `import_existing`, because `tofu test` cannot run them.
+Run it locally with `MISE_ENV=dev mise exec -- tofu -chdir=infra/github test`
+after `init -backend=false -lockfile=readonly`.
+
+OpenTofu pins the same version in `infra/github/versions.tf` and
+`mise.dev.toml`, and the provider in `versions.tf` and `.terraform.lock.hcl`.
 
 ## Pins and transitions
 

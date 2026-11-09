@@ -52,6 +52,14 @@ jobs:
           '
       - name: Lint (STYLE.md)
         run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy lint
+      # Mocked provider: no credentials, and no network beyond fetching the provider.
+      - name: Test the GitHub settings protections
+        if: ${{ !cancelled() }}
+        run: |
+          runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
+            mise exec -- tofu -chdir=infra/github init -backend=false -lockfile=readonly
+            mise exec -- tofu -chdir=infra/github test
+          '
       # The checks after the lint run also after a failure, so one run reports them all.
       - name: Run the tests as an unprivileged user
         if: ${{ !cancelled() }}

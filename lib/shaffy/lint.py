@@ -113,6 +113,9 @@ def language(path, root=ROOT):
         return 'shell'
     if Path(path).name in ('.yamllint', '.ansible-lint'):
         return 'yaml'
+    # The lock file ends in .hcl too, and tofu init owns it.
+    if path.endswith('.tftest.hcl'):
+        return 'opentofu'
     return NAMED.get(suffix, 'text')
 
 

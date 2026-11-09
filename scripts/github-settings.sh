@@ -1,10 +1,10 @@
 #!/bin/bash
 # The repository's GitHub settings as code (MAINTAINING.md): OpenTofu on infra/github.
-# The token and the state passphrase live only in this process.
+# The token comes from the environment and lives only in this process.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# A rule for agents, not a wall: it keeps them out of the maintainer's Proton Pass session.
+# A rule for agents, not a wall: the settings are the maintainer's to change.
 if [[ -n "${CLAUDECODE:-}" ]] || compgen -v CODEX_ >/dev/null; then
   echo "github-settings: plan and apply are the maintainer's; an agent does not run them." >&2
   exit 1
@@ -15,12 +15,10 @@ if [[ $# -eq 0 ]]; then
   exit 64
 fi
 
-GITHUB_TOKEN="$(gh auth token --user kromsam)"
-export GITHUB_TOKEN
-TF_VAR_state_encryption_passphrase="$(
-  pass-cli item view --vault-name 'Shaffy OS' --item-title 'OpenTofu state' --field password
-)"
-export TF_VAR_state_encryption_passphrase
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  echo "github-settings: set GITHUB_TOKEN to a fine-grained token for kromsam/shaffy-os alone with Administration read and write." >&2
+  exit 1
+fi
 
 # Outside every checkout, and apart from ~/.local/state/shaffy, which Shaffy OS owns.
 if [[ "$1" == init ]]; then

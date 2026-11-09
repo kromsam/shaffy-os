@@ -1,8 +1,3 @@
-import {
-  to = github_repository.shaffy_os
-  id = "shaffy-os"
-}
-
 resource "github_repository" "shaffy_os" {
   name                   = "shaffy-os"
   description            = "An opinionated desktop setup for CachyOS with Niri and Noctalia, applied from public defaults and a private supplement"
@@ -42,19 +37,9 @@ resource "github_repository" "shaffy_os" {
   }
 }
 
-import {
-  to = github_repository_vulnerability_alerts.shaffy_os
-  id = "shaffy-os"
-}
-
 resource "github_repository_vulnerability_alerts" "shaffy_os" {
   repository = github_repository.shaffy_os.name
   enabled    = true
-}
-
-import {
-  to = github_repository_dependabot_security_updates.shaffy_os
-  id = "shaffy-os"
 }
 
 resource "github_repository_dependabot_security_updates" "shaffy_os" {
@@ -62,21 +47,11 @@ resource "github_repository_dependabot_security_updates" "shaffy_os" {
   enabled    = true
 }
 
-import {
-  to = github_actions_repository_permissions.shaffy_os
-  id = "shaffy-os"
-}
-
 resource "github_actions_repository_permissions" "shaffy_os" {
   repository           = github_repository.shaffy_os.name
   enabled              = true
   allowed_actions      = "all"
   sha_pinning_required = false
-}
-
-import {
-  to = github_workflow_repository_permissions.shaffy_os
-  id = "shaffy-os"
 }
 
 resource "github_workflow_repository_permissions" "shaffy_os" {
