@@ -35,6 +35,17 @@ class OverlapTests(unittest.TestCase):
                 },
             )
 
+    def test_the_toggles_own_their_keys_in_the_runtime_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            rendered, home = Path(directory) / 'rendered', Path(directory) / 'home'
+            rendered.mkdir()
+            (rendered / '90-shell.toml').write_text('[widget.clock]\nformat = "a"\n[bar]\nposition = "top"\n')
+            (home / '.config/noctalia').mkdir(parents=True)
+            (home / '.config/noctalia/99-runtime.toml').write_text(
+                '[widget.clock]\nformat = "b"\n[bar]\nposition = "top"\n'
+            )
+            self.assertEqual([key for key, *_ in overlaps(rendered, home)], ['bar.position'])
+
     def test_missing_runtime_files_mean_no_overlaps(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / '90-base.toml').write_text('[theme]\nmode = "light"\n')

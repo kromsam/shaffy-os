@@ -109,7 +109,9 @@ its state file:
 A key that a managed fragment sets and one of the last three sets again silently
 takes the runtime value; a palette chosen in Noctalia's settings is the usual
 case. `./bin/shaffy check` lists each such key, so it can be moved into a fragment
-(the supplement's, for a personal choice) or cleared deliberately in Noctalia.
+(the supplement's, for a personal choice) or cleared deliberately in Noctalia. It
+leaves out the clock format and battery label in `99-runtime.toml`, which the
+helper's toggles own on purpose.
 
 Personal choices belong in the supplement's fragment; deployed files and
 Noctalia's state never go back into `home/`

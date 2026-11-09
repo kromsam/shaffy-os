@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -15,6 +16,8 @@ loader = importlib.machinery.SourceFileLoader('desktop_controls', str(SOURCE))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 desktop = importlib.util.module_from_spec(spec)
 loader.exec_module(desktop)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+from shaffy import noctalia
 
 
 class DesktopControlsTests(unittest.TestCase):
@@ -154,6 +157,8 @@ class DesktopControlsTests(unittest.TestCase):
         data = tomllib.loads((desktop.CONFIG / 'noctalia/99-runtime.toml').read_text())
         self.assertEqual(data['widget']['clock']['format'], desktop.CLOCK_FORMATS[1])
         self.assertFalse(data['widget']['battery']['show_label'])
+        # shaffy check leaves exactly these keys out of its overlap report.
+        self.assertEqual(set(noctalia._read(desktop.CONFIG / 'noctalia/99-runtime.toml')), noctalia.TOGGLED)
 
     def test_existing_conversion_is_never_overwritten(self):
         source = self.root / "source ' $(literal).png"
