@@ -31,7 +31,9 @@ right until the next apply restores the source.
    supplement: its `config.yaml`, its native `overrides`, its `assets` or its
    `dotfiles`. A change to the product's defaults belongs in the checkout. Read
    `{{ $checkout }}/AGENTS.md` before changing either; the
-   `shaffy-change-review` skill checks a change against it. In the checkout,
+   `shaffy-change-review` skill checks a change against it, and
+   `shaffy-practice-review` against the good practices of the tools it
+   touches. In the checkout,
    `./bin/shaffy check` validates the supplement and
    `./bin/shaffy lint --supplement` holds its files to the checkout's style.
 3. Apply from the checkout. Name the targets `./bin/shaffy diff` lists, then

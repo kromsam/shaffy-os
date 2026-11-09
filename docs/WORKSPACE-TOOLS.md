@@ -108,15 +108,16 @@ review rather than rewriting the whole Codex configuration.
 
 ## Agent skills
 
-The home apply installs four skills for Claude Code and Codex, in
+The home apply installs five skills for Claude Code and Codex, in
 `~/.claude/skills/` and `~/.codex/skills/`, so an agent in any directory
 knows how this desktop is managed:
 
 - `shaffy-os` names the checkout and tells the agent to change the source that
   owns a file, never the live file, and to leave applies to the person.
-- `shaffy-change-review`, `shaffy-risk-review` and `shaffy-lean-review` review a
-  change to the checkout or to a supplement: where it belongs, what it could
-  destroy, what can go.
+- `shaffy-change-review`, `shaffy-risk-review`, `shaffy-lean-review` and
+  `shaffy-practice-review` review a change to the checkout or to a supplement:
+  where it belongs, what it could destroy, what can go, and whether it follows
+  the good practices of the tools it touches.
 
 The review skills come from the repository's `.agents/skills/`, the same ones an
 agent uses inside the checkout ([agent tooling](../AGENTS.md#agent-tooling)).

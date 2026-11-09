@@ -68,8 +68,9 @@ operation tests.
 
 The skills in `.agents/skills/` review a change the way a maintainer will:
 `shaffy-change-review` for where it belongs and what it implies,
-`shaffy-risk-review` for what it could destroy and `shaffy-lean-review` for what
-can go ([agent tooling](AGENTS.md#agent-tooling)).
+`shaffy-risk-review` for what it could destroy, `shaffy-lean-review` for what
+can go and `shaffy-practice-review` for the good practices of the tools it
+touches ([agent tooling](AGENTS.md#agent-tooling)).
 
 ## Licence
 

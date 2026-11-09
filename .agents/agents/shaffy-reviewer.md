@@ -1,6 +1,6 @@
 ---
 name: shaffy-reviewer
-description: Read-only review of a Shaffy OS change with the shaffy-change-review, shaffy-risk-review or shaffy-lean-review skill. Give it the diff or the paths and the review to apply.
+description: Read-only review of a Shaffy OS change with the shaffy-change-review, shaffy-risk-review, shaffy-lean-review or shaffy-practice-review skill. Give it the diff or the paths and the review to apply.
 tools: Read, Grep, Glob
 model: inherit
 ---

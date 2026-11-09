@@ -6,6 +6,8 @@ desktop's own LazyVim formats with, StyLua, shfmt, fish_indent, taplo and
 markdownlint-cli2, so the editor and the check agree. JSON and YAML the editor
 formats with its language servers; the check only lints them. Install the tools
 in the checkout with `mise trust mise.dev.toml` and `MISE_ENV=dev mise install`.
+The `shaffy-practice-review` skill in `.agents/skills/` adds the practices of
+each tool that no linter can check.
 
 | Language | Authority | Settings |
 | --- | --- | --- |

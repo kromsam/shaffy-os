@@ -1,5 +1,5 @@
 name = "shaffy_reviewer"
-description = "Read-only review of a Shaffy OS change with the shaffy-change-review, shaffy-risk-review or shaffy-lean-review skill."
+description = "Read-only review of a Shaffy OS change with the shaffy-change-review, shaffy-risk-review, shaffy-lean-review or shaffy-practice-review skill."
 sandbox_mode = "read-only"
 developer_instructions = """
 Follow .agents/agents/shaffy-reviewer.md, the reviewer's instructions for every agent host.

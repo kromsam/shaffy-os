@@ -200,7 +200,9 @@ folders only point to it.
 
 - **Skills** in `.agents/skills/`: `shaffy-change-review` (where a change
   belongs and what it implies), `shaffy-risk-review` (what it could destroy or
-  leave half done) and `shaffy-lean-review` (what can go). Codex reads them
+  leave half done), `shaffy-lean-review` (what can go) and
+  `shaffy-practice-review` (the good practices of each tool that no linter
+  checks, the Red Hat CoP's and chezmoi's among them). Codex reads them
   there; `.claude/skills/` links to them. The home apply also installs them
   for Claude Code and Codex in every directory, beside the `shaffy-os` skill
   that tells an agent anywhere on the machine how this desktop is managed, so
