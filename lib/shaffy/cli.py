@@ -167,29 +167,40 @@ def check(args):
         )
     else:
         print(f'Settings are valid: public defaults only ({selection["source"]}).')
-    if args.no_render:
-        if not args.no_home:
-            _system_report()
-        return 0
     import tempfile
 
     from shaffy.capture import CaptureError, capture
+    from shaffy.dotfiles import leftovers, prepare
     from shaffy.noctalia import overlaps
     from shaffy.sandbox import RenderError, render
 
-    # Render a capture, as an apply does: links inside the supplement become the files they
-    # name, so the sandbox sees exactly what an apply would.
+    # Check and render a capture, as an apply does: links inside the supplement become the
+    # files they name, so both see exactly what an apply would.
     with (
         tempfile.TemporaryDirectory(prefix='shaffy-check-') as keep,
         tempfile.TemporaryDirectory(prefix='shaffy-check-capture-') as state,
     ):
+        captured = None
         try:
-            if selection['mode'] == 'supplement':
-                manifest = capture(ROOT, selection, state, 'check', load)
-                result = render(ROOT, supplement=Path(manifest['directory']) / 'supplement', keep=keep)
-            else:
-                result = render(ROOT, without=True, keep=keep)
-        except (RenderError, CaptureError) as error:
+            if selection['mode'] == 'supplement' and (data['shaffy']['dotfiles'] or not args.no_render):
+                made = capture(ROOT, selection, state, 'check', load, dotfiles=True)
+                captured = Path(made['directory']) / 'supplement'
+        except CaptureError as error:
+            return _fail(error)
+        shaffy = json.loads((captured.parent / 'settings.json').read_text())['shaffy'] if captured else None
+        dotfiles, refused = prepare(ROOT, shaffy, read_only=True) if shaffy else (None, [])
+        if refused:
+            return _fail('the dotfiles cannot be applied as they are:\n  ' + '\n  '.join(refused))
+        if dotfiles and not args.no_home:
+            for path in leftovers(Path.home()):
+                print(f"Note: {path} is plain chezmoi's, a second way to change the home; move it aside.")
+        if args.no_render:
+            if not args.no_home:
+                _system_report()
+            return 0
+        try:
+            result = render(ROOT, supplement=captured, without=captured is None, keep=keep)
+        except RenderError as error:
             print(f'shaffy: {error}', file=sys.stderr)
             return 1
         found = [] if args.no_home else overlaps(Path(keep) / 'home/.config/noctalia', Path.home())
@@ -618,6 +629,9 @@ def status(args):
                 print(line)
     state = chezmoi_state_path()
     print(f'chezmoi state: {state}' if state.exists() else f'chezmoi state: none yet; the first apply creates {state}')
+    dotfiles, dotfiles_drift, failed = _dotfiles_status(drift=not args.no_drift)
+    for line in dotfiles:
+        print(line)
     events = records.events(limit=5)
     if records.torn:
         print(f'Journal: {len(records.torn)} unreadable line(s) in {records.journal}')
@@ -637,7 +651,64 @@ def status(args):
     print(f'Home drift: {len(lines)} target(s) differ from the source' if lines else 'Home drift: none')
     for line in lines[:10]:
         print(f'  {line}')
-    return 0
+    for line in dotfiles_drift:
+        print(line)
+    return 1 if failed else 0
+
+
+def _named_dotfiles(strict=False):
+    """The dotfiles folder the live settings name, from the cached settings; None without one.
+
+    Unless STRICT, a selection or settings problem counts as none: the command reports it as it
+    always has.
+    """
+    from shaffy.fastload import load_data
+    from shaffy.loader import SettingsError
+    from shaffy.selection import SelectionError
+
+    try:
+        return load_data(ROOT)['shaffy']['dotfiles']
+    except SelectionError, SettingsError:
+        if strict:
+            raise
+        return None
+
+
+def _dotfiles_status(drift):
+    """status's lines on the dotfiles, where they are and what the next apply refuses, then with DRIFT
+    their drift, and whether reading it failed.
+
+    Read from a temporary capture of the selection as it is now, as an apply would read it.
+    """
+    from shaffy.capture import CaptureError
+    from shaffy.dotfiles import preview, state_path
+    from shaffy.loader import SettingsError
+    from shaffy.selection import SelectionError
+
+    try:
+        reference = _named_dotfiles(strict=True)
+    except (SelectionError, SettingsError) as error:
+        return [f'Dotfiles: unknown; {error}'], [], False
+    if not reference:
+        note = f'  An earlier dotfiles pass left its files in place, unmanaged; {state_path()} is unused.'
+        return ['Dotfiles: none'] + ([note] if state_path().exists() else []), [], False
+    lines = [f'Dotfiles: {reference} in the supplement; chezmoi state {state_path()}']
+    if not drift:
+        return lines, [], False
+    try:
+        with preview(ROOT) as (_, dotfiles, refused):
+            lines += [f'  The next apply refuses: {problem}' for problem in refused]
+            found = dotfiles.run('status') if dotfiles else None
+    except (SelectionError, SettingsError, CaptureError) as error:
+        return lines + [f'  The dotfiles cannot be previewed: {error}'], [], False
+    if found is None:
+        return lines, [], False
+    if found.returncode:
+        tail = [f'  {line}' for line in found.stderr.strip().splitlines()[-5:]]
+        return lines, ['Dotfiles drift: unknown; chezmoi status failed:', *tail], True
+    changed = found.stdout.splitlines()
+    summary = f'Dotfiles drift: {len(changed)} target(s) differ from the source' if changed else 'Dotfiles drift: none'
+    return lines, [summary] + [f'  {line}' for line in changed[:10]], False
 
 
 def outdated(args):
@@ -722,6 +793,7 @@ def chezmoi_command(*arguments):
 def diff(args):
     """Show home changes. An explicit selection is previewed from a frozen capture."""
     from shaffy.capture import CaptureError, capture
+    from shaffy.dotfiles import prepare, preview
     from shaffy.loader import SettingsError, load
     from shaffy.records import Records
     from shaffy.selection import SelectionError, resolve, state_dir
@@ -732,7 +804,7 @@ def diff(args):
             selection = resolve(args.supplement, args.without_supplement)
             op = operation_id()
             Records().append(op, 'preview', selection=selection)
-            manifest = capture(ROOT, selection, state_dir(), op, load)
+            manifest = capture(ROOT, selection, state_dir(), op, load, dotfiles=True)
         except (SelectionError, CaptureError) as error:
             return _fail(error)
         except SettingsError as error:
@@ -746,14 +818,51 @@ def diff(args):
             file=sys.stderr,
         )
         try:
-            return subprocess.run(chezmoi_command('diff', *args.paths), env=env, check=False).returncode
+            shaffy = json.loads((Path(manifest['directory']) / 'settings.json').read_text())['shaffy']
+            return _diff(env, args.paths, shaffy['dotfiles'], *prepare(ROOT, shaffy, read_only=True))
         finally:
             import shutil
 
             shutil.rmtree(Path(manifest['directory']).parent, ignore_errors=True)
     for line in _integration_report():
         print(line, file=sys.stderr)
-    return subprocess.run(chezmoi_command('diff', *args.paths), env=env, check=False).returncode
+    if not _named_dotfiles():
+        return subprocess.run(chezmoi_command('diff', *args.paths), env=env, check=False).returncode
+    try:
+        with preview(ROOT) as found:
+            return _diff(env, args.paths, *found)
+    except (SelectionError, SettingsError, CaptureError) as error:
+        # Shaffy OS's own diff reports the same selection or settings problem as it always has.
+        print(f'shaffy: the dotfiles cannot be previewed: {error}', file=sys.stderr)
+        return subprocess.run(chezmoi_command('diff', *args.paths), env=env, check=False).returncode
+
+
+def _diff(env, paths, reference, dotfiles, refused):
+    """Shaffy OS's diff, then the dotfiles' under a header, each PATH sent to the pass that manages it.
+
+    chezmoi refuses a path its source does not manage, so a path the dotfiles manage as a file
+    goes to them alone, and a folder both manage goes to both. Exits with the larger code.
+    """
+    if refused:
+        print('The next apply refuses the dotfiles:\n  ' + '\n  '.join(refused), file=sys.stderr)
+    own, theirs = list(paths), []
+    if dotfiles and paths:
+
+        def managed(include):
+            listed = dotfiles.run('managed', '--include', include, '--path-style', 'absolute').stdout
+            return set(listed.splitlines())
+
+        everything, files = managed('all'), managed('files,symlinks,remove')
+        theirs = [path for path in paths if os.path.abspath(path) in everything]
+        own = [path for path in paths if os.path.abspath(path) not in files]
+    code = subprocess.run(chezmoi_command('diff', *own), env=env, check=False).returncode if own or not paths else 0
+    if dotfiles and (theirs or not paths):
+        print(f'# Dotfiles: {reference} in the supplement', flush=True)
+        shown = dotfiles.run('diff', '--no-pager', *theirs)
+        sys.stdout.write(shown.stdout)
+        sys.stderr.write(shown.stderr)
+        code = max(code, shown.returncode)
+    return code
 
 
 def apply(args):

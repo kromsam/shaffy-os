@@ -119,6 +119,118 @@ class CaptureTests(_Case):
             verify(self.tmp / 'state/runs/op-gone/capture')
 
 
+class DotfilesCaptureTests(_Case):
+    """The supplement's dotfiles folder, captured file by file beside the referenced files."""
+
+    def test_a_system_capture_holds_no_dotfiles_and_ignores_a_broken_folder(self):
+        (self.tmp / 'outside.txt').write_text('secret\n')
+        (self.supplement / 'dotfiles/dot_outside').symlink_to(self.tmp / 'outside.txt')
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-s', load)
+        self.assertEqual([name for name in manifest['files'] if name.startswith('supplement/dotfiles')], [])
+        self.assertEqual(list((Path(manifest['directory']) / 'supplement/dotfiles').iterdir()), [])
+        verify(manifest['directory'])
+        self.refused('leads outside the supplement', op='op-h')
+
+    def dotfiles(self, files):
+        shutil.rmtree(self.supplement / 'dotfiles')  # the fixture's own tree, replaced by FILES
+        for name, content in files.items():
+            (self.supplement / 'dotfiles' / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.supplement / 'dotfiles' / name).write_text(content)
+        return self.supplement / 'dotfiles'
+
+    def refused(self, pattern, op='op-d'):
+        with self.assertRaisesRegex(CaptureError, pattern):
+            capture(ROOT, self.selection, self.tmp / 'state', op, load, dotfiles=True)
+        self.assertFalse((self.tmp / f'state/runs/{op}').exists())
+
+    def test_the_tree_is_captured_under_its_written_path_and_listed(self):
+        files = {'dot_config/app/settings.json': '{}\n', '.chezmoiignore': 'README.md\n', 'README.md': '# mine\n'}
+        self.dotfiles(files)
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-d1', load, dotfiles=True)
+        directory = Path(manifest['directory'])
+        for name, content in files.items():
+            self.assertIn(f'supplement/dotfiles/{name}', manifest['files'])
+            self.assertEqual((directory / 'supplement/dotfiles' / name).read_text(), content)
+        self.assertEqual(load(ROOT, supplement=directory / 'supplement')['shaffy']['dotfiles'], 'dotfiles')
+        verify(directory)
+
+    def test_git_is_left_out(self):
+        root = self.dotfiles({'dot_bashrc': 'x\n', 'vendor/.git/config': '[core]\n', 'vendor/dot_x': 'x\n'})
+        (root / '.git').write_text('gitdir: ../.git/modules/dotfiles\n')  # a submodule's file
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-d2', load, dotfiles=True)
+        captured = [name for name in manifest['files'] if name.startswith('supplement/dotfiles/')]
+        self.assertEqual(sorted(captured), ['supplement/dotfiles/dot_bashrc', 'supplement/dotfiles/vendor/dot_x'])
+
+    def test_a_link_to_a_file_in_the_supplement_is_captured_as_its_content(self):
+        root = self.dotfiles({'dot_bashrc': 'x\n'})
+        (self.supplement / 'shared').mkdir()
+        (self.supplement / 'shared/gitconfig').write_text('[user]\n')
+        (root / 'dot_gitconfig').symlink_to('../shared/gitconfig')
+        manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-d3', load, dotfiles=True)
+        copy = Path(manifest['directory']) / 'supplement/dotfiles/dot_gitconfig'
+        self.assertFalse(copy.is_symlink())
+        self.assertEqual(copy.read_text(), '[user]\n')
+
+    def test_links_out_of_the_supplement_or_to_a_folder_are_refused(self):
+        root = self.dotfiles({'dot_bashrc': 'x\n', 'dot_config/app/a.conf': 'a\n'})
+        (self.tmp / 'outside.txt').write_text('secret\n')
+        for link, target, reason in (
+            ('dot_outside', self.tmp / 'outside.txt', 'leads outside the supplement'),
+            ('dot_folder', 'dot_config', 'is neither a regular file nor a link to one'),
+            ('dot_broken', 'absent', 'is neither a regular file nor a link to one'),
+        ):
+            with self.subTest(link=link):
+                (root / link).symlink_to(target)
+                self.refused(f'{link} {reason}')
+                (root / link).unlink()
+
+    def test_an_empty_tree_is_refused_naming_the_submodule_command(self):
+        root = self.dotfiles({})
+        root.mkdir()
+        (root / '.git').write_text('gitdir: ../.git/modules/dotfiles\n')
+        self.refused('git submodule update --init')
+
+    def test_both_limits_are_refused(self):
+        self.dotfiles({'dot_a': 'a\n', 'dot_b': 'b\n', 'dot_c': 'c\n'})
+        with mock.patch.object(capture_module, 'TREE_FILES', 2):
+            self.refused('more than 2 files')
+        (self.supplement / 'dotfiles/dot_big').write_bytes(b'x' * (2**20 + 1))
+        with mock.patch.object(capture_module, 'TREE_BYTES', 2**20):
+            self.refused('more than 1 MiB')
+
+    def test_an_edit_or_a_new_file_during_the_capture_is_refused(self):
+        root = self.dotfiles({'dot_bashrc': 'x\n', 'dot_profile': 'y\n'})
+        original = shutil.copyfile
+        for change in (
+            lambda: (root / 'dot_bashrc').write_text('edited\n'),
+            lambda: (root / 'dot_new').write_text('new\n'),
+        ):
+            with self.subTest(change=change):
+
+                def copy_then_change(source, destination, change=change):
+                    result = original(source, destination)
+                    if Path(source).name == 'dot_profile':
+                        change()
+                    return result
+
+                with mock.patch.object(capture_module.shutil, 'copyfile', copy_then_change):
+                    self.refused('changed while it was captured')
+                (root / 'dot_bashrc').write_text('x\n')
+                (root / 'dot_new').unlink(missing_ok=True)
+
+    def test_verify_finds_an_added_or_changed_file_in_the_tree(self):
+        self.dotfiles({'dot_bashrc': 'x\n'})
+        for op, change, reason in (
+            ('op-d8', lambda tree: (tree / 'dot_added').write_text('a\n'), 'other files'),
+            ('op-d9', lambda tree: (tree / 'dot_bashrc').write_text('changed\n'), 'no longer matches'),
+        ):
+            with self.subTest(reason=reason):
+                manifest = capture(ROOT, self.selection, self.tmp / 'state', op, load, dotfiles=True)
+                change(Path(manifest['directory']) / 'supplement/dotfiles')
+                with self.assertRaisesRegex(CaptureError, reason):
+                    verify(manifest['directory'])
+
+
 class MarkerTests(_Case):
     def marker(self, mode, op, directory, command='diff'):
         return mock.patch.dict(

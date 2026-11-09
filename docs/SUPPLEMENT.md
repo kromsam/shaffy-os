@@ -19,6 +19,7 @@ my-supplement/
 ├── config.yaml     # the settings
 ├── overrides/      # native fragments named under `overrides`
 ├── assets/         # personal files named under `assets`
+├── dotfiles/       # optional: your own chezmoi source, named by `dotfiles`
 ├── tools/          # optional: personal helpers
 ├── tests/          # optional: their tests
 ├── docs/           # optional: their notes
@@ -26,10 +27,10 @@ my-supplement/
 └── .gitignore      # keeps credential files out of Git
 ```
 
-Shaffy OS reads `config.yaml` and exactly the files it names under `overrides`
-and `assets`; only the denylist test also reads `denylist.txt`.
-`overrides/` and `assets/` are conventions; any path inside the
-supplement works. A reference is relative to the supplement's root and must
+Shaffy OS reads `config.yaml`, exactly the files it names under `overrides`
+and `assets`, and the files in the folder it names as `dotfiles`; only the
+denylist test also reads `denylist.txt`. `overrides/`, `assets/` and
+`dotfiles/` are conventions; any path inside the supplement works. A reference is relative to the supplement's root and must
 resolve inside it after links are followed, so a link that leads out of the
 supplement is refused. Nothing else in the directory, `tools/`, `tests/` and
 `docs/` included, is read, captured or copied by an apply. A supplement's
@@ -341,6 +342,15 @@ Assets suit small files that belong to the settings. A large or changing
 collection, such as a synchronized wallpaper folder, stays with its sync
 client; point `desktop.wallpaper.directory` at it instead.
 
+### dotfiles
+
+| Key | Value and effect | Without it | Applied by |
+| --- | --- | --- | --- |
+| `dotfiles` | A chezmoi source of your own: a folder inside the supplement, relative to its root, such as `dotfiles`, but not the supplement itself. The home apply applies it after Shaffy OS's own home, as a second chezmoi pass in the same operation. It refuses dotfiles that use a feature this version does not support, or that would manage anything Shaffy OS can manage. | No second pass. | home |
+
+[Bring your own dotfiles](#bring-your-own-dotfiles) describes the setup, what
+this version supports and where the dotfiles may write.
+
 ### integrations
 
 Optional integrations are listed in `defaults/integrations.yml`. Each renders
@@ -387,6 +397,221 @@ integrations:
 The ledger's format and transitions are described in
 [the architecture](ARCHITECTURE.md#ownership-ledger).
 
+## Bring your own dotfiles
+
+If you keep your dotfiles as a chezmoi source, the supplement can carry it, and
+`./bin/shaffy apply --home` applies it after Shaffy OS's own home, in the same
+operation: one capture, one snapshot pair, copies of every target either pass
+changes, and `--resume` and `--abandon` as for any home apply. Shaffy OS runs
+that second pass with a configuration, a state file and a cache of its own, and
+never reads `~/.config/chezmoi`. Before anything is written, it refuses
+dotfiles that use a feature this version does not support, or that would
+create, change or remove anything Shaffy OS can manage.
+
+### Set it up
+
+The dotfiles are a folder inside the supplement, named by `dotfiles: dotfiles`
+in `config.yaml`:
+
+```text
+my-supplement/
+├── config.yaml
+└── dotfiles/
+    ├── .chezmoiignore                    # README.md and the like
+    ├── .chezmoidata.yaml                 # your own template data
+    ├── .chezmoitemplates/
+    ├── README.md
+    ├── dot_config/
+    │   ├── example/settings.toml.tmpl
+    │   └── fish/conf.d/50-example.fish   # a drop-in beside Shaffy OS's files
+    └── private_dot_local/                # repeats Shaffy OS's private ~/.local
+        └── private_share/example/.keep
+```
+
+To keep the dotfiles in a repository of their own, add it to the supplement as
+a Git submodule:
+
+```sh
+git -C ~/Projects/my-supplement submodule add REMOTE dotfiles
+```
+
+A fresh clone of the supplement then needs `git submodule update --init`:
+until then the folder is empty, and Shaffy OS refuses it and names that
+command. The supplement's CI checks out its submodules too; when the
+submodule's repository is private, give the supplement's repository a
+`SUBMODULES_TOKEN` secret that can read both, and pass it on as
+`supplement.example/.github/workflows/shaffy.yml` does.
+
+Every apply copies the folder into its capture, as it copies the files
+`config.yaml` names ([what an apply captures](#what-an-apply-captures)), and
+applies that copy. The copy takes:
+
+- every file except `.git`, which a clone or a submodule keeps there;
+- a link inside the folder must lead to a regular file inside the supplement,
+  and is copied as that file's content; for a link in the home, use a
+  `symlink_` entry;
+- at most 10,000 files and 64 MiB, because every apply copies them and the
+  newest ten runs are kept;
+- no empty folders, as Git does not track them either: keep one with a `.keep`
+  file, which chezmoi ignores as it ignores every name that starts with a dot
+  other than its own `.chezmoi` names. An empty folder inside an `exact_`
+  folder is not captured, so the apply deletes it from the home, after copying
+  it first; a `.keep` file keeps it.
+
+### Move an existing chezmoi setup in
+
+1. Put the source in the supplement, as a submodule or by moving the folder in,
+   and set `dotfiles: dotfiles`.
+2. Run `./bin/shaffy check`. It names every feature this version refuses and
+   every target the dotfiles share with Shaffy OS, each with what to do
+   instead:
+   - move the `[data]` of plain chezmoi's configuration into
+     `.chezmoidata.yaml` in the dotfiles, as that configuration is never read;
+   - replace scripts: packages go in `packages.extra`, tools and runtimes in
+     `overrides.mise`;
+   - move content of a file Shaffy OS owns into its fragment, such as
+     `overrides.fish` or `overrides.niri`, or into a drop-in of your own;
+   - keep encrypted files out, as secrets stay out of the supplement.
+3. Move plain chezmoi's configuration and source aside:
+   `~/.config/chezmoi/chezmoi.*` and `~/.local/share/chezmoi`. While they exist,
+   `check` notes them, because a plain `chezmoi apply` would still apply them: a
+   second way to change the home.
+4. Run `./bin/shaffy diff`, then `./bin/shaffy apply --home`.
+
+### What this version supports
+
+| Feature | This version | Why, or what to do instead |
+| --- | --- | --- |
+| Files, folders and templates; `dot_`, `private_`, `readonly_`, `executable_`, `empty_` and `literal_` | Supported | |
+| `create_` and `modify_` | Supported | Each names one target, which the apply copies before it changes. A `modify_` entry is trusted code, like `overrides.fish`, and the render proves that a second run changes nothing. |
+| `symlink_` | Supported | A link that leads into the captured source is refused, because that copy is pruned later. |
+| `remove_` | Supported | Each names one target; one at or above a target Shaffy OS manages is refused. |
+| `exact_` folders | Supported where Shaffy OS has nothing | An exact folder deletes what it does not name. |
+| `.chezmoiignore`, `.chezmoidata.<format>` or `.chezmoidata/`, `.chezmoitemplates/`, `.chezmoiversion` | Supported | They shape the dotfiles' pass alone. |
+| `.chezmoiroot` | Supported at the top of the dotfiles | The folder it names must lie inside the dotfiles; a `.chezmoiroot` below the top is refused. |
+| `.chezmoi.<format>.tmpl` | Ignored | Only `chezmoi init` reads it, and Shaffy OS writes the pass's configuration. A repository shared with other machines can keep it. |
+| `run_` scripts and `.chezmoiscripts/` | Refused | A script can change any file without the apply copying it first. Declare packages in `packages.extra` and tools in `overrides.mise`. |
+| `encrypted_` files | Refused | Secrets stay outside the supplement, and decrypting needs an identity the apply does not have. |
+| `.chezmoiexternal.<format>` and `.chezmoiexternals/` | Refused | Their download at apply time is not captured, and their targets are unknown until it runs. Add the files to the dotfiles. |
+| `external_` folders | Refused | chezmoi reads their entries without prefixes, so this version cannot check them. Drop `external_`, and start a name that looks like a prefix with `literal_`. |
+| `.chezmoiremove` | Refused | It removes by pattern, which can reach targets Shaffy OS creates later. Name each file to remove with a `remove_` entry. |
+| Any other name that starts with `.chezmoi` | Refused | This version does not know what chezmoi does with it. |
+
+The refusals cover the whole tree, entries your `.chezmoiignore` skips
+included, and are read from the file names before chezmoi reads the tree, so a
+refused feature never runs and the answer does not depend on the machine. A
+repository shared with other machines that uses a refused feature anywhere
+needs a branch of its own for Shaffy OS.
+
+### Where the dotfiles may write
+
+The dotfiles may not create, change or remove anything Shaffy OS can manage
+under any settings, not only under yours, so a setting changed later never
+sets the two passes against each other. Shaffy OS claims:
+
+- every target of its public source, files it only writes once (`create_`)
+  and targets it has retired included, and the desktop key helper
+  `~/.local/bin/shaffy-desktop-key`;
+- the files the `overrides` fragments render into, whether you set them or
+  not, and the targets of your `assets`;
+- the targets of every integration in any state but `released`, as below;
+- its state folder `~/.local/state/shaffy/` and its cache `~/.cache/shaffy/`,
+  and plain chezmoi's configuration and source folders, `~/.config/chezmoi/`
+  and `~/.local/share/chezmoi/`, with everything they hold.
+
+Folders have rules of their own:
+
+- A folder that Shaffy OS's source names must be repeated with the same
+  `private_` and `readonly_` prefixes, or each apply would change its mode
+  back and forth: `~/.local` is `private_dot_local`, `~/.local/share` is
+  `private_dot_local/private_share`, and `~/.config` is a plain `dot_config`.
+  `check` names the prefixes a folder needs.
+- A folder that Shaffy OS only creates on the way to a file, such as
+  `~/Wallpapers` for an asset, accepts any mode.
+- Neither may be replaced by a file or a link, made `exact_`, or removed with
+  `remove_`.
+
+Each refusal names the target, its owner (`upstream` with the file in this
+repository, `overrides.NAME`, `assets` or `integration NAME`) and what to do
+instead.
+
+Drop-ins are the intended way to extend Shaffy OS's configuration: a file of
+your own in `~/.config/fish/conf.d/`, `~/.config/mise/conf.d/` or
+`~/.config/environment.d/` is read beside Shaffy OS's. Niri reads only the
+files `config.kdl` includes, so a Niri file in the dotfiles takes an `include`
+line in the `overrides.niri` fragment. The check compares paths alone: a file
+a program reads beside or before Shaffy OS's, such as `~/.gitconfig` beside
+`~/.config/git/config`, is allowed and is your choice.
+
+An integration in state `released` no longer claims its targets, as you have
+taken them over, so the dotfiles may manage them: after
+`integrations.ssh: released`, `~/.ssh/config` can come from the dotfiles.
+`~/.ssh` itself stays Shaffy OS's private folder, so the dotfiles name it
+`private_dot_ssh`. Set the integration to `managed` or `disabled` again and the
+refusal returns, naming the integration.
+
+### Templates
+
+The dotfiles' templates read Shaffy OS's effective settings as
+`.shaffy.settings`, the `settings` that `./bin/shaffy data` prints, for example
+`{{ .shaffy.settings.identity.email }}`. During an apply they come from the
+capture. The key `shaffy` is reserved: a `shaffy` key in your `.chezmoidata`
+is overridden. Data that a `.chezmoi.<format>.tmpl` would have prompted for
+comes from `.chezmoidata` or from the settings.
+
+The pass runs without a terminal (`--no-tty`), so a prompt is an error, and
+without any `SHAFFY_` variable. Before every apply, and in `check`, the
+templates also render in the sandbox, for a synthetic user on a synthetic host
+without network or session: a template that needs a password manager, the
+network or a session fails there. A branch on the host or the user renders its
+synthetic variant in the sandbox; the overlap check and the apply use this
+machine.
+
+### Check, diff and status
+
+The commands cover the dotfiles, and there is no other command:
+
+- `./bin/shaffy check` reports what the dotfiles use that this version
+  refuses and every overlap, renders both passes in the sandbox, and notes
+  leftovers of plain chezmoi.
+- `./bin/shaffy diff` shows Shaffy OS's diff, then the dotfiles' under a
+  header of its own; `diff PATH` goes to the pass that manages `PATH`.
+- `./bin/shaffy apply --home` also reports how many of the changed targets
+  were the dotfiles'.
+- `./bin/shaffy status` prints
+  `Dotfiles: dotfiles in the supplement; chezmoi state PATH`, or
+  `Dotfiles: none`, and then `Dotfiles drift`.
+
+### Removing files or the dotfiles
+
+- A file you drop from the dotfiles is no longer managed and stays in place,
+  as an asset does. In an `exact_` folder it is deleted, and the run's copies
+  keep it. To delete a file, name it with a `remove_` entry.
+- Without the `dotfiles` setting, the second pass no longer runs. Everything
+  it wrote stays in place, unmanaged and without drift, and its state file
+  stays unused until the setting returns. `status` says `Dotfiles: none` and
+  notes the state file that remains.
+- When the setting names another folder, targets the new folder lacks stay in
+  place by the same rule.
+- A dotfiles folder that disappears or empties while the setting remains fails
+  validation or the capture, as a missing fragment does.
+- When a Shaffy OS release starts to manage a target your dotfiles hold, the
+  next apply refuses and names it until the dotfiles drop it.
+- An unfinished operation finishes from its own capture, whatever the
+  supplement says by then.
+
+### Apply them only through Shaffy OS
+
+A plain `chezmoi apply` of the dotfiles folder is not supported. It bypasses
+the capture, the snapshots, the copies and the overlap check, and uses plain
+chezmoi's configuration and state, which Shaffy OS never reads. Shaffy OS
+cannot put its guards into your source, so nothing stops it: what it writes
+differently shows as `Dotfiles drift`, and the next apply writes the dotfiles'
+version back. Reading is fine:
+`chezmoi --source ~/Projects/my-supplement/dotfiles source-path PATH` names the
+source of a target, unless your ignore rules read `.shaffy.settings`, which
+plain chezmoi lacks.
+
 ## Binding
 
 An installation applies the supplement it is bound to. Bind once, from the
@@ -425,14 +650,14 @@ home was restored, `supplement attach --supplement PATH --adopt-system-record`
 
 ## What an apply captures
 
-Every apply freezes the supplement before it reads it. `config.yaml` and each
-file it names are copied into
+Every apply freezes the supplement before it reads it. `config.yaml`, each
+file it names and every file in the `dotfiles` folder are copied into
 `~/.local/state/shaffy/runs/<op>/capture/supplement/`, readable by the user
 only, under the paths `config.yaml` writes and with the content they resolve to;
 the capture's manifest records the SHA-256 of each file and a digest of the
-effective settings. Rendering, validation and, for a system apply, root's
-verified copy under `/var/lib/shaffy/ops/<op>/` read that capture, never the
-live supplement. Therefore:
+effective settings. Rendering, validation, the dotfiles' chezmoi pass and, for
+a system apply, root's verified copy under `/var/lib/shaffy/ops/<op>/` read
+that capture, never the live supplement. Therefore:
 
 - a supplement that changes while it is copied is refused, and an edit made
   during an apply waits for the next one;
@@ -502,4 +727,5 @@ and a personal need that no setting covers is a public change
   `./bin/shaffy supplement rebind --path NEW_PATH`.
 - A lost supplement is restored from its own remote. The capture of the last
   apply, `~/.local/state/shaffy/runs/<op>/capture/supplement/`, also holds
-  `config.yaml` and every file it named, but not the rest of the repository.
+  `config.yaml`, every file it named and the dotfiles' files, but not the rest
+  of the repository.

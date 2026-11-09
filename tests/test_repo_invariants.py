@@ -179,6 +179,23 @@ def heading_slugs(text):
     return slugs
 
 
+class SupplementWorkflowTests(unittest.TestCase):
+    """The workflow a supplement's CI calls runs the supplement's own code beside its tokens."""
+
+    def test_checkouts_keep_no_token_and_submodules_are_scanned_too(self):
+        import yaml
+
+        workflow = yaml.safe_load((ROOT / '.github/workflows/supplement.yml').read_text())
+        steps = workflow['jobs']['supplement']['steps']
+        checkouts = [step for step in steps if step.get('uses', '').startswith('actions/checkout@')]
+        self.assertEqual(len(checkouts), 2)
+        for step in checkouts:
+            self.assertIs(step['with'].get('persist-credentials'), False, step['with'])
+        scans = [step['run'] for step in steps if 'gitleaks git' in step.get('run', '')]
+        self.assertEqual(len(scans), 2)
+        self.assertIn('git submodule foreach --quiet --recursive', scans[1])
+
+
 @unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
 class TidinessTests(unittest.TestCase):
     @classmethod

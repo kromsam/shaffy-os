@@ -63,9 +63,10 @@ public defaults, even when they reflect its author's preferences.
   validated by `schema/supplement.schema.json`; native fragments named under
   `overrides` (Niri, Noctalia, Fish, Alacritty, mise, and the system's keyboard
   map); personal files under `assets`, each a target under `~/` mapped to a
-  file in the supplement, optionally `executable` or `private`; and the state
-  of each integration (`managed`, `disabled` or `released`). Commit them in the
-  supplement's own repository.
+  file in the supplement, optionally `executable` or `private`; a chezmoi
+  source of the person's own, the folder named as `dotfiles`, for files
+  Shaffy OS does not manage; and the state of each integration (`managed`,
+  `disabled` or `released`). Commit them in the supplement's own repository.
 - **Public defaults and mechanisms go here:** templates under `home/`,
   `defaults/config.yaml`, `defaults/integrations.yml`, the roles and the
   schema, each tested with synthetic values (`tests/fixtures/supplements/`).
@@ -82,8 +83,9 @@ the role that installs them; personal ones in the supplement's
 
 A file that is not managed yet is not an exception; it is the next thing to
 bring in. Write its source by hand from the live file, as a template under
-`home/` that reads its values from the settings, as a supplement override, or
-as a supplement asset, and replace every personal value with a setting.
+`home/` that reads its values from the settings, as a supplement override, as
+a supplement asset, or as a file in the supplement's dotfiles, and replace
+every personal value with a setting.
 
 Do not let chezmoi copy deployed files into `home/`. `chezmoi add` and
 `chezmoi re-add` write the rendered file, private values included, into public

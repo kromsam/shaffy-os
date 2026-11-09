@@ -50,6 +50,17 @@ def _stamps(references):
     return stamps
 
 
+def _stamped(shaffy):
+    """The paths a load rests on: the references, and the dotfiles folder as it resolves now.
+
+    A load only checks that folder, never reads its files, so its own stamp is enough.
+    """
+    folder = shaffy.get('dotfiles')
+    if not folder:
+        return shaffy['references']
+    return shaffy['references'] + [os.path.realpath(os.path.join(shaffy['selection']['path'], folder))]
+
+
 def _still_resolves(shaffy):
     """Every reference as config.yaml writes it still leads to the file the cache recorded."""
     root = shaffy['selection'].get('path')
@@ -83,7 +94,7 @@ def load_data(checkout, supplement=None, without=False, home=None, directory=Non
         cached = json.loads(entry.read_text())
         if (
             _still_resolves(cached['data']['shaffy'])
-            and _stamps(cached['data']['shaffy']['references']) == cached['stamps']
+            and _stamps(_stamped(cached['data']['shaffy'])) == cached['stamps']
         ):
             return cached['data']
     except OSError, ValueError, KeyError, TypeError:
@@ -97,7 +108,7 @@ def load_data(checkout, supplement=None, without=False, home=None, directory=Non
     data = load(checkout, supplement, without, home)
     # An input edited during the load would store new settings under the old key.
     if _digest(checkout, selection) == key:
-        _store(directory, entry, {'data': data, 'stamps': _stamps(data['shaffy']['references'])})
+        _store(directory, entry, {'data': data, 'stamps': _stamps(_stamped(data['shaffy']))})
     return data
 
 

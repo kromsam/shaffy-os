@@ -14,12 +14,13 @@ and recurring commands in [maintenance](MAINTENANCE.md).
 | Owner | Contents |
 | --- | --- |
 | This repository | Defaults (`defaults/config.yaml`), package groups (`defaults/packages/`), the integration catalogue (`defaults/integrations.yml`), the settings schema (`schema/supplement.schema.json`), a minimal example (`supplement.example/`), the chezmoi source (`home/`), the system plays (`site.yml`, `records.yml`, `roles/`), the wrapper, scripts and tests. |
-| A supplement | One person's values: `config.yaml`, the native fragments it names under `overrides` and the personal files it names under `assets`. |
-| The machine, outside both | Records, journals, the ownership ledger, operation runs and chezmoi's state under `~/.local/state/shaffy/`; root records and root copies under `/var/lib/shaffy/`; the loader cache; snapper snapshots; application data and credentials. |
+| A supplement | One person's values: `config.yaml`, the native fragments it names under `overrides`, the personal files it names under `assets` and the chezmoi source it names as `dotfiles`. |
+| The machine, outside both | Records, journals, the ownership ledger, operation runs and the state of both chezmoi passes under `~/.local/state/shaffy/`; root records and root copies under `/var/lib/shaffy/`; the loader cache; snapper snapshots; application data and credentials. |
 
 A supplement is a directory with a `config.yaml`, normally a private Git
 repository with its own history. The loader reads only `config.yaml` and the
-files it references, so the supplement may also hold notes or tools of its own.
+files it references, and an apply copies only those and the `dotfiles` folder,
+so the supplement may also hold notes or tools of its own.
 It is selected by path and remembered by a binding, not included as a
 submodule. Keep it beside the checkout, for example `~/Projects/shaffy-os` and
 `~/Projects/my-supplement`.
@@ -60,9 +61,11 @@ file does not follow it: the tracked `chezmoi.toml` names
    keeps the default, while `key: null` and `key: {}` are errors.
 5. Run the checks a schema cannot express. Every `overrides` and `assets`
    reference is relative, exists, and resolves inside the supplement after
-   links are followed. A system-scope fragment (`overrides.keyboard_hwdb`) is
-   read as text of at most 65,536 characters into the settings, so root never
-   reads the user's files. Package choices must agree with the groups: no
+   links are followed. `dotfiles` names a folder there, not the supplement
+   itself; the loader checks only the folder, never its files. A system-scope
+   fragment (`overrides.keyboard_hwdb`) is read as text of at most 65,536
+   characters into the settings, so root never reads the user's files. Package
+   choices must agree with the groups: no
    omitted `required` package, no `extra` package that a group already
    installs, and no `remove` of a package that is still installed or that
    Shaffy OS itself needs. Integration requests must name catalogued
@@ -73,7 +76,8 @@ file does not follow it: the tracked `chezmoi.toml` names
 That object holds `selection` (mode, path, source and `supplement_id`),
 `settings` (the effective values), `overrides` (absolute paths of the
 fragments), `assets` (target, path, SHA-256 and the `executable` and
-`private` attributes), `system_overrides`, `packages` (`groups` and `aur`
+`private` attributes), `dotfiles` (the folder as `config.yaml` names it, or
+null), `system_overrides`, `packages` (`groups` and `aur`
 hold each group's repository and AUR selections after omissions, alongside
 `extra` and `remove`) and `integrations` (each catalogued
 integration with its requested state, scope, targets and activation records).
@@ -103,7 +107,8 @@ from a cache:
 - Referenced files are stamped rather than hashed: size, modification time,
   inode and change time. An entry also checks that every reference, as
   `config.yaml` writes it, still resolves to the same file, so retargeting a
-  link misses the cache.
+  link misses the cache. The `dotfiles` folder is stamped too, as the load
+  only checks that it exists.
 - A hit imports only the standard library, never PyYAML or jsonschema.
   `./bin/shaffy selftest` checks this with `python3 -X importtime`, and, unless
   run with `--skip-host` as CI runs it, that the fastest of nine runs stays
@@ -217,14 +222,22 @@ wrapper creates `~/.local/state/shaffy/runs/<op>/capture/` with:
 - `supplement/`: the supplement's `config.yaml` and every file it references,
   stored under the path `config.yaml` names and with the content that path
   resolves to, so a reference through a link reads the same from the capture;
+  and every file of the `dotfiles` folder under `supplement/<dotfiles>/`
+  (`capture.tree()`), except `.git`. A link there is taken as the content of
+  the regular file it leads to inside the supplement; any other link or special
+  file is refused. So is a folder without files, most often a Git submodule
+  nobody initialised (the message names `git submodule update --init`), and a
+  tree of more than 10,000 files or 64 MiB, as every capture copies it and the
+  newest ten runs are kept;
 - `settings.json`: the loader's output for the capture, which a system
   operation's root steps verify and its roles read;
 - `manifest.json`: the SHA-256 of each of those files, the digest of the
   effective settings and the `supplement_id`.
 
-The wrapper hashes the supplement's files before copying them, then hashes the
-originals and the copies again; any difference refuses the capture, so a
-supplement edited during the capture is never half copied. A failed capture is
+The wrapper hashes the supplement's files before copying them, then lists the
+dotfiles' files and hashes the originals and the copies again; any difference
+refuses the capture, so a supplement edited during the capture is never half
+copied. A failed capture is
 removed, so no private copy is left without a record. `--resume` and root's copy
 recompute the digests and refuse a capture that no longer matches its manifest
 or holds files the manifest does not list.
@@ -242,7 +255,9 @@ then. A revision plus a dirty flag is not a recoverable copy of uncommitted
 work; the retained capture is.
 
 Captures and copies live only in the private run directory, `runs/<op>/`, and
-failure output goes to the journal. The wrapper never writes under the
+failure output goes to the journal. The dotfiles' generated chezmoi
+configuration sits there too, in `runs/<op>/dotfiles/`, outside the capture,
+so the manifest check never sees it. The wrapper never writes under the
 checkout on its own: `./bin/shaffy selftest` creates the untracked
 `artifacts/` directory some tests need, where ruff also keeps its cache, and
 `./bin/shaffy lint --fix` and the agents' edit hook rewrite the source files
@@ -268,26 +283,34 @@ they are given, as STYLE.md asks.
      capture, so a change to the checkout's defaults, schema or loader refuses;
    - the integrations agree with the [ownership ledger](#ownership-ledger);
    - no asset would replace a folder or be written through a link;
+   - the [dotfiles](#dotfiles), when the settings name them, use nothing this
+     version refuses and manage nothing Shaffy OS can manage;
    - the desktop key helper (`shaffy-desktop-key`) builds, into
      `$XDG_CACHE_HOME/shaffy/build/`, never under the checkout;
-   - a [sandbox render](#the-render-sandbox-and-check) of the capture validates
-     and converges;
-   - `chezmoi status` succeeds under the marker, and lists what will change;
+   - a [sandbox render](#the-render-sandbox-and-check) of the capture, both
+     passes, validates and converges;
+   - `chezmoi status` succeeds for each pass, Shaffy OS's under the marker, and
+     lists what will change. The passes are disjoint, so the two lists, taken
+     before either pass writes, are what the apply changes;
    - the checkout's source manifest is unchanged since step 3.
 
    A failure journals `phase-not-started`, clears `pending`, removes the run
    directory and changes nothing.
 5. Take the snapper `pre` snapshot of `/home`. Copy into
-   `~/.local/state/shaffy/runs/<op>/before/` every existing file chezmoi will
-   change and every directory it will delete, except Shaffy OS's own state
+   `~/.local/state/shaffy/runs/<op>/before/` every existing file either pass
+   will change and every directory it will delete, except Shaffy OS's own state
    directory, plus the links and autostart entries a disabled integration will
-   lose. Journal `phase-start` with the snapshot number and the copies' path.
+   lose. Journal `phase-start` with the snapshot number, the copies' path, the
+   number of changing targets and `passes`, the passes in order
+   (`["shaffy", "dotfiles"]`, or `["shaffy"]` without dotfiles).
 6. When integrations change state, write their intent to the ledger and journal
-   `ledger-intent`. Then run `chezmoi apply --force` under the marker.
-7. Run `chezmoi verify` under the marker, install the desktop key helper if it
+   `ledger-intent`. Then run `chezmoi apply --force` under the marker, and then
+   the dotfiles' pass.
+7. Run `chezmoi verify` for each pass, install the desktop key helper if it
    differs, and validate the real home with `niri validate`,
    `noctalia config validate` and a parse of every Alacritty TOML file. A
-   failure journals `phase-failed` and leaves the operation unfinished.
+   failure journals `phase-failed`, with `chezmoi_pass: "dotfiles"` when the
+   dotfiles' pass failed, and leaves the operation unfinished.
 8. Finish the ledger transitions and journal `ledger-done`.
 9. Take the `post` snapshot, paired with the `pre` one.
 10. Recompute the source manifest. If the checkout changed while the phase
@@ -295,22 +318,166 @@ they are given, as STYLE.md asks.
     `--resume` completes it with the checkout as it is then.
 11. Journal `phase-done`, set `last_completed_op`, clear `pending` and prune old
     runs.
-12. Report the snapshot pair and the copies. Then, without failing the apply,
+12. Report the snapshot pair, the copies and how many of the changed targets
+    were the dotfiles'. Then, without failing the apply,
     start the units of newly managed integrations when a user session bus is
     available (otherwise they start at the next login), and, in a running Niri
     session, have Noctalia reload its configuration and templates and check
     Niri's configuration again.
 
-If chezmoi times out on its own state lock in step 6, it has written nothing.
-The operation journals `phase-not-started`, withdraws the ledger intent, clears
-`pending`, removes the run directory and reports that another chezmoi command is
-running. During `--resume` the same timeout journals `resume-refused` and keeps
-the operation for another attempt. Any other chezmoi failure journals
-`phase-failed` and leaves the operation for `--resume`.
+If Shaffy OS's pass times out on chezmoi's state lock in step 6, it has written
+nothing. The operation journals `phase-not-started`, withdraws the ledger
+intent, clears `pending`, removes the run directory and reports that another
+chezmoi command is running. During `--resume` the same timeout journals
+`resume-refused` and keeps the operation for another attempt. Any other chezmoi
+failure, a timeout of the dotfiles' pass included, as Shaffy OS's has written
+by then, journals `phase-failed` and leaves the operation for `--resume`.
 
 A completed home apply removes the run directories of completed home
 operations beyond the newest ten. It never removes the run of an unfinished or
 abandoned operation.
+
+## Dotfiles
+
+A supplement may name a chezmoi source of the person's own, a folder inside it,
+as `dotfiles` ([bring your own dotfiles](SUPPLEMENT.md#bring-your-own-dotfiles)).
+The home apply applies it as a second chezmoi pass after Shaffy OS's own,
+within the same `home` phase: one capture, one snapshot pair, copies of what
+either pass changes, one journal, and resume and abandon as before.
+`lib/shaffy/dotfiles.py` gives both passes one shape, `Pass`: chezmoi with its
+configuration and source, and the whole environment it runs with. Each step of
+the protocol loops over the passes. Shaffy OS's goes first, because the modes
+of the folders both use are Shaffy OS's.
+
+### Isolation
+
+The dotfiles' pass runs as
+`chezmoi --config runs/<op>/dotfiles/chezmoi.json --config-format json --source <capture>/supplement/<dotfiles> --no-tty`.
+Its configuration is written whole, with mode 0600 as it holds the settings:
+
+- `persistentState` is `dotfiles.boltdb` in the wrapper's state folder, which
+  follows `$XDG_STATE_HOME`, so the copies skip it and its lock never contends
+  with Shaffy OS's pass or with plain chezmoi;
+- `cacheDir` is `$XDG_CACHE_HOME/shaffy/dotfiles`, not the `~/.cache/chezmoi`
+  that every other chezmoi shares;
+- `mode` is `file`, so chezmoi never links a target into a capture that is
+  pruned later;
+- `data` is `{"shaffy": {"settings": …}}`, the effective settings, which wins
+  over a `shaffy` key in the person's `.chezmoidata`;
+- chezmoi's warning about a changed configuration template is off, as only
+  `chezmoi init` reads a `.chezmoi.<format>.tmpl`.
+
+The person's `~/.config/chezmoi` is never read. The pass's environment is the
+wrapper's without any `SHAFFY_` variable, so its templates never see the
+operation marker, and `--no-tty` turns a prompt into an error rather than a
+wait. Every chezmoi command on the dotfiles reads a capture: `prepare()`
+refuses settings that come with no capture manifest. The source is always the
+dotfiles folder itself, so chezmoi resolves a `.chezmoiroot` there once; the
+folder it names must lie inside the dotfiles, and a `.chezmoiroot` anywhere
+below the top is refused.
+
+### Scope
+
+`refusals()` reads the captured file names, in chezmoi's prefix order, before
+any chezmoi command reads the tree, so a refused feature never runs: no
+download, no decryption, no script. The whole tree counts, entries that
+`.chezmoiignore` skips included, so the answer does not depend on the machine
+that evaluates the ignore rules. It refuses `run_` scripts and
+`.chezmoiscripts/`, `encrypted_` files, externals (`.chezmoiexternal*`,
+`.chezmoiexternals/` and `external_` folders) and `.chezmoiremove`. Of the
+names that start with `.chezmoi`, it knows `.chezmoiignore`, `.chezmoidata`,
+`.chezmoitemplates`, `.chezmoiroot`, `.chezmoiversion` and the
+`.chezmoi.<format>.tmpl` that only `chezmoi init` reads, and refuses any other;
+chezmoi ignores every other name that starts with a dot. `REFUSED` holds each
+reason, which the messages and
+[the supplement reference](SUPPLEMENT.md#what-this-version-supports) give.
+
+### Claims and the overlap rules
+
+`_claims()` derives everything Shaffy OS can manage in the home under any
+settings, from the checkout and the settings, with no list kept by hand:
+
+- every entry of `home/` that chezmoi reads as a target, mapped by one
+  `chezmoi target-path` call that evaluates no template. A folder carries the
+  `private_` and `readonly_` attributes of its source name, an `exact_` folder
+  owns everything it holds, and a template that reads
+  `.shaffy.overrides.NAME` is owned by that fragment;
+- every integration's targets from the catalogue, literals as paths and globs
+  such as `.ssh/**` as patterns, except those of an integration the settings
+  release: the person has taken them over, so they yield, `home/` entries
+  included;
+- each line of `home/.chezmoiremove`, the desktop key helper's target and the
+  assets' targets;
+- Shaffy OS's state folder, the folder of its chezmoi state (from the tracked
+  `chezmoi.toml`) and its cache, and plain chezmoi's configuration and source
+  folders, each with everything it holds;
+- every folder on the way to any of these, as a folder whose mode Shaffy OS
+  does not set, unless it is claimed already.
+
+The dotfiles' side is what chezmoi would apply on this machine:
+`chezmoi managed --include dirs,files,symlinks,remove --format json --path-style all`
+of the captured tree, run with the pass's own configuration in this machine's
+environment, so the person's ignore rules decide as they will at apply time.
+An entry without a source of its own, a file that an `exact_` folder prunes, is
+left out; its folder's entry stands for it. `_conflicts()` then refuses:
+
+1. an entry at a claimed file;
+2. at a claimed folder, an entry that is not a folder, is `exact_`, or lacks
+   the folder's `private_` and `readonly_` attributes where Shaffy OS sets
+   them;
+3. an entry strictly below a claimed pattern;
+4. a `remove_` entry at a claimed target or above one.
+
+Each message names the target, its owner (`upstream` with its source,
+`overrides.NAME`, `assets` or `integration NAME`) and what to do instead.
+`prepare()` runs in the preflight of every start and resume, before the
+sandbox render, and `check` runs it too. The rules compare paths only: a file
+that shadows or adds to a Shaffy OS file in another program's lookup order,
+such as `~/.gitconfig`, is the person's choice.
+
+### Two rounds in the render
+
+The render applies both passes into one synthetic home, Shaffy OS's and then
+the dotfiles', and then both again. A second round in which either still
+changes something is a fight between them, or a source that never settles
+such as a `modify_` entry that is not idempotent, and fails the render. That is
+the backstop for what the rules above do not foresee. The render does no
+overlap check of its own, because the synthetic host would evaluate the
+person's ignore rules differently from this machine. Inside the sandbox,
+`sandbox_pass()` walks the mounted capture, whose manifest lies outside, and
+repeats the name scan; the preflight reports each refusal once. A link in the
+home that leads into the captured source is refused, because a later apply
+prunes that capture.
+
+The programs' own checks (Niri, Noctalia, Fish, tmux and Alacritty) see the
+combined home, as the programs read the dotfiles' drop-ins too. The generic
+parse of every TOML, JSON and YAML file skips the dotfiles' targets, which may
+be JSONC, say, or YAML that those parsers reject and their programs accept.
+
+### Crashes and resume
+
+Resume reruns the whole phase from the capture, both passes included. Both
+applies are idempotent, so resume needs no knowledge of the passes. The tests
+crash an apply between the passes and after the dotfiles' pass (fault points
+`between-passes` and `after-dotfiles`):
+
+| Crash or failure | On disk | `--resume` |
+| --- | --- | --- |
+| Before `phase-start` | Nothing written. | Clears it: nothing had been written. |
+| In Shaffy OS's pass | Some of its targets. | Reruns both passes, with copies in `before-resume-N/`. |
+| Between the passes | Shaffy OS's targets. | Shaffy OS's pass changes nothing, and the dotfiles apply. |
+| In the dotfiles' pass | Shaffy OS's targets and some of the dotfiles'. | Shaffy OS's pass changes nothing, and the dotfiles' pass finishes. |
+| After the dotfiles' pass | Both passes' targets, not verified. | Both rerun and change nothing; verify runs. |
+| The dotfiles' pass fails | `phase-failed` with `chezmoi_pass: "dotfiles"`. | As above, or `--abandon`, which deletes nothing. |
+
+### One way to change the home
+
+The dotfiles carry no guard: Shaffy OS cannot put its guard template into a
+person's source without editing it. The one way rests on four things instead.
+The dotfiles do not live at chezmoi's default source, no default configuration
+applies them, and the claims keep them from creating one. `check` notes a
+leftover `~/.config/chezmoi/chezmoi.*` or `~/.local/share/chezmoi`, and
+`status` shows what a plain `chezmoi apply` changed as `Dotfiles drift`.
 
 ## The system apply
 
@@ -434,7 +601,10 @@ any disagreement, each integration in the ledger and, when nothing is
 unfinished, what the next apply would refuse, change or defer for the
 integrations. It also reports chezmoi's state file, the five latest journal
 events, unreadable journal lines and the home's drift (`chezmoi status`,
-skipped with `--no-drift`). It names the command for each situation:
+skipped with `--no-drift`). For the [dotfiles](#dotfiles) it prints their
+folder and state file, or `Dotfiles: none`, then their drift, and notes a
+dotfiles state file that remains after the setting is gone. It names the
+command for each situation:
 
 | Situation | Meaning | Action |
 | --- | --- | --- |
@@ -466,7 +636,11 @@ PRE..0` compares it with the current home) and the copies before applying again.
   operations across accounts.
 - **chezmoi's state lock** serialises chezmoi commands on one state file. The
   preflight's `chezmoi status` takes only a shared lock, so a concurrent chezmoi
-  command shows up at the apply step, as described above.
+  command shows up at the apply step, as described above. The dotfiles' pass
+  has a state file of its own, `dotfiles.boltdb`, so its lock never contends
+  with Shaffy OS's pass or with plain chezmoi; a command holding it makes the
+  preflight refuse, or, once Shaffy OS's pass has written, the apply journal
+  `phase-failed` with `chezmoi_pass: "dotfiles"`.
 
 ## Guards against direct changes
 
@@ -527,6 +701,8 @@ What stays unguarded:
   and `forget`, are not refused. They change the public checkout
   ([AGENTS.md](../AGENTS.md#bringing-a-file-under-management) says why a
   deployed file never goes back into `home/`).
+- The supplement's dotfiles carry no guard, so a plain `chezmoi apply` of that
+  folder is not refused, only unsupported ([Dotfiles](#dotfiles)).
 - The guards prevent accidents. They are not a security boundary against
   someone who controls the account and the source.
 
@@ -627,6 +803,13 @@ and changes nothing else.
   untouched.
 - Framework-owned files are retired through `home/.chezmoiremove`, never
   directories that hold user data.
+- A file that leaves the dotfiles stays in place, unmanaged; in an `exact_`
+  folder of theirs it is deleted, after the run has copied it. Without the
+  `dotfiles` setting the second pass no longer runs: what it wrote stays in
+  place without drift, and its state file stays unused until the setting
+  returns. A Shaffy OS release that starts to manage a target the dotfiles hold
+  refuses the next apply, or a resume after `source-changed`, until the
+  dotfiles drop it.
 - Databases, credentials and personal folders are never deleted by an apply.
 
 ## The render sandbox and check
@@ -641,6 +824,10 @@ and changes nothing else.
 - the selected settings load and validate;
 - assets have no conflict in the real home, the desktop key's build tools are
   installed, and a missing Git signing key is noted;
+- the dotfiles use nothing this version refuses and manage nothing Shaffy OS
+  can manage on this machine, and a leftover of plain chezmoi
+  (`~/.config/chezmoi/chezmoi.*` or `~/.local/share/chezmoi`) is noted as a
+  second way to change the home;
 - a capture of the selection, taken as an apply would take it, renders in the
   sandbox;
 - Noctalia keys that a managed fragment sets and a runtime file overrides are
@@ -658,12 +845,15 @@ directories; `/dev` and `/proc` are the sandbox's own; every namespace is
 unshared, the network included; the environment is cleared and `PATH` pinned;
 and the user is a synthetic `tester` (UID 4242) on `synthetic-host`. The
 supplement is mounted read-only, and chezmoi uses a configuration and a state
-file of its own, without hooks. Inside, chezmoi applies the source twice, and
-the second apply must change nothing. Then `chezmoi verify` must pass, every
-asset's target must exist, and the rendered home must pass `niri validate`,
-`noctalia config validate` (where only warnings about plugins, which Noctalia
-fetches at runtime, are allowed), `fish --no-execute` for every Fish file, the
-tmux configuration check, and a parse of every TOML, JSON and YAML file.
+file of its own, without hooks, as does the dotfiles' pass. Inside, chezmoi
+applies Shaffy OS's source and then the dotfiles, twice, and the second round
+must change nothing for either ([two rounds](#two-rounds-in-the-render)). Then
+`chezmoi verify` must pass for each, every asset's target must exist, no link
+may lead into the captured source, and the rendered home must pass
+`niri validate`, `noctalia config validate` (where only warnings about plugins,
+which Noctalia fetches at runtime, are allowed), `fish --no-execute` for every
+Fish file, the tmux configuration check, a parse of every Alacritty TOML file,
+and a parse of every other TOML, JSON and YAML file except the dotfiles'.
 
 A passing check proves that the settings produce a valid, convergent home for a
 synthetic user. Beyond the conflict checks above, it does not compare the real

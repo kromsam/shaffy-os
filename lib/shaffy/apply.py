@@ -1,10 +1,11 @@
 """Apply the home through its operation protocol (docs/ARCHITECTURE.md, "The home apply").
 
 lock -> capture -> pending -> preflight (settings digest, the integrations
-against the ledger, links, desktop key build, sandbox render of the capture,
-chezmoi status) -> snapper pre snapshot and copies of changing targets ->
-phase-start -> ledger intent -> chezmoi apply with the operation marker ->
-verify -> desktop key install -> Niri, Noctalia and Alacritty validation of the
+against the ledger, links, the dotfiles' refusals and overlap, desktop key build,
+sandbox render of the capture, chezmoi status of each pass) -> snapper pre
+snapshot and copies of changing targets -> phase-start -> ledger intent ->
+chezmoi apply with the operation marker, then the dotfiles' pass -> verify of
+each -> desktop key install -> Niri, Noctalia and Alacritty validation of the
 real home -> ledger transitions -> post snapshot -> source check -> phase-done
 -> complete -> reload the running Noctalia session.
 
@@ -24,6 +25,7 @@ import subprocess
 
 from . import desktop_key, ledger
 from .capture import CaptureError, capture, settings_digest, verify
+from .dotfiles import Pass, prepare
 from .folders import asset_conflicts
 from .identity import signing_note
 from .loader import SettingsError, load
@@ -119,6 +121,11 @@ def adapter(state):
     return FakeSnapper(state) if os.environ.get('SHAFFY_TEST_PREREQUISITES') == 'fake' else Snapper()
 
 
+def _failed(chezmoi):
+    """What phase-failed adds to name the pass that failed: nothing for Shaffy OS's own."""
+    return {'chezmoi_pass': chezmoi.name} if chezmoi.name != 'shaffy' else {}
+
+
 def _fault(point, prerequisites):
     """Crash on purpose at a named point; only ever honoured with the test adapter."""
     if prerequisites.name == 'fake' and os.environ.get('SHAFFY_TEST_FAULT') == point:
@@ -139,13 +146,13 @@ class HomeApply:
         self.note = None  # a warning to repeat after the apply, set by the preflight
         self.deferred = {}  # integrations waiting for their activate_requires, set by the preflight
         self.units_changed = False  # whether the write changes user unit files, set before it
+        self.passes = []  # Shaffy OS's chezmoi pass, then the dotfiles' one; set by the preflight
+        self.counts = {}  # how many targets each pass changes, by its name; set by the preflight
 
     # -- helpers -----------------------------------------------------------
-    def _chezmoi(self, *arguments, marker=None):
+    def _shaffy_pass(self, pending):
         env = {k: v for k, v in os.environ.items() if not k.startswith('SHAFFY_OP') and k != 'SHAFFY_SANDBOX_TOKEN'}
-        if marker:
-            env.update(marker)
-        return subprocess.run(self.chezmoi_command(*arguments), capture_output=True, text=True, env=env, check=False)
+        return Pass('shaffy', tuple(self.chezmoi_command()), {**env, **self._marker(pending)})
 
     def _marker(self, pending):
         # Deferred integrations render as not managed in this operation (ledger.plan).
@@ -187,6 +194,8 @@ class HomeApply:
         pending['deferred'] = sorted(deferred)
         self.deferred = deferred
         problems += asset_conflicts(shaffy['assets'], Path.home())
+        dotfiles, refused = prepare(self.checkout, shaffy)
+        problems += refused
         self.note = signing_note(settings, Path.home())
         missing = desktop_key.problems()
         problems += missing
@@ -196,33 +205,41 @@ class HomeApply:
             except desktop_key.BuildError as error:
                 problems.append(str(error))
         try:
-            problems += render(
+            rendered = render(
                 self.checkout,
                 supplement=captured,
                 without=captured is None,
                 allow_direct=self.prerequisites.name == 'fake',
             )['problems']
+            # The render scans the same captured names, so it repeats what prepare() refused.
+            problems += [problem for problem in rendered if problem not in refused]
         except RenderError as error:
             problems.append(str(error))
         if problems:
             return problems
-        status = self._chezmoi('status', marker=self._marker(pending))
-        if status.returncode:
-            return [
-                'another chezmoi command is running'
-                if STATE_LOCK_TIMEOUT in status.stderr
-                else 'chezmoi status failed: ' + status.stderr.strip()[-800:]
-            ]
-        managed = self._chezmoi(
-            'managed', '--include', 'dirs', '--path-style', 'relative', marker=self._marker(pending)
-        )
-        if managed.returncode:
-            return ['chezmoi managed failed: ' + managed.stderr.strip()[-800:]]
-        self.managed_dirs = set(managed.stdout.splitlines())
+        # The passes are disjoint, so each one's status before either writes lists what it changes.
+        self.passes = [self._shaffy_pass(pending)] + ([dotfiles] if dotfiles else [])
+        changing, self.managed_dirs, self.counts = [], set(), {}
+        for chezmoi in self.passes:
+            of = ' for the dotfiles' if chezmoi.name == 'dotfiles' else ''
+            status = chezmoi.run('status')
+            if status.returncode:
+                return [
+                    f'another chezmoi command is running{of}'
+                    if STATE_LOCK_TIMEOUT in status.stderr
+                    else f'chezmoi status failed{of}: ' + status.stderr.strip()[-800:]
+                ]
+            managed = chezmoi.run('managed', '--include', 'dirs', '--path-style', 'relative')
+            if managed.returncode:
+                return [f'chezmoi managed failed{of}: ' + managed.stderr.strip()[-800:]]
+            self.managed_dirs |= set(managed.stdout.splitlines())
+            # chezmoi status: two status letters, a space, the target; the second letter is the change.
+            changes = [(line[1], line[3:]) for line in status.stdout.splitlines() if len(line) > 3]
+            self.counts[chezmoi.name] = len(changes)
+            changing += changes
         if source_manifest(self.checkout)['sha256'] != pending['source']['sha256']:
             return ['the checkout changed during the preflight; run the command again once it is settled']
-        # chezmoi status: two status letters, a space, the target; the second letter is the change.
-        pending['_changing'] = [(line[1], line[3:]) for line in status.stdout.splitlines() if len(line) > 3]
+        pending['_changing'] = changing
         if desktop_key.differs(self.key, Path.home()):
             pending['_changing'].append(('M', desktop_key.TARGET))
         # Removed activation is ignored by chezmoi, so include it in the operation copies.
@@ -316,7 +333,7 @@ class HomeApply:
                     'rebind --path to move the binding'
                 )
             selection = bound_supplement(binding)
-            manifest = capture(self.checkout, selection, self.state, op, load)
+            manifest = capture(self.checkout, selection, self.state, op, load, dotfiles=True)
             if manifest['supplement_id'] != binding['supplement_id']:
                 shutil.rmtree(Path(self.state) / 'runs' / op, ignore_errors=True)
                 raise ApplyError(
@@ -361,7 +378,13 @@ class HomeApply:
             pre = self.prerequisites.snapshot('pre', f'shaffy {op} home')
             copies = self._copy_before(op, changing, 'before')
             self.records.append(
-                op, 'phase-start', phase='home', pre_snapshot=pre, copies=str(copies), changing=len(changing)
+                op,
+                'phase-start',
+                phase='home',
+                pre_snapshot=pre,
+                copies=str(copies),
+                changing=len(changing),
+                passes=[chezmoi.name for chezmoi in self.passes],
             )
             _fault('after-phase-start', self.prerequisites)
             return self._write(record, pre, copies, len(changing), transitions, resumed=False)
@@ -426,7 +449,14 @@ class HomeApply:
             attempt = sum(1 for e in events if e == 'resume-start') + 1
             pre = self.prerequisites.snapshot('pre', f'shaffy {op} home resume {attempt}')
             copies = self._copy_before(op, changing, f'before-resume-{attempt}')
-            self.records.append(op, 'resume-start', pre_snapshot=pre, copies=str(copies), changing=len(changing))
+            self.records.append(
+                op,
+                'resume-start',
+                pre_snapshot=pre,
+                copies=str(copies),
+                changing=len(changing),
+                passes=[chezmoi.name for chezmoi in self.passes],
+            )
             return self._write(record, pre, copies, len(changing), transitions, resumed=True)
 
     def abandon(self):
@@ -481,8 +511,28 @@ class HomeApply:
             self.records.append(
                 op, 'ledger-intent', transitions=[{'integration': t['name'], 'to': t['to']} for t in transitions]
             )
-        applied = self._chezmoi('apply', '--force', marker=self._marker(pending))
-        if applied.returncode and STATE_LOCK_TIMEOUT in applied.stderr:
+        for chezmoi in self.passes:
+            self._apply(chezmoi, record, pre, copies, before, resumed)
+        _fault('after-chezmoi', self.prerequisites)
+        for chezmoi in self.passes:
+            checked = chezmoi.run('verify')
+            if checked.returncode:
+                self.records.append(
+                    op, 'phase-failed', stderr='chezmoi verify: ' + checked.stderr[-1000:], **_failed(chezmoi)
+                )
+                raise ApplyError(
+                    f'the home does not match the settings after applying; operation {op} '
+                    'stays unfinished; run ./bin/shaffy apply --resume'
+                )
+        if desktop_key.differs(self.key, Path.home()):
+            desktop_key.install(self.key, Path.home())
+        return self._finish(record, pre, copies, changing)
+
+    def _apply(self, chezmoi, record, pre, copies, before, resumed):
+        """Apply one pass; the first may find chezmoi's state taken before anything was written."""
+        op = record['pending']['op']
+        applied = chezmoi.run('apply', '--force')
+        if applied.returncode and STATE_LOCK_TIMEOUT in applied.stderr and chezmoi is self.passes[0]:
             # chezmoi takes its state lock before it writes anything, so this attempt wrote nothing.
             if resumed:
                 self.records.append(
@@ -507,23 +557,23 @@ class HomeApply:
                 'Run ./bin/shaffy apply again when it has finished.'
             )
         if applied.returncode:
-            self.records.append(op, 'phase-failed', stderr=applied.stderr.strip()[-2000:])
+            self.records.append(op, 'phase-failed', stderr=applied.stderr.strip()[-2000:], **_failed(chezmoi))
+            of = ' for the dotfiles' if chezmoi.name == 'dotfiles' else ''
             raise ApplyError(
-                f'chezmoi apply failed; operation {op} stays unfinished.\n'
+                f'chezmoi apply failed{of}; operation {op} stays unfinished.\n'
                 f'  Copies: {copies}; snapper pre snapshot {pre}.\n'
                 f'  {applied.stderr.strip()[-1500:]}\n'
                 '  Fix the cause, then run ./bin/shaffy apply --resume (or --abandon).'
             )
-        _fault('after-chezmoi', self.prerequisites)
-        checked = self._chezmoi('verify', marker=self._marker(pending))
-        if checked.returncode:
-            self.records.append(op, 'phase-failed', stderr='chezmoi verify: ' + checked.stderr[-1000:])
-            raise ApplyError(
-                f'the home does not match the settings after applying; operation {op} '
-                'stays unfinished; run ./bin/shaffy apply --resume'
-            )
-        if desktop_key.differs(self.key, Path.home()):
-            desktop_key.install(self.key, Path.home())
+        if chezmoi.name == 'dotfiles':
+            _fault('after-dotfiles', self.prerequisites)
+        elif len(self.passes) > 1:
+            _fault('between-passes', self.prerequisites)
+
+    def _finish(self, record, pre, copies, changing):
+        """Validate the applied home, settle the ledger and record the operation as done."""
+        op = record['pending']['op']
+        pending = record['pending']
         problems = validate_applied(Path.home())
         if problems:
             self.records.append(op, 'phase-failed', problems=problems)
@@ -559,6 +609,8 @@ class HomeApply:
             f'Applied the home ({changing} target(s) changed) as operation {op}; '
             f'snapshots {pre} and {post}; copies in {copies}.'
         )
+        if 'dotfiles' in self.counts:
+            self.out(f'The dotfiles changed {self.counts["dotfiles"]} of them.')
         if self.note:
             self.out(f'Note: {self.note}')
         for name, to in settled:

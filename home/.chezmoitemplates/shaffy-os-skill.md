@@ -15,15 +15,21 @@ personal values. Change the source, then apply. Editing the live file looks
 right until the next apply restores the source.
 
 1. Is the file managed? In the checkout, `./bin/shaffy status` names the
-   supplement, and
+   supplement and its dotfiles folder, and
    `chezmoi --config chezmoi.toml --source home managed --include files`
-   lists the home's managed files. A file that is not listed is the user's own
+   lists the home's managed files. A file that is not listed may come from the
+   supplement's dotfiles, the person's own chezmoi source:
+   `chezmoi --source <supplement>/<dotfiles> source-path PATH` names its source
+   there and changes nothing. If that fails on `.shaffy.settings`, which plain
+   chezmoi lacks, look for the source by name (`dot_` for a leading dot). Change
+   such a file in the dotfiles, then apply through `./bin/shaffy`; never apply
+   the dotfiles with chezmoi. A file neither source manages is the user's own
    to edit. For a path under `/etc`, search the checkout's roles
    (`grep -rn PATH roles/`): a file or line a role manages changes through it.
 2. Personal or public? A value that identifies a person, a machine or an
    account, or adapts the desktop to this installation, belongs in the
-   supplement: its `config.yaml`, its native `overrides` or its `assets`. A
-   change to the product's defaults belongs in the checkout. Read
+   supplement: its `config.yaml`, its native `overrides`, its `assets` or its
+   `dotfiles`. A change to the product's defaults belongs in the checkout. Read
    `{{ $checkout }}/AGENTS.md` before changing either; the
    `shaffy-change-review` skill checks a change against it. In the checkout,
    `./bin/shaffy check` validates the supplement and

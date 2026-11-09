@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import statistics
 import subprocess
 import sys
@@ -314,6 +315,76 @@ class ReferenceTests(LoaderCase):
             with self.subTest(reference=reference), self.assertRaises(SettingsError) as caught:
                 check_reference(root, reference, 'overrides.niri')
             self.assertIn(reason, str(caught.exception))
+
+
+class DotfilesTests(LoaderCase):
+    def dotfiles(self, reference):
+        return self.supplement(f'schema_version: 1\nsupplement_id: t\ndotfiles: {json.dumps(reference)}\n')
+
+    def test_a_folder_in_the_supplement_is_named_apart_from_the_settings(self):
+        path = self.dotfiles('dots/')
+        (path / 'dots').mkdir()
+        data = self.load(supplement=path)['shaffy']
+        self.assertEqual(data['dotfiles'], 'dots')
+        self.assertNotIn('dotfiles', data['settings'])
+        self.assertEqual(data['references'], [])  # references are files, which a root copy reads
+        self.assertIsNone(self.load(supplement=ROOT / 'supplement.example')['shaffy']['dotfiles'])
+
+    def test_a_folder_through_a_link_inside_the_supplement_is_accepted(self):
+        path = self.dotfiles('dots')
+        (path / 'repos/dots').mkdir(parents=True)
+        (path / 'dots').symlink_to('repos/dots')
+        self.assertEqual(self.load(supplement=path)['shaffy']['dotfiles'], 'dots')
+
+    def test_anything_but_a_folder_inside_the_supplement_is_refused(self):
+        (self.tmp / 'outside').mkdir()
+        for reference, prepare, reason in (
+            (
+                'dots',
+                lambda path: (path / 'dots').write_text('x'),
+                "'dots' does not exist in the supplement as a folder",
+            ),
+            ('dots', lambda path: None, "'dots' does not exist in the supplement as a folder"),
+            ('.', lambda path: None, "'.' is the supplement itself"),
+            ('self', lambda path: (path / 'self').symlink_to('.'), "'self' is the supplement itself"),
+            ('escape', lambda path: (path / 'escape').symlink_to(self.tmp / 'outside'), 'resolves outside'),
+            (str(self.tmp / 'outside'), lambda path: None, 'dotfiles'),
+            ('../outside', lambda path: None, 'dotfiles'),
+        ):
+            with self.subTest(reference=reference, reason=reason):
+                path = self.dotfiles(reference)
+                prepare(path)
+                with self.assertRaises(SettingsError) as caught:
+                    self.load(supplement=path)
+                self.assertIn('dotfiles', str(caught.exception))
+                self.assertIn(reason, str(caught.exception))
+
+    def test_public_defaults_cannot_name_dotfiles(self):
+        checkout = self.tmp / 'checkout'
+        for folder in ('defaults', 'schema'):
+            shutil.copytree(ROOT / folder, checkout / folder)
+        with open(checkout / 'defaults/config.yaml', 'a') as stream:
+            stream.write('dotfiles: dots\n')
+        with self.assertRaises(SettingsError) as caught:
+            load(checkout, without=True, home=self.home)
+        self.assertIn("unknown key 'dotfiles'", str(caught.exception))
+
+    def test_a_removed_or_escaping_folder_misses_the_cache(self):
+        path = self.dotfiles('dots')
+        (path / 'real').mkdir()
+        (path / 'dots').symlink_to('real')
+        (self.tmp / 'outside').mkdir()
+        cache = self.tmp / 'cache'
+        self.assertEqual(
+            load_data(ROOT, supplement=path, home=self.home, directory=cache)['shaffy']['dotfiles'], 'dots'
+        )
+        (path / 'dots').unlink()
+        (path / 'dots').symlink_to(self.tmp / 'outside')
+        with self.assertRaisesRegex(SettingsError, 'dotfiles'):
+            load_data(ROOT, supplement=path, home=self.home, directory=cache)
+        (path / 'dots').unlink()
+        with self.assertRaisesRegex(SettingsError, 'dotfiles'):
+            load_data(ROOT, supplement=path, home=self.home, directory=cache)
 
 
 class SelectionTests(LoaderCase):

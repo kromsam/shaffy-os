@@ -1,0 +1,3 @@
+email = "{{ .shaffy.settings.identity.email }}"
+greeting = "{{ template "example" . }}"
+shaffy_environment = "{{ env "SHAFFY_OP" }}{{ env "SHAFFY_OP_MODE" }}{{ env "SHAFFY_TEST_PREREQUISITES" }}"

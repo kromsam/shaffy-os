@@ -47,10 +47,10 @@ def validate_desktop(home):
     return problems
 
 
-def validate_applied(home):
-    """The real home after an apply: the desktop, and Alacritty with its generated imports."""
+def validate_alacritty(home):
+    """Every TOML file Alacritty imports from ~/.config/alacritty parses, the dotfiles' too."""
     home = Path(home)
-    problems = validate_desktop(home)
+    problems = []
     for path in sorted((home / '.config/alacritty').rglob('*.toml')):
         try:
             tomllib.loads(path.read_text())
@@ -59,10 +59,20 @@ def validate_applied(home):
     return problems
 
 
-def validate_home(home, checkout):
-    """A rendered home: the desktop, Fish, tmux and every TOML, JSON and YAML file."""
+def validate_applied(home):
+    """The real home after an apply: the desktop, and Alacritty with its generated imports."""
+    return validate_desktop(home) + validate_alacritty(home)
+
+
+def validate_home(home, checkout, foreign=frozenset()):
+    """A rendered home: the desktop, Alacritty, Fish, tmux and every TOML, JSON and YAML file.
+
+    The programs' own checks see the whole home, as the programs read the dotfiles' drop-ins too.
+    The generic parse skips FOREIGN, the dotfiles' targets: they may be JSONC, say, or YAML that
+    these parsers reject and their programs accept.
+    """
     home, checkout = Path(home), Path(checkout)
-    problems = validate_desktop(home)
+    problems = validate_desktop(home) + validate_alacritty(home)
     for script in sorted((home / '.config/fish').rglob('*.fish')):
         code, output = _run(['fish', '--no-execute', str(script)])
         if code:
@@ -73,8 +83,11 @@ def validate_home(home, checkout):
         if code:
             problems.append('tmux: ' + _tail(output))
     for path in sorted(home.rglob('*')):
-        if SKIP_DIRS & set(path.relative_to(home).parts) or not path.is_file() or path.is_symlink():
+        relative = path.relative_to(home)
+        if SKIP_DIRS & set(relative.parts) or not path.is_file() or path.is_symlink() or str(relative) in foreign:
             continue
+        if relative.parts[:2] == ('.config', 'alacritty'):
+            continue  # validate_alacritty has read it
         try:
             if path.suffix == '.toml':
                 tomllib.loads(path.read_text())

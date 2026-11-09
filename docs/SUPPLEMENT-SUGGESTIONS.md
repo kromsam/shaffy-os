@@ -1,9 +1,12 @@
 # Supplement suggestions
 
 The [settings](SUPPLEMENT.md#field-reference) cover what Shaffy OS knows about.
-A supplement can carry more: its own tools, files and fragments. These patterns
-come from supplements in daily use; adapt them to yours. If one would serve
-everyone, propose it upstream with the **Configuration** form
+A supplement can carry more: its own tools, files and fragments. Files you
+already keep in a chezmoi source can come along whole, as the supplement's
+`dotfiles`, rather than one asset each
+([bring your own dotfiles](SUPPLEMENT.md#bring-your-own-dotfiles)). These
+patterns come from supplements in daily use; adapt them to yours. If one
+would serve everyone, propose it upstream with the **Configuration** form
 ([CONTRIBUTING.md](../CONTRIBUTING.md#propose-a-feature-or-a-configuration)).
 
 ## Machine tools

@@ -1,0 +1,4 @@
+{
+  // JSONC, which a JSON parser rejects and its program accepts
+  "example": true
+}

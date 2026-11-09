@@ -150,6 +150,8 @@ def defaults_schema(schema):
     result['required'] = ['schema_version']
     result['properties'].pop('supplement_id')
     result['properties'].pop('minimum_release')
+    # The dotfiles are a folder in one person's supplement, never a public default.
+    result['properties'].pop('dotfiles')
     return result
 
 
@@ -164,16 +166,19 @@ def merge(base, override):
     return result
 
 
-def check_reference(root, reference, label):
-    """A referenced file must exist inside the supplement, after resolving symlinks."""
+def check_reference(root, reference, label, folder=False):
+    """A referenced file, or FOLDER, must exist inside the supplement, after resolving symlinks."""
     if os.path.isabs(reference):
         raise SettingsError([f'{label}: {reference!r} must be relative to the supplement'])
     root = os.path.realpath(root)
     target = os.path.realpath(os.path.join(root, reference))
     if os.path.commonpath([root, target]) != root:
         raise SettingsError([f'{label}: {reference!r} resolves outside the supplement'])
-    if not os.path.isfile(target):
-        raise SettingsError([f'{label}: {reference!r} does not exist in the supplement'])
+    if folder and target == root:
+        raise SettingsError([f'{label}: {reference!r} is the supplement itself; name a folder inside it'])
+    if not (os.path.isdir if folder else os.path.isfile)(target):
+        kind = ' as a folder' if folder else ''
+        raise SettingsError([f'{label}: {reference!r} does not exist in the supplement{kind}'])
     return target
 
 
@@ -278,6 +283,14 @@ def load(checkout, supplement=None, without=False, home=None):
                 'private': bool(isinstance(value, dict) and value.get('private')),
             }
         )
+    # Only the folder is checked here; the capture copies the files in it.
+    dotfiles = settings.pop('dotfiles', None)
+    if dotfiles is not None:
+        try:
+            check_reference(selection['path'], dotfiles, 'dotfiles', folder=True)
+            dotfiles = os.path.normpath(dotfiles)
+        except SettingsError as error:
+            problems += error.problems
     groups, retired, group_problems = load_groups(checkout, parse)
     packages, choice_problems = resolve_packages(groups, retired, settings)
     problems += group_problems or choice_problems
@@ -297,6 +310,7 @@ def load(checkout, supplement=None, without=False, home=None):
             'references': sorted({*fragments.values(), *(a['path'] for a in assets)}),
             'reference_paths': sorted(written),
             'assets': assets,
+            'dotfiles': dotfiles,  # the folder as config.yaml names it, or None
             'system_overrides': system_overrides,
             'packages': packages,
             'integrations': integrations,

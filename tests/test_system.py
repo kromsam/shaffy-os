@@ -103,6 +103,17 @@ class RootStepTests(unittest.TestCase):
         self.assertTrue(all(path.startswith(str(copy_dir)) for path in play['overrides'].values()))
         self.assertIn('fish', play['overrides'])
 
+    def test_a_system_operation_takes_no_dotfiles_even_broken_ones(self):
+        (self.tmp / 'outside.txt').write_text('secret\n')
+        (self.supplement / 'dotfiles/dot_outside').symlink_to(self.tmp / 'outside.txt')
+        selection = {'mode': 'supplement', 'path': str(self.supplement), 'source': 'binding'}
+        broken = capture(ROOT, selection, self.tmp / 'user-state', 'op-2', load)
+        code, result, err = self.run_step('begin', op='op-2', capture_dir=broken['directory'])
+        self.assertEqual(code, 0, err)
+        copied = self.state / 'ops/op-2/capture/supplement'
+        self.assertEqual([path for path in copied.rglob('*') if 'dotfiles' in path.parts and path.is_file()], [])
+        self.assertFalse(any(name.startswith('supplement/dotfiles/') for name in broken['files']))
+
     def test_finish_pairs_the_snapshots_and_completes(self):
         self.run_step('begin')
         code, result, err = self.run_step('finish')

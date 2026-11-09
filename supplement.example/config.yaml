@@ -5,3 +5,5 @@
 # shaffy-os, as the README describes.
 schema_version: 1
 supplement_id: my-desktop
+# Your own chezmoi source, a folder in this supplement, applied after Shaffy OS's home:
+# dotfiles: dotfiles

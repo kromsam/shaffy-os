@@ -255,6 +255,10 @@
         ]
       }
     },
+    "dotfiles": {
+      "$ref": "#/$defs/reference",
+      "description": "The person's own chezmoi source: a folder inside the supplement, relative to its root. Shaffy OS applies it as a second chezmoi pass after the public home, and refuses it when it would manage anything Shaffy OS can manage (docs/SUPPLEMENT.md)."
+    },
     "identity": {
       "description": "Git identity; absent leaves the user section out.",
       "type": "object",

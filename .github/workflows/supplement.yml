@@ -15,6 +15,11 @@ on:
       SHAFFY_OS_TOKEN:
         description: Optional; a read-only token for kromsam/shaffy-os, used instead of the run's own token
         required: false
+      SUBMODULES_TOKEN:
+        description: >-
+          Optional; a read-only token for the supplement and its submodules, such as a dotfiles folder kept
+          as a submodule of another private repository, used instead of the run's own token
+        required: false
 permissions:
   contents: read
 jobs:
@@ -32,6 +37,11 @@ jobs:
         with:
           path: supplement
           fetch-depth: 0 # gitleaks scans every commit
+          # A dotfiles folder may be a submodule; the run's own token reads only this repository.
+          submodules: recursive
+          token: ${{ secrets.SUBMODULES_TOKEN || github.token }}
+          # No later step needs the token; a script in the supplement must not find it in .git.
+          persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kromsam/shaffy-os
@@ -40,6 +50,7 @@ jobs:
           fetch-depth: 0 # the release tags, which a supplement's minimum_release is checked against
           # The run's own token unless the caller passes SHAFFY_OS_TOKEN.
           token: ${{ secrets.SHAFFY_OS_TOKEN || github.token }}
+          persist-credentials: false
       # runuser without -l keeps the step's directory.
       - name: Install the development tools (mise.dev.toml)
         working-directory: shaffy-os
@@ -71,3 +82,7 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: supplement
         run: runuser -u tester -- gitleaks git --redact --no-banner .
+      - name: Scan the submodules' history for secrets
+        if: ${{ !cancelled() && hashFiles('supplement/.gitmodules') != '' }}
+        working-directory: supplement
+        run: runuser -u tester -- git submodule foreach --quiet --recursive 'gitleaks git --redact --no-banner .'

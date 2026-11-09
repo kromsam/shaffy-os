@@ -843,6 +843,302 @@ class HomeApplyTests(unittest.TestCase):
         self.assertIn('unreadable lines', refused.stderr)
         self.assertIn('unreadable line', self.shaffy('status', '--no-drift').stdout)
 
+    def journal(self, op):
+        return [e for e in map(json.loads, (self.state / 'journal.jsonl').read_text().splitlines()) if e['op'] == op]
+
+    def digest(self):
+        """The home as its person sees it, with Shaffy OS's state and the caches aside."""
+        seen = {}
+        for path in sorted(self.home.rglob('*')):
+            relative = path.relative_to(self.home)
+            if relative.parts[:1] == ('.cache',) or relative.parts[:3] == ('.local', 'state', 'shaffy'):
+                continue
+            content = os.readlink(path) if path.is_symlink() else path.read_bytes() if path.is_file() else None
+            seen[str(relative)] = (path.lstat().st_mode, content)
+        return seen
+
+    def dotfile(self, name, content=None):
+        path = self.supplement / 'dotfiles' / name
+        if content is None:
+            path.unlink()
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+
+    def test_the_dotfiles_apply_after_the_home_in_one_operation(self):
+        mine = self.home / '.config/example-dotfiles/settings.json'
+        mine.parent.mkdir(parents=True)
+        mine.write_text('my own\n')
+        # The person's own chezmoi configuration is never read: its data and its failing hook would show.
+        (self.home / '.config/chezmoi').mkdir()
+        (self.home / '.config/chezmoi/chezmoi.toml').write_text(
+            '[data.example]\ngreeting = "from the plain configuration"\n[hooks.apply.pre]\ncommand = "false"\n'
+        )
+        self.attach()
+        first = self.shaffy('apply', '--home')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        op = self.record()['last_completed_op']
+        self.assertEqual(self.events(op), ['begin', 'phase-start', 'ledger-intent', 'ledger-done', 'phase-done'])
+        [start] = [e for e in self.journal(op) if e['event'] == 'phase-start']
+        self.assertEqual(start['passes'], ['shaffy', 'dotfiles'])
+        self.assertRegex(first.stdout, r'The dotfiles changed \d+ of them\.')
+        identity = (self.home / '.config/example-dotfiles/identity.toml').read_text()
+        self.assertIn('email = "test@example.invalid"', identity)
+        self.assertIn('greeting = "hello from the dotfiles"', identity)
+        self.assertIn('shaffy_environment = ""', identity)  # Shaffy OS's operation marker stays in its own pass
+        self.assertIn('// JSONC', mine.read_text())
+        self.assertEqual(
+            (self.state / 'runs' / op / 'before/.config/example-dotfiles/settings.json').read_text(), 'my own\n'
+        )
+        self.assertTrue((self.state / 'chezmoistate.boltdb').is_file())
+        self.assertTrue((self.state / 'dotfiles.boltdb').is_file())
+        second = self.shaffy('apply', '--home')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn('(0 target(s) changed)', second.stdout)
+
+    def test_overlap_with_shaffy_os_is_refused_before_anything_is_written(self):
+        tree = self.supplement / 'dotfiles'
+        (tree / 'private_dot_local').rename(tree / 'dot_local')
+        self.dotfile('dot_local/bin/executable_example-launcher', '#!/bin/sh\n')
+        (tree / 'dot_config/fish').rename(tree / 'dot_config/exact_fish')
+        self.dotfile('dot_config/exact_fish/config.fish', '# mine\n')
+        self.dotfile('dot_config/niri/user.kdl', '// mine\n')
+        self.dotfile('private_dot_ssh/config', 'Host *\n')
+        self.set_integration('ssh', 'disabled')
+        self.attach()
+        before = self.digest()
+        refused = self.shaffy('apply', '--home')
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn('preflight failed; nothing was changed', refused.stderr)
+        for target, owner in (
+            ('~/.config/fish/config.fish ', 'upstream: home/dot_config/fish/config.fish'),
+            ('~/.config/niri/user.kdl ', 'overrides.niri'),
+            ('~/.local/bin/example-launcher ', 'assets'),
+            ('~/.ssh/config ', 'integration ssh'),
+            ('~/.local ', 'upstream: home/private_dot_local'),
+            ('~/.config/fish ', 'exact_'),
+        ):
+            with self.subTest(target=target):
+                self.assertRegex(refused.stderr, re.escape(target) + '.*' + re.escape(owner))
+        self.assertEqual(self.events()[-1], 'phase-not-started')
+        self.assertIsNone(self.record()['pending'])
+        self.assertEqual(self.digest(), before)
+
+    def test_a_script_in_the_dotfiles_is_refused_before_anything_is_written(self):
+        self.dotfile('run_once_example.sh', '#!/bin/sh\n')
+        self.attach()
+        before = self.digest()
+        refused = self.shaffy('apply', '--home')
+        self.assertEqual(refused.returncode, 1)
+        self.assertEqual(refused.stderr.count('dotfiles: run_once_example.sh is a script'), 1)
+        self.assertEqual(self.events()[-1], 'phase-not-started')
+        self.assertEqual(self.digest(), before)
+
+    def test_a_released_integrations_targets_are_the_dotfiles_to_manage(self):
+        self.set_integration('ssh', 'released')
+        self.dotfile('private_dot_ssh/config', 'Host example\n')
+        self.attach()
+        applied = self.shaffy('apply', '--home')
+        self.assertEqual(applied.returncode, 0, applied.stderr)
+        self.assertEqual((self.home / '.ssh/config').read_text(), 'Host example\n')
+
+    def test_a_kill_between_the_passes_resumes_from_the_captured_dotfiles(self):
+        self.attach()
+        killed = self.shaffy('apply', '--home', fault='between-passes')
+        self.assertEqual(killed.returncode, -signal.SIGKILL)
+        op = self.record()['pending']['op']
+        self.assertIn('[mcp_servers.notes]', self.codex())
+        self.assertFalse((self.home / '.config/example-dotfiles').exists())
+        self.dotfile('dot_config/example-dotfiles/settings.json', '{"edited": "after the capture"}\n')
+        resumed = self.shaffy('apply', '--resume')
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        self.assertEqual(self.record()['last_completed_op'], op)
+        self.assertEqual(self.events(op)[-1], 'phase-done')
+        [start] = [e for e in self.journal(op) if e['event'] == 'resume-start']
+        self.assertEqual(start['passes'], ['shaffy', 'dotfiles'])
+        settings = self.home / '.config/example-dotfiles/settings.json'
+        self.assertIn('// JSONC', settings.read_text())
+        again = self.shaffy('apply', '--home')
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertIn('after the capture', settings.read_text())
+        settled = self.shaffy('apply', '--home')
+        self.assertIn('(0 target(s) changed)', settled.stdout)
+
+    def test_a_kill_after_the_dotfiles_resumes_and_converges(self):
+        self.attach()
+        killed = self.shaffy('apply', '--home', fault='after-dotfiles')
+        self.assertEqual(killed.returncode, -signal.SIGKILL)
+        self.assertTrue((self.home / '.config/example-dotfiles/identity.toml').is_file())
+        resumed = self.shaffy('apply', '--resume')
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        again = self.shaffy('apply', '--home')
+        self.assertIn('(0 target(s) changed)', again.stdout)
+
+    def test_abandon_between_the_passes_deletes_nothing(self):
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home', fault='between-passes').returncode, -signal.SIGKILL)
+        written = self.digest()
+        abandoned = self.shaffy('apply', '--abandon')
+        self.assertEqual(abandoned.returncode, 0, abandoned.stderr)
+        self.assertIsNone(self.record()['pending'])
+        self.assertEqual(self.digest(), written)
+
+    def test_a_held_dotfiles_state_fails_their_pass_and_a_resume_finishes(self):
+        import fcntl
+
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        self.dotfile('dot_config/example-dotfiles/settings.json', '{"edited": true}\n')
+        with open(self.state / 'dotfiles.boltdb', 'rb') as stream:
+            fcntl.flock(stream, fcntl.LOCK_SH)  # what a concurrent read-only chezmoi holds
+            failed = self.shaffy('apply', '--home')
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn('chezmoi apply failed for the dotfiles', failed.stderr)
+        op = self.record()['pending']['op']
+        self.assertEqual(self.journal(op)[-1]['event'], 'phase-failed')
+        self.assertEqual(self.journal(op)[-1]['chezmoi_pass'], 'dotfiles')
+        resumed = self.shaffy('apply', '--resume')
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        self.assertIn('"edited": true', (self.home / '.config/example-dotfiles/settings.json').read_text())
+
+    def test_what_leaves_the_dotfiles_stays_except_from_an_exact_folder(self):
+        self.dotfile('dot_config/exact_example-exact/extra.conf', 'extra = true\n')
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        self.dotfile('dot_config/example-dotfiles/settings.json')
+        self.dotfile('dot_config/exact_example-exact/extra.conf')
+        applied = self.shaffy('apply', '--home')
+        self.assertEqual(applied.returncode, 0, applied.stderr)
+        op = self.record()['last_completed_op']
+        self.assertTrue((self.home / '.config/example-dotfiles/settings.json').is_file())
+        self.assertFalse((self.home / '.config/example-exact/extra.conf').exists())
+        self.assertEqual(
+            (self.state / 'runs' / op / 'before/.config/example-exact/extra.conf').read_text(), 'extra = true\n'
+        )
+        config = self.supplement / 'config.yaml'
+        config.write_text(config.read_text().replace('dotfiles: dotfiles\n', ''))
+        without = self.shaffy('apply', '--home')
+        self.assertEqual(without.returncode, 0, without.stderr)
+        [start] = [e for e in self.journal(self.record()['last_completed_op']) if e['event'] == 'phase-start']
+        self.assertEqual(start['passes'], ['shaffy'])
+        self.assertTrue((self.home / '.config/example-dotfiles/identity.toml').is_file())
+        self.assertTrue((self.home / '.config/example-exact/kept.conf').is_file())
+        status = self.shaffy('status', '--no-drift')
+        self.assertIn('Dotfiles: none', status.stdout)
+        self.assertIn('An earlier dotfiles pass left its files in place', status.stdout)
+
+    def test_status_and_diff_show_the_dotfiles_from_a_capture_and_route_paths(self):
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        settings = self.home / '.config/example-dotfiles/settings.json'
+        applied = settings.read_text()
+        self.dotfile('dot_config/example-dotfiles/settings.json', '{"edited": true}\n')
+        status = self.shaffy('status')
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn(
+            f'Dotfiles: dotfiles in the supplement; chezmoi state {self.state}/dotfiles.boltdb', status.stdout
+        )
+        self.assertIn('Home drift: none', status.stdout)
+        self.assertIn('Dotfiles drift: 1 target(s) differ from the source', status.stdout)
+        self.assertIn('.config/example-dotfiles/settings.json', status.stdout)
+        whole = self.shaffy('diff')
+        self.assertEqual(whole.returncode, 0, whole.stderr)
+        self.assertIn('# Dotfiles: dotfiles in the supplement', whole.stdout)
+        self.assertIn('+{"edited": true}', whole.stdout)
+        # A path only the dotfiles manage goes to them alone; Shaffy OS's diff would call it not managed.
+        theirs = self.shaffy('diff', str(settings))
+        self.assertEqual(theirs.returncode, 0, theirs.stderr)
+        self.assertIn('+{"edited": true}', theirs.stdout)
+        own = self.shaffy('diff', str(self.home / '.codex/config.toml'))
+        self.assertEqual(own.returncode, 0, own.stderr)
+        self.assertNotIn('# Dotfiles', own.stdout)
+        self.assertEqual(settings.read_text(), applied)  # nothing was applied
+        self.assertEqual(
+            list((self.state / 'runs').iterdir()), [self.state / 'runs' / self.record()['last_completed_op']]
+        )
+
+    def test_check_refuses_the_dotfiles_and_notes_plain_chezmoi(self):
+        (self.home / '.config/chezmoi').mkdir()
+        (self.home / '.config/chezmoi/chezmoi.toml').write_text('[data]\n')
+        (self.home / '.local/share/chezmoi').mkdir(parents=True)
+        check = ('check', '--no-render', '--supplement', str(self.supplement))
+        noted = self.shaffy(*check)
+        self.assertEqual(noted.returncode, 0, noted.stderr)
+        self.assertIn(f"Note: {self.home}/.config/chezmoi/chezmoi.toml is plain chezmoi's", noted.stdout)
+        self.assertIn(f"Note: {self.home}/.local/share/chezmoi is plain chezmoi's", noted.stdout)
+        self.dotfile('dot_config/fish/config.fish', '# mine\n')
+        for options in ((), ('--no-home',)):
+            with self.subTest(options=options):
+                refused = self.shaffy(*check, *options)
+                self.assertEqual(refused.returncode, 1)
+                self.assertIn('the dotfiles cannot be applied as they are', refused.stderr)
+                self.assertIn(
+                    "~/.config/fish/config.fish is Shaffy OS's (upstream: home/dot_config/fish/config.fish)",
+                    refused.stderr,
+                )
+
+    def test_a_chezmoiroot_below_the_top_is_refused_before_any_script_could_run(self):
+        tree = self.supplement / 'dotfiles'
+        (tree / 'home').mkdir()
+        (tree / '.chezmoiroot').write_text('home\n')
+        (tree / 'home/.chezmoiroot').write_text('..\n')
+        self.dotfile('install/run_setup.sh', '#!/bin/sh\ntouch "$HOME/script-ran"\n')
+        self.attach()
+        refused = self.shaffy('apply', '--home')
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn('home/.chezmoiroot is a .chezmoiroot below the top', refused.stderr)
+        self.assertEqual(self.events()[-1], 'phase-not-started')
+        self.assertFalse((self.home / 'script-ran').exists())
+
+    def test_without_dotfiles_only_the_status_line_is_new(self):
+        config = self.supplement / 'config.yaml'
+        config.write_text(config.read_text().replace('dotfiles: dotfiles\n', ''))
+        shutil.rmtree(self.supplement / 'dotfiles')
+        # A fragment a capture cannot read, which settings alone never open: no command may capture.
+        (self.supplement / 'overrides/fish.fish').chmod(0)
+        self.addCleanup((self.supplement / 'overrides/fish.fish').chmod, 0o644)
+        self.attach()
+        checked = self.shaffy('check', '--no-render')
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        status = self.shaffy('status')
+        self.assertIn('Dotfiles: none', status.stdout)
+        diff = self.shaffy('diff')
+        self.assertNotIn('# Dotfiles', diff.stdout)
+        self.assertNotIn('dotfiles', diff.stderr)
+        self.assertFalse([path for path in self.state.iterdir() if path.name.startswith('preview-')])
+
+    def test_status_without_drift_never_captures_the_dotfiles(self):
+        self.attach()
+        outside = Path(self.temporary.name) / 'outside.txt'
+        outside.write_text('secret\n')
+        (self.supplement / 'dotfiles/dot_outside').symlink_to(outside)
+        quick = self.shaffy('status', '--no-drift')
+        self.assertIn('Dotfiles: dotfiles in the supplement', quick.stdout)
+        self.assertNotIn('cannot be previewed', quick.stdout)
+        full = self.shaffy('status')
+        self.assertIn('The dotfiles cannot be previewed', full.stdout)
+        self.assertIn('leads outside the supplement', full.stdout)
+
+    def test_previews_never_hold_the_dotfiles_state_an_apply_writes(self):
+        import fcntl
+
+        self.attach()
+        self.assertEqual(self.shaffy('apply', '--home').returncode, 0)
+        self.dotfile('dot_config/example-dotfiles/settings.json', '{"edited": true}\n')
+        with open(self.state / 'dotfiles.boltdb', 'rb') as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX)  # what an apply's dotfiles pass holds while it writes
+            status = self.shaffy('status')
+            diff = self.shaffy('diff')
+        self.assertEqual(status.returncode, 0, status.stdout)
+        self.assertIn('Dotfiles drift: 1 target(s) differ from the source', status.stdout)
+        self.assertIn('+{"edited": true}', diff.stdout)
+
+    def test_check_names_a_refused_script_once(self):
+        self.dotfile('run_once_example.sh', '#!/bin/sh\n')
+        refused = self.shaffy('check', '--supplement', str(self.supplement))
+        self.assertEqual(refused.returncode, 1)
+        self.assertEqual(refused.stderr.count('run_once_example.sh is a script'), 1)
+
 
 class SigningNoteTests(unittest.TestCase):
     def test_a_missing_key_is_reported_and_a_present_one_is_not(self):

@@ -566,6 +566,123 @@ class RenderTests(unittest.TestCase):
             self.assertTrue(any(p.startswith('fish: .config/fish/conf.d/40-mise.fish') for p in problems), problems)
 
 
+@unittest.skipIf(REASON, f'render sandbox unavailable: {REASON}')
+class DotfilesRenderTests(unittest.TestCase):
+    """The supplement's dotfiles, applied after the public home in the same synthetic home."""
+
+    def render(self, change=None, keep=None):
+        """Render the comprehensive fixture after CHANGE(dotfiles folder) in a copy of it."""
+        with tempfile.TemporaryDirectory() as directory:
+            supplement = Path(directory) / 'supplement'
+            shutil.copytree(ROOT / 'tests/fixtures/supplements/comprehensive', supplement)
+            if change:
+                change(supplement / 'dotfiles')
+            return render(ROOT, supplement=supplement, keep=keep)
+
+    def problems(self, change):
+        return '\n'.join(self.render(change)['problems'])
+
+    def test_the_dotfiles_render_after_the_home_validate_and_converge(self):
+        with tempfile.TemporaryDirectory() as keep:
+            result = self.render(keep=keep)
+            self.assertEqual(result['problems'], [])
+            self.assertTrue(result['converged'])
+            home = Path(keep) / 'home'
+            identity = (home / '.config/example-dotfiles/identity.toml').read_text()
+            self.assertIn('email = "test@example.invalid"', identity)  # .shaffy.settings
+            self.assertIn('greeting = "hello from the dotfiles"', identity)  # .chezmoidata and a template
+            self.assertIn('shaffy_environment = ""', identity)  # no SHAFFY_ variable reaches the dotfiles
+            self.assertIn('// JSONC', (home / '.config/example-dotfiles/settings.json').read_text())
+            self.assertTrue((home / '.config/fish/conf.d/50-example.fish').is_file())
+            self.assertTrue((home / '.local/share/example-dotfiles').is_dir())
+            self.assertEqual((home / '.config/example-exact/kept.conf').read_text(), 'kept = true\n')
+            self.assertEqual((home / '.config/example-app/state.ini').read_text(), 'managed = true\n')
+            self.assertEqual(os.readlink(home / '.example-link'), '.config/example-dotfiles/settings.json')
+            self.assertFalse((home / 'README.md').exists())  # the dotfiles' own .chezmoiignore
+
+    def test_a_broken_fish_drop_in_fails_as_fish_reads_the_whole_home(self):
+        problems = self.problems(lambda tree: (tree / 'dot_config/fish/conf.d/50-example.fish').write_text('if\n'))
+        self.assertIn('fish: .config/fish/conf.d/50-example.fish', problems)
+
+    def test_a_broken_alacritty_import_fails_though_the_file_is_the_dotfiles(self):
+        def broken(tree):
+            (tree / 'dot_config/alacritty').mkdir()
+            (tree / 'dot_config/alacritty/mine.toml').write_text('= x\n')
+
+        self.assertIn('.config/alacritty/mine.toml: TOMLDecodeError', self.problems(broken))
+
+    def test_passes_that_fight_over_a_folder_never_converge(self):
+        # The preflight refuses this overlap first; the render's second round is the backstop.
+        result = self.render(lambda tree: (tree / 'private_dot_local').rename(tree / 'dot_local'))
+        self.assertFalse(result['converged'])
+        self.assertIn('a second apply still changed files', '\n'.join(result['problems']))
+
+    def test_a_modify_template_that_never_settles_fails(self):
+        def growing(tree):
+            (tree / 'dot_config/example-app/modify_state.ini').write_text(
+                '{{- /* chezmoi:modify-template */ -}}\n{{ .chezmoi.stdin }}more\n'
+            )
+
+        result = self.render(growing)
+        self.assertFalse(result['converged'])
+        self.assertIn('dotfiles: a second apply still changed files', '\n'.join(result['problems']))
+
+    def test_a_link_into_the_captured_source_is_reported(self):
+        def into_source(tree):
+            (tree / 'symlink_dot_source-link.tmpl').write_text('{{ .chezmoi.sourceDir }}/README.md\n')
+
+        self.assertIn('~/.source-link links into the captured source', self.problems(into_source))
+
+    def test_a_script_is_reported_and_the_dotfiles_are_not_applied(self):
+        with tempfile.TemporaryDirectory() as keep:
+            result = self.render(lambda tree: (tree / 'run_once_example.sh').write_text('#!/bin/sh\n'), keep=keep)
+            self.assertIn('dotfiles: run_once_example.sh is a script', '\n'.join(result['problems']))
+            self.assertFalse((Path(keep) / 'home/.config/example-dotfiles').exists())
+            self.assertTrue((Path(keep) / 'home/.config/fish/config.fish').is_file())
+
+    def test_a_chezmoiroot_names_the_source_inside_the_dotfiles(self):
+        def rooted(tree, named):
+            inner = tree / 'home'
+            inner.mkdir()
+            for path in list(tree.iterdir()):
+                if path != inner:
+                    path.rename(inner / path.name)
+            (tree / '.chezmoiroot').write_text(named + '\n')
+            (tree / 'install').mkdir()
+            # Outside the root, so never read; it would leave its mark in the home if it ran.
+            (tree / 'install/run_setup.sh').write_text('#!/bin/sh\ntouch "$HOME/script-ran"\n')
+
+        with tempfile.TemporaryDirectory() as keep:
+            result = self.render(lambda tree: rooted(tree, 'home'), keep=keep)
+            self.assertEqual(result['problems'], [])
+            self.assertTrue((Path(keep) / 'home/.config/example-dotfiles/identity.toml').is_file())
+        self.assertIn(
+            ".chezmoiroot names '../overrides', outside the dotfiles",
+            self.problems(lambda tree: rooted(tree, '../overrides')),
+        )
+
+    def test_a_chezmoiroot_below_the_top_is_refused_and_nothing_outside_the_root_runs(self):
+        def twice_rooted(tree):
+            (tree / 'home').mkdir()
+            (tree / '.chezmoiroot').write_text('home\n')
+            (tree / 'home/.chezmoiroot').write_text('..\n')
+            (tree / 'install').mkdir()
+            (tree / 'install/run_setup.sh').write_text('#!/bin/sh\ntouch "$HOME/script-ran"\n')
+
+        with tempfile.TemporaryDirectory() as keep:
+            problems = '\n'.join(self.render(twice_rooted, keep=keep)['problems'])
+            self.assertIn('dotfiles: home/.chezmoiroot is a .chezmoiroot below the top of the dotfiles', problems)
+            self.assertFalse((Path(keep) / 'home/script-ran').exists())
+
+    def test_a_file_that_names_the_captured_source_is_refused(self):
+        def naming(tree):
+            (tree / 'dot_config/example-dotfiles/source.txt.tmpl').write_text('{{ .chezmoi.sourceDir }}\n')
+
+        self.assertIn(
+            '~/.config/example-dotfiles/source.txt holds the path of the captured source', self.problems(naming)
+        )
+
+
 @unittest.skipIf(REASON or DIRECT, f'bubblewrap sandbox unavailable: {REASON or "direct mode"}')
 class SandboxIsolationTests(unittest.TestCase):
     def test_the_sandbox_cannot_write_the_host_or_see_its_processes(self):

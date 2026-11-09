@@ -18,8 +18,9 @@ It comes in two parts:
 - **A supplement** is your own private Git repository beside the checkout. It
   holds what makes the desktop yours: your name and e-mail for Git, displays
   and keyboard, networks, folders, extra or omitted packages, native
-  configuration fragments, personal files and the optional integrations you
-  switch on. Whatever it leaves out comes from the public defaults.
+  configuration fragments, personal files, your own chezmoi dotfiles if you
+  keep any, and the optional integrations you switch on. Whatever it leaves out
+  comes from the public defaults.
 
 Every apply reads one validated copy of the settings and runs between snapper
 snapshots, so you can see what it changed and undo it.
@@ -342,8 +343,8 @@ unbound installation. Instead, cut the supplement down to `schema_version` and
 `supplement_id`, set each integration it managed to `disabled` or `released`,
 and apply the system and the home. The home returns to the defaults, and the
 roles remove automatic login, the keyboard map and the battery override.
-Packages from `packages.extra`, assets, folder overrides, firewall rules and
-the Tailnet setup stay ([absence and removal](docs/ARCHITECTURE.md#absence-and-removal)).
+Packages from `packages.extra`, assets, the dotfiles' files, folder overrides,
+firewall rules and the Tailnet setup stay ([absence and removal](docs/ARCHITECTURE.md#absence-and-removal)).
 
 ### Stop using Shaffy OS
 

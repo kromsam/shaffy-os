@@ -40,6 +40,8 @@ assets:
   "~/Wallpapers/example photo.jpg": assets/wallpapers/example.jpg
   "~/.local/bin/example-launcher": {file: assets/bin/example-launcher, executable: true}
   "~/.config/example/token-free.conf": {file: assets/fonts/Example-Regular.otf, private: true}
+# A chezmoi source of the person's own, applied after the public home.
+dotfiles: dotfiles
 lazyvim:
   extras: [lazyvim.plugins.extras.lang.ruby]
 power:

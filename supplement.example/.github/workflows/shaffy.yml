@@ -2,7 +2,8 @@
 # the settings and the home they render, lint, the supplement's own tests and a secret
 # scan (.github/workflows/supplement.yml in kromsam/shaffy-os). It needs no secret; a
 # SHAFFY_OS_TOKEN secret, if this repository has one, is used to read Shaffy OS instead
-# of the run's own token.
+# of the run's own token, and a SUBMODULES_TOKEN secret to read this repository with
+# submodules of other private repositories, such as the dotfiles.
 name: shaffy
 on:
   push:
@@ -14,3 +15,4 @@ jobs:
     uses: kromsam/shaffy-os/.github/workflows/supplement.yml@main
     secrets:
       SHAFFY_OS_TOKEN: ${{ secrets.SHAFFY_OS_TOKEN }}
+      SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
