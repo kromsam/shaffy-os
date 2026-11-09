@@ -38,7 +38,10 @@
 - name: preflight | Require both supported PAM modules
   ansible.builtin.assert:
     that: item['stat']['isreg'] | default(false)
+    quiet: true
   loop: "{{ __login_keyring_modules['results'] }}"
+  loop_control:
+    label: "{{ item['item'] }}"
   when: __login_autologin | bool
 
 - name: preflight | Read the existing SDDM automatic login PAM stack
