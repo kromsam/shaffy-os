@@ -20,14 +20,14 @@
   check_mode: false
 
 # An identical rule with another comment is updated in place.
-# community.general.ufw could add this rule; it stays a command until a test covers the switch.
 - name: Allow KDE Connect only from the configured network and interface
-  ansible.builtin.command:
-    argv: [ufw, allow, in, "on", "{{ shaffy['settings']['kde_connect']['interface'] }}",
-           from, "{{ shaffy['settings']['kde_connect']['subnet'] }}", to, any, port, "1714:1764", proto, "{{ item }}",
-           comment, "shaffy KDE Connect"]
-  environment:
-    LC_ALL: C
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ shaffy['settings']['kde_connect']['interface'] }}"
+    from_ip: "{{ shaffy['settings']['kde_connect']['subnet'] }}"
+    to_ip: any
+    to_port: "1714:1764"
+    proto: "{{ item }}"
+    comment: shaffy KDE Connect
   loop: [tcp, udp]
-  register: __kde_connect_rule
-  changed_when: "'Rule added' in __kde_connect_rule['stdout'] or 'Rule updated' in __kde_connect_rule['stdout']"

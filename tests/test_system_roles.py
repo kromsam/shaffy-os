@@ -3,6 +3,7 @@ them, so a public installation without a supplement applies cleanly."""
 
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -248,6 +249,121 @@ class DockerDataSubvolumeTests(unittest.TestCase):
         self.assertRegex(self.play(), r'changed=0\s')
         self.assertFalse(self.is_subvolume())
         self.assertEqual((self.data / 'engine-id').read_text(), 'kept\n')
+
+
+# A stand-in for ufw: it keeps its rules in a file beside itself and logs every call, so the
+# roles' rules run through community.general.ufw without root or a firewall.
+FAKE_UFW = """#!/usr/bin/python3
+import json
+from pathlib import Path
+import sys
+
+here = Path(__file__).parent
+arguments = sys.argv[1:]
+with open(here / 'calls.log', 'a') as log:
+    log.write(json.dumps(arguments) + '\\n')
+rules = json.loads((here / 'rules.json').read_text()) if (here / 'rules.json').exists() else {}
+if arguments == ['--version']:
+    print('ufw 0.36.2')
+elif arguments[:1] == ['status']:
+    print('Status: active')
+    for rule, comment in sorted(rules.items()):
+        print(rule, '#', comment)
+else:
+    dry = arguments[:1] == ['--dry-run']
+    arguments = arguments[1:] if dry else arguments
+    at = arguments.index('comment')
+    rule, comment = ' '.join(arguments[:at]), arguments[at + 1]
+    if rule not in rules:
+        print('Rule added')
+    else:
+        print('Skipping adding existing rule' if rules[rule] == comment else 'Rule updated')
+    if not dry:
+        (here / 'rules.json').write_text(json.dumps(rules | {rule: comment}))
+"""
+
+
+@unittest.skipUnless(_controller_ready(), 'the mise controller is not installed')
+class FirewallRuleTests(unittest.TestCase):
+    """The KDE Connect and LocalSend openings, through community.general.ufw."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.tmp = Path(temporary.name)
+        self.bin = self.tmp / 'bin'
+        self.bin.mkdir()
+        (self.bin / 'ufw').write_text(FAKE_UFW)
+        (self.bin / 'ufw').chmod(0o755)
+
+    def play(self, role):
+        rule = next(task for task in tasks(role) if 'community.general.ufw' in task)
+        play = self.tmp / 'play.yml'
+        play.write_text(
+            yaml.safe_dump(
+                [
+                    {
+                        'hosts': 'localhost',
+                        'connection': 'local',
+                        'gather_facts': False,
+                        'environment': {'PATH': f'{self.bin}:/usr/bin:/bin'},
+                        'vars': {
+                            'ansible_python_interpreter': '/usr/bin/python3',
+                            'shaffy': {'settings': {role: {'interface': 'wlan0', 'subnet': '192.0.2.0/24'}}},
+                        },
+                        'tasks': [rule],
+                    }
+                ]
+            )
+        )
+        command, env = bootstrap.ansible_command(ROOT, 'ansible-playbook', '-i', 'localhost,', str(play))
+        result = subprocess.run(command, env=env, cwd=ROOT, capture_output=True, text=True, timeout=120, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return re.search(r'changed=(\d+)', result.stdout).group(1)
+
+    def rules(self):
+        calls = [json.loads(line) for line in (self.bin / 'calls.log').read_text().splitlines()]
+        return [call for call in calls if call != ['--version'] and call[:1] != ['status']]
+
+    def test_each_opening_is_the_same_ufw_rule_as_before_and_converges(self):
+        for role, port, comment in (
+            ('kde_connect', '1714:1764', 'shaffy KDE Connect'),
+            ('localsend', '53317', 'shaffy LocalSend'),
+        ):
+            with self.subTest(role=role):
+                for name in ('calls.log', 'rules.json'):
+                    (self.bin / name).unlink(missing_ok=True)
+                self.assertEqual(self.play(role), '1')
+                self.assertEqual(
+                    self.rules(),
+                    [
+                        [
+                            'allow',
+                            'in',
+                            'on',
+                            'wlan0',
+                            'from',
+                            '192.0.2.0/24',
+                            'to',
+                            'any',
+                            'port',
+                            port,
+                            'proto',
+                            proto,
+                            'comment',
+                            comment,
+                        ]
+                        for proto in ('tcp', 'udp')
+                    ],
+                )
+                self.assertEqual(self.play(role), '0')
+
+    def test_a_rule_with_another_comment_is_updated(self):
+        self.play('localsend')
+        rules = json.loads((self.bin / 'rules.json').read_text())
+        (self.bin / 'rules.json').write_text(json.dumps(dict.fromkeys(rules, 'an older comment')))
+        self.assertEqual(self.play('localsend'), '1')
+        self.assertEqual(set(json.loads((self.bin / 'rules.json').read_text()).values()), {'shaffy LocalSend'})
 
 
 if __name__ == '__main__':

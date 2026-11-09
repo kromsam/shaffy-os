@@ -16,14 +16,14 @@
 
 # Port 53317 carries both the multicast discovery (UDP) and the transfers (TCP).
 # An identical rule with another comment is updated in place.
-# community.general.ufw could add this rule; it stays a command until a test covers the switch.
 - name: Allow LocalSend only from the configured network and interface
-  ansible.builtin.command:
-    argv: [ufw, allow, in, "on", "{{ shaffy['settings']['localsend']['interface'] }}",
-           from, "{{ shaffy['settings']['localsend']['subnet'] }}", to, any, port, "53317", proto, "{{ item }}",
-           comment, "shaffy LocalSend"]
-  environment:
-    LC_ALL: C
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ shaffy['settings']['localsend']['interface'] }}"
+    from_ip: "{{ shaffy['settings']['localsend']['subnet'] }}"
+    to_ip: any
+    to_port: "53317"
+    proto: "{{ item }}"
+    comment: shaffy LocalSend
   loop: [tcp, udp]
-  register: __localsend_rule
-  changed_when: "'Rule added' in __localsend_rule['stdout'] or 'Rule updated' in __localsend_rule['stdout']"

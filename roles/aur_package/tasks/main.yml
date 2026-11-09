@@ -118,8 +118,7 @@
         group: root
         mode: "0600"
 
-    # community.general.pacman could install the file; it stays a command until a test covers the switch.
     - name: Install the verified copy of {{ aur_package['name'] }}
-      ansible.builtin.command:
-        argv: ["pacman", "-U", "--needed", "--noconfirm", "{{ __aur_package_copy['dest'] }}"]
-      changed_when: true
+      community.general.pacman:
+        name: "{{ __aur_package_copy['dest'] }}"
+        state: present

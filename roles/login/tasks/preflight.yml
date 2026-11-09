@@ -82,19 +82,19 @@
   when: __login_autologin | bool
 
 # Automatic login skips the password, so only disk encryption keeps the desktop closed.
-# ansible_facts['mounts'] could name it; it stays a command until a test covers the switch.
-- name: preflight | Find the device under the root filesystem
-  ansible.builtin.command:
-    argv: [findmnt, --noheadings, --nofsroot, --output, SOURCE, /]
-  register: __login_root_device
-  changed_when: false
-  check_mode: false
-  when: __login_autologin | bool
+- name: preflight | Read the mounted filesystems when the play has not
+  ansible.builtin.setup:
+    gather_subset: [mounts]
+  when:
+    - __login_autologin | bool
+    - "'mounts' not in ansible_facts"
 
-# No module lists the device types beneath a device.
-- name: preflight | Read the device types beneath it
+# No module lists the device types beneath a device. The root filesystem's is the last
+# mount on /, as findmnt would name it.
+- name: preflight | Read the device types beneath the root filesystem
   ansible.builtin.command:
-    argv: [lsblk, --noheadings, --inverse, --output, TYPE, "{{ __login_root_device['stdout'] | trim }}"]
+    argv: [lsblk, --noheadings, --inverse, --output, TYPE,
+           "{{ (ansible_facts['mounts'] | selectattr('mount', 'match', '^/$') | last)['device'] }}"]
   register: __login_root_types
   changed_when: false
   check_mode: false

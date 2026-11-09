@@ -1,6 +1,7 @@
 ---
 # The checks run first, in preflight.yml. The operation's snapper pair is the rollback.
-# community.general.pamd could edit this line; it stays lineinfile until a test covers the switch.
+# lineinfile, not community.general.pamd: pamd rewrites the spacing of every rule in the
+# distribution's file and stamps it with the time; this changes the one line.
 - name: keyring | Pass the cached startup password to the existing optional keyring module
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sddm-autologin

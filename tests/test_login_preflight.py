@@ -22,6 +22,7 @@ READ_ONLY = {
     'ansible.builtin.slurp',
     'ansible.builtin.assert',
     'ansible.builtin.getent',
+    'ansible.builtin.setup',
     'ansible.builtin.command',
 }  # commands only with changed_when: false (checked below)
 

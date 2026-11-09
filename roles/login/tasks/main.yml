@@ -12,7 +12,8 @@
   register: __login_removed
   when: not __login_autologin | bool
 
-# community.general.pamd could edit this line; it stays lineinfile until a test covers the switch.
+# lineinfile, not community.general.pamd: pamd rewrites the spacing of every rule in the
+# distribution's file and stamps it with the time; this changes the one line.
 - name: Remove the disk password handoff when automatic login is not requested
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sddm-autologin
