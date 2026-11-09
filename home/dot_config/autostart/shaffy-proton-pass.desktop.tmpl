@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Proton Pass
+Comment=Proton Pass desktop SSH agent in the tray, managed by Shaffy OS
+TryExec=/usr/bin/proton-pass
+Exec="{{ .chezmoi.homeDir }}/.local/bin/shaffy-desktop" start-in-tray proton-pass /usr/bin/proton-pass
+Terminal=false
+Icon=proton-pass
+Type=Application
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

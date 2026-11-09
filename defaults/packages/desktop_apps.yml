@@ -1,6 +1,9 @@
 # Selected desktop applications.
 packages:
   - zen-browser-bin
+  # Text to speech for Zen, such as Reader View reading a page aloud, spoken with eSpeak NG.
+  - speech-dispatcher
+  - espeak-ng
   - chromium
   - spotify-launcher
   - proton-pass

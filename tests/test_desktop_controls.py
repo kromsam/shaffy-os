@@ -2,12 +2,13 @@
 
 import importlib.machinery
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 import tomllib
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'home/private_dot_local/bin/executable_shaffy-desktop'
 loader = importlib.machinery.SourceFileLoader('desktop_controls', str(SOURCE))
@@ -58,6 +59,36 @@ class DesktopControlsTests(unittest.TestCase):
                 desktop.main(['music'])
             action.assert_not_called()
             launch.assert_called_once_with(['spotify-launcher'], start_new_session=True)
+
+    def test_start_in_tray_closes_only_the_first_window_of_the_app(self):
+        events = [
+            {'WindowsChanged': {'windows': [{'id': 3, 'app_id': 'proton-pass'}]}},
+            {'WindowOpenedOrChanged': {'window': {'id': 4, 'app_id': 'zen'}}},
+            {'WindowOpenedOrChanged': {'window': {'id': 5, 'app_id': 'proton-pass'}}},
+            {'WindowOpenedOrChanged': {'window': {'id': 6, 'app_id': 'proton-pass'}}},
+        ]
+        stream = MagicMock()
+        stream.__enter__.return_value.stdout = iter(json.dumps(event) + '\n' for event in events)
+        with (
+            patch.object(desktop.subprocess, 'Popen', side_effect=[stream, None]) as launch,
+            patch.object(desktop, 'action') as action,
+        ):
+            desktop.main(['start-in-tray', 'proton-pass', '/usr/bin/proton-pass'])
+        self.assertEqual(launch.call_args_list[1].args, (('/usr/bin/proton-pass',),))
+        action.assert_called_once_with('close-window', '--id', 5)
+        stream.__enter__.return_value.terminate.assert_called_once()
+
+    def test_start_in_tray_leaves_the_app_alone_when_no_window_opens_in_time(self):
+        stream = MagicMock()
+        stream.__enter__.return_value.stdout = iter([json.dumps({'WindowsChanged': {'windows': []}}) + '\n'])
+        with (
+            patch.object(desktop.subprocess, 'Popen', side_effect=[stream, None]) as launch,
+            patch.object(desktop, 'action') as action,
+        ):
+            desktop.main(['start-in-tray', 'proton-pass', '/usr/bin/proton-pass'])
+        self.assertEqual(launch.call_args_list[0].args[0][:2], ['timeout', '60'])
+        self.assertEqual(launch.call_args_list[1].args, (('/usr/bin/proton-pass',),))
+        action.assert_not_called()
 
     def test_cancelled_selection_does_not_capture_or_replace_clipboard(self):
         with patch.object(desktop.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, '', '')) as run:

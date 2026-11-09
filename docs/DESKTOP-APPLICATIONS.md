@@ -20,7 +20,7 @@ the next system apply. Application profiles remain untouched.
 
 | Application | Package | Configuration |
 | --- | --- | --- |
-| Zen Browser | `zen-browser-bin` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. |
+| Zen Browser | `zen-browser-bin`, `speech-dispatcher`, `espeak-ng` | The default browser unless `desktop.browser` names another; Niri's browser shortcuts start Zen. speech-dispatcher and eSpeak NG give it text to speech, such as reading a page aloud in Reader View. |
 | Chromium | `chromium` | A second browser for sites that need it. |
 | Spotify | `spotify-launcher` | Super+Shift+M launches Spotify or focuses its existing window; the launcher downloads and updates the official client. |
 | Proton Pass | `proton-pass` | The desktop password manager; Niri blocks its window out of screen capture. See [Proton Pass](#proton-pass). |
@@ -79,7 +79,8 @@ for how the official client is downloaded and updated.
 
 The Proton Pass desktop app, the CachyOS repository package `proton-pass`, is
 the password manager; search **Proton Pass** in the launcher. Niri blocks its
-window (app id `Proton Pass`) out of screen shares, recordings and screenshots.
+window (app id `proton-pass`) out of screen shares, recordings and screenshots.
+Closing the window hides it to the tray, and the app keeps running.
 Its account, settings and vault cache are the app's own and stay outside both
 repositories. `packages.omit: [proton-pass]` leaves it out. The browser
 extension comes from the browser's own add-on store and signs in separately.

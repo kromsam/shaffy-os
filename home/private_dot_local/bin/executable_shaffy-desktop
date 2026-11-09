@@ -44,6 +44,24 @@ def music():
     subprocess.Popen(['spotify-launcher'], start_new_session=True)
 
 
+def start_in_tray(app_id, *command):
+    """Start an app that hides to the tray when its window closes, then close its first window.
+
+    Niri cannot open a window hidden, so an app without a start-hidden option is
+    sent to its tray this way. Its window opens normally if it takes over a minute.
+    """
+    with subprocess.Popen(
+        ['timeout', '60', 'niri', 'msg', '--json', 'event-stream'], stdout=subprocess.PIPE, text=True
+    ) as events:
+        subprocess.Popen(command)
+        for line in events.stdout:
+            window = json.loads(line).get('WindowOpenedOrChanged', {}).get('window', {})
+            if window.get('app_id') == app_id:
+                action('close-window', '--id', window['id'])
+                break
+        events.terminate()
+
+
 def notify(message):
     ipc('notification-show', json.dumps({'summary': 'Desktop', 'body': message, 'timeout_ms': 8000}))
 
@@ -351,6 +369,8 @@ def main(args):
         capture_text(command)
     elif command == 'music':
         music()
+    elif command == 'start-in-tray':
+        start_in_tray(*args[1:])
     else:
         {'gaps': gaps, 'square': square, 'scratchpad': scratchpad, 'color': color, 'transcode': transcode}[command]()
 

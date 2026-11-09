@@ -380,7 +380,9 @@ class RenderTests(unittest.TestCase):
             home = Path(keep) / 'home'
             self.assertEqual(os.readlink(home / wants), '/usr/lib/systemd/user/syncthing.service')
             self.assertIn(
-                'TryExec=/usr/bin/proton-pass\nExec=/usr/bin/proton-pass\n', (home / ssh_autostart).read_text()
+                f'TryExec=/usr/bin/proton-pass\nExec="{home if DIRECT else "/home/tester"}/.local/bin/shaffy-desktop"'
+                ' start-in-tray proton-pass /usr/bin/proton-pass\n',
+                (home / ssh_autostart).read_text(),
             )
             self.assertTrue((home / '.config/autostart/Nextcloud.desktop').is_file())
             self.assertTrue((home / '.ssh/config').is_file())

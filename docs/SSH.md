@@ -3,6 +3,9 @@
 The managed `ssh` integration uses the Proton Pass desktop SSH agent. It starts
 `/usr/bin/proton-pass` at login through Shaffy OS's own autostart entry and
 selects `~/.ssh/proton-pass-ssh-agent.sock` in Niri, environment.d and Fish.
+The app has no option to start hidden, so the entry starts it with
+`shaffy-desktop start-in-tray`, which closes its first window: Proton Pass
+then waits in the tray.
 Fish keeps an inherited `SSH_AUTH_SOCK`, including an agent forwarded over SSH.
 A supplement that does not request `ssh` leaves it unmanaged.
 
@@ -45,7 +48,7 @@ running the CLI agent does not prepare this integration.
 Set `integrations.ssh: managed` in the supplement, run `./bin/shaffy check`
 and inspect `./bin/shaffy diff`, then approve or run `./bin/shaffy apply --home`.
 Log out and back in so Niri and the user manager inherit the new socket.
-Unlock Proton Pass after login. In a new terminal, verify:
+After login, open Proton Pass from the tray and unlock it. In a new terminal, verify:
 
 ```sh
 printf '%s\n' "$SSH_AUTH_SOCK"
