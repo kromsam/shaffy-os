@@ -477,7 +477,7 @@ snapshot_evidence() {
   fi
 }
 
-copy_supplement() { # copy_supplement FROM TO: as README's Supplement section starts one
+copy_supplement() { # copy_supplement FROM TO: as README's A first supplement section starts one
   mkdir -p "$2" && cp -rT "$1" "$2" && { [[ -d $2/.git ]] || git -C "$2" init -q; }
 }
 

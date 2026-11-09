@@ -1,14 +1,15 @@
 # Desktop setup
 
-Shaffy OS configures Niri as the compositor and Noctalia as the shell, with an
-Omarchy-inspired layout and Noctalia's built-in Rosé Pine palette in light mode.
-This document covers ownership, personal settings and their override layers, the
-bar and launcher, and the everyday shortcuts. Two companions go further:
+Shaffy OS configures Niri as the compositor and Noctalia as the shell, with
+square, gapped scrolling columns and Noctalia's built-in Rosé Pine palette in
+light mode. This document covers ownership, personal settings and their override
+layers, the bar and launcher, and the wallpaper and lock screen. Two companions
+go further:
 
 - [Theme and controls](NOCTALIA-INTEGRATION.md): one palette across the shell,
   Niri and the applications, the searchable desktop controls and the lock screen.
-- [Omarchy parity](OMARCHY-IMPLEMENTATION.md): the Omarchy behaviour reproduced on
-  Niri, the complete shortcut map, and the differences that remain.
+- [Desktop behaviour](DESKTOP-BEHAVIOUR.md): what the windows, terminal, bar,
+  capture and clipboard do, every shortcut, and the limits of the platform.
 
 Keyboard layouts and key maps are in [keyboard setup](KEYBOARD-SETUP.md), the
 selected applications in [desktop applications](DESKTOP-APPLICATIONS.md), and
@@ -95,7 +96,7 @@ mode = "dark"
 Noctalia reads every `*.toml` in `~/.config/noctalia/` in alphabetical order, then
 its state file:
 
-1. `90-omarchy.toml`: palette, bar, panels, lock screen and wallpaper.
+1. `90-shell.toml`: palette, bar, panels, lock screen and wallpaper.
 2. `92-app-themes.toml`: the application colour templates.
 3. `94-desktop-controls.toml`: the searchable desktop controls.
 4. `95-desktop-apps.toml`: plugins and their launcher entries.
@@ -110,9 +111,9 @@ takes the runtime value; a palette chosen in Noctalia's settings is the usual
 case. `./bin/shaffy check` lists each such key, so it can be moved into a fragment
 (the supplement's, for a personal choice) or cleared deliberately in Noctalia.
 
-Personal changes belong in the supplement. Adding, re-adding or merging deployed
-files or Noctalia's state back into the public `home/` source copies personal
-paths and choices into public files; do not capture a whole state file.
+Personal choices belong in the supplement's fragment; deployed files and
+Noctalia's state never go back into `home/`
+([AGENTS.md](../AGENTS.md#bringing-a-file-under-management)).
 
 ## Commands
 
@@ -125,11 +126,14 @@ From the checkout, as the desktop user:
 ./bin/shaffy status         # binding, unfinished work and drift
 ```
 
-A new installation first runs the README's bootstrap and binds its settings with
-`./bin/shaffy supplement attach --supplement PATH` (or `--none`). Edit the
-supplement or the files under `home/`, run the commands, then commit the reviewed
-change. `private_`, `dot_`, `create_` and `empty_` in source names are chezmoi
-attributes, not deployed names.
+A new installation first follows [the README](../README.md#get-the-source),
+from getting the source to the first apply. Personal changes go in the supplement:
+edit it, run the commands, then commit it. The bound checkout stays on `main`
+and holds no commits of its own, so that `git pull --ff-only` keeps working. A
+change to the public defaults is made on a branch from `dev` in a fork and
+tried with `./bin/shaffy apply --checkout PATH`, run in that checkout
+([AGENTS.md](../AGENTS.md#branches)). `private_`, `dot_`, `create_` and `empty_`
+in source names are chezmoi attributes, not deployed names.
 
 ## Appearance and input
 
@@ -207,10 +211,9 @@ which is also the initial selection. The folder may be one a sync client keeps,
 such as a Nextcloud folder. The client carries local deletions to the server, so
 remove the folder connection in the client before deleting the folder.
 
-The lock screen shows `desktop.lock_screen.image`. As in Omarchy, the session
-locks after five minutes without input: the screen dims for three seconds
-first, and any input cancels the lock. The screens turn off 30 seconds after
-any lock. Applications that inhibit idle, such as a playing video, keep the
+The lock screen shows `desktop.lock_screen.image`. The session locks after five
+minutes without input: the screen dims for three seconds first, and any input
+cancels the lock. The screens turn off 30 seconds after any lock. Applications that inhibit idle, such as a playing video, keep the
 session awake, and **Super+Ctrl+I** switches caffeine on or off, which pauses
 the idle lock (also in the main menu under Style, and in the control centre).
 **Super+Alt+L** or **Super+Ctrl+L** locks at once, and Noctalia locks before
@@ -218,7 +221,7 @@ suspend. Idle never suspends the machine.
 Lock and unlock animations are off.
 
 The timings are `[idle.behavior.lock]` and `[idle.behavior.screen-off]` in
-`90-omarchy.toml`. A supplement changes them in its Noctalia fragment
+`90-shell.toml`. A supplement changes them in its Noctalia fragment
 (`overrides.noctalia`):
 
 ```toml
@@ -226,84 +229,25 @@ The timings are `[idle.behavior.lock]` and `[idle.behavior.screen-off]` in
 timeout = 600        # or enabled = false to lock only by hand
 ```
 
-Omarchy's screensaver is not reproduced. The lock-screen widgets and their
-layout are Noctalia's own.
+There is no screensaver. The lock-screen widgets and their layout are
+Noctalia's own.
 
-## Everyday shortcuts
+## Shortcuts
 
-Super is the Windows key. **Super+K** opens Niri's overlay of the main bindings
-and those given a title; `home/dot_config/niri/cfg/keybinds.kdl.tmpl` is the
-authoritative list, and
-[Omarchy parity](OMARCHY-IMPLEMENTATION.md#shortcuts) covers the Omarchy
-additions (clipboard, capture, panels, notifications, timer, toggles).
-
-| Shortcut | Action |
-| --- | --- |
-| Super+Space / Super+Ctrl+Return | Noctalia launcher: type to search applications, windows and desktop controls |
-| Super+Alt+Space | Main menu: applications, capture, style, controls, tools, system |
-| Super+Return | Alacritty |
-| Super+Alt+Return | Alacritty attached to the tmux session `Work` |
-| Super+B / Super+Shift+B / Super+Shift+Return | Zen Browser |
-| Super+Shift+Alt+B | Private Zen Browser window |
-| Super+E | File manager (Nautilus) |
-| Super+Shift+E / Super+Shift+N | Neovim (LazyVim) in Alacritty |
-| Super+Shift+M | Launch or focus Spotify |
-| Super+Q / Super+W | Close window |
-| Super+arrows, Super+H/J/L | Focus column or window |
-| Super+Shift+arrows, Super+Ctrl+arrows, Super+Ctrl+H/J/K | Move column or window |
-| Super+Home / Super+End | First or last column |
-| Super+Ctrl+Alt+arrows | Focus another monitor |
-| Super+Shift+Ctrl+arrows | Move column to another monitor |
-| Super+1–9 / Super+0 | Workspace 1–10 when it exists; the current number returns to the previous workspace |
-| Super+Shift+1–9 / Super+Shift+0 | Move window to that workspace |
-| Super+Tab / Super+Shift+Tab | Next or previous workspace |
-| Super+Ctrl+Tab | Previously focused workspace |
-| Super+R / Super+Shift+R | Cycle preset column widths |
-| Super+Minus / Super+Equal | Column width −10% / +10% |
-| Super+Shift+Minus / Super+Shift+Equal | Window height −10% / +10% |
-| Super+F / Super+M / Super+Shift+F | Maximize column / maximize window to the edges / fullscreen |
-| Super+T | Floating or tiled |
-| Super+Shift+V | Switch focus between floating and tiled windows |
-| Super+[ / Super+] | Move the window into or out of the neighbouring column |
-| Super+Alt+L / Super+Ctrl+L | Lock |
-| Super+Ctrl+I | Stay awake: pause or resume the idle lock |
-| Super+Shift+Q / Super+Escape / Ctrl+Alt+Delete | Session menu |
-| Super+Shift+S | Noctalia settings |
-| Super+Ctrl+V | Clipboard history |
-| Super+Ctrl+Space | Wallpaper and theme picker |
-| Super+Shift+Space | Show or hide the bar |
-| Super+Alt+K | Next keyboard layout |
-| Print / Ctrl+Print | Screenshot of a region with annotation / of the monitor |
-| Ctrl+Shift+1 / 2 / 3 | Screenshot of a region / the monitor / the window |
-| Super+Shift+P | Turn the monitors off |
-| Super+K / Super+Shift+Escape | Shortcut overlay |
-| Alt+volume or brightness keys | Change in 1% steps |
-
-Workspaces are Niri's dynamic, per-monitor workspaces: the number keys reach
-existing workspaces and do not create ten permanent global ones.
+Super is the Windows key. **Super+Space** opens the launcher, **Super+Return**
+a terminal, and **Super+K** an overlay of the main bindings and those given a
+title. [Desktop behaviour](DESKTOP-BEHAVIOUR.md#shortcuts) lists every shortcut;
+`home/dot_config/niri/cfg/keybinds.kdl.tmpl` defines them, and a supplement
+rebinds keys in its Niri fragment ([override layers](#override-layers)).
 
 ## The folder chooser
 
-Until Niri includes [fix d054395](https://github.com/niri-wm/niri/commit/d054395)
-for [issue 4691](https://github.com/niri-wm/niri/issues/4691), Nautilus 51.1
-crashes when an XWayland application asks for a folder. Shaffy OS therefore
-chooses files and folders with GTK's chooser:
-`home/dot_config/xdg-desktop-portal/niri-portals.conf` is Niri's own portal
-preferences plus one `FileChooser=gtk` line. After a Niri update:
-
-1. Check that the running Niri (`niri msg version`, after logging in again)
-   includes d054395; a higher version number alone does not prove it.
-2. Remove the `FileChooser` line from that file, apply the home and restart the
-   portal with `systemctl --user restart xdg-desktop-portal.service`.
-3. Choose a folder from an XWayland application, for example a local project in
-   Codex. Nautilus's chooser should open and return the folder, and
-   `journalctl --user --since '5 minutes ago'` should show no Nautilus crash and
-   no `Delegated FileChooser call failed`. If it fails, restore the line.
-
-When the line is gone and Niri's preferences equal the file, delete the file and
-retire it in `home/.chezmoiremove`. A test compares the file with the installed
-`/usr/share/xdg-desktop-portal/niri-portals.conf`, so a Niri update that changes
-its preferences shows up there.
+The file and folder choosers that applications open through the desktop portal
+are GTK's rather than Nautilus's, because Nautilus's chooser crashes when an
+XWayland application asks it for a folder under Niri
+([issue 4691](https://github.com/niri-wm/niri/issues/4691)).
+`home/dot_config/xdg-desktop-portal/niri-portals.conf`, Niri's own portal
+preferences plus one `FileChooser=gtk` line, selects it.
 
 ## Validation and recovery
 
@@ -319,7 +263,7 @@ templates. A failed validation leaves the operation unfinished;
 `./bin/shaffy status` names its snapshot and copies. The protocol is described in
 [the architecture](ARCHITECTURE.md).
 
-To undo a change, revert it in the supplement or the source, then run
+To undo a change, revert it in the supplement, then run
 `./bin/shaffy diff` and `./bin/shaffy apply --home`. To restore individual files
 from before an apply, compare the operation's pair and undo only those paths, or
 copy them back from the run's `before/` folder:

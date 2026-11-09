@@ -6,9 +6,10 @@ description: Review a Shaffy OS change or area for what can go - settings equal 
 # Shaffy OS lean review
 
 The repository keeps only what produces Shaffy OS's differences from a fresh
-CachyOS Niri/Noctalia install, with the structure those need (CLAUDE.md,
-"Product scope"). Apply pstack's `principle-laziness-protocol` skill,
-then look for:
+CachyOS Niri/Noctalia install, with the structure those need (AGENTS.md,
+"Product scope"). Paths below are in the Shaffy OS checkout; outside it, the `shaffy-os` skill
+names the checkout. Where pstack is installed, apply its
+`principle-laziness-protocol` skill. Then look for:
 
 - **The baseline.** Settings equal to what the installer ships: compare with
   `/etc/skel/.config/niri/` and `/etc/skel/.config/noctalia/`

@@ -125,7 +125,7 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertEqual(merged['hooks']['PostToolUse'][0]['matcher'], '^(apply_patch|Edit|Write)$')
         self.assertEqual(merge['merge_codex_hooks']('', {}), '')
 
-    def test_workmux_default_panes_follow_omarchy_tdl_geometry(self):
+    def test_workmux_default_panes_put_the_agent_beside_the_editor_above_a_shell(self):
         config = yaml.safe_load((HOME / 'dot_config/workmux/config.yaml').read_text())
         self.assertEqual(config['agent'], 'claude')
         self.assertTrue(config['nerdfont'], 'the first run must not prompt for nerd font icons')
@@ -164,7 +164,6 @@ class WorkspaceToolsTests(unittest.TestCase):
         # Zotero MCP is a mise tool too; the script only removes the copy uv installed before.
         self.assertIn('pypi:zotero-mcp-server', tools)
         self.assertNotIn('uv tool install', script)
-        self.assertIn('uv tool uninstall zotero-mcp-server', script)
         wrapper = (HOME / 'private_dot_local/bin/executable_workmux').read_text()
         self.assertIn('exec /usr/bin/mise exec -- workmux "$@"', wrapper)
 
@@ -236,7 +235,7 @@ class WorkspaceToolsTests(unittest.TestCase):
                     tools = (' ' + line.partition('mise exec ')[2]).partition(' -- ')[0]
                     self.assertNotIn('@', tools, f'{path.name}: {line}')
 
-    def test_tmux_configuration_matches_omarchy_prefix_and_bar(self):
+    def test_tmux_configuration_sets_the_prefix_and_a_top_status_bar(self):
         conf = (HOME / 'dot_config/tmux/tmux.conf').read_text()
         self.assertIn('set -g prefix C-Space', conf)
         self.assertIn('set -g status-position top', conf)

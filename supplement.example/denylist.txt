@@ -1,0 +1,13 @@
+# Values that must never appear in the public Shaffy OS repository: one Python
+# regular expression per line, matched case-insensitively. Blank lines and lines
+# starting with # are ignored.
+#
+# ./bin/shaffy selftest scans every public file of the checkout with these
+# patterns, and with the identifying settings (supplement_id, identity, backup
+# and Tailnet), while this supplement is bound. Add what those settings do not
+# name, before you contribute a change.
+#
+# Your account, your machines and your domains, for example:
+# \bjdoe\b
+# \bexample-laptop\b
+# \bvault\.example\.com\b

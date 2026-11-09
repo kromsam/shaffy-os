@@ -66,7 +66,6 @@ class ExportDenylistTests(unittest.TestCase):
                 except re.error:
                     self.fail(f'denylist.txt line {number} is not a valid regular expression')
                 rules.append((f'denylist.txt line {number}', compiled))
-        self.assertTrue(rules, 'denylist.txt holds no patterns')
         from shaffy.loader import load
 
         settings = load(ROOT, supplement=str(self.supplement))['shaffy']['settings']

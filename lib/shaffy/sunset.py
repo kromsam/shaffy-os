@@ -5,7 +5,7 @@ public MCP server name with nothing but `enabled: false`) or a one-off migration
 and runbook) matters only until every installation has applied it. Each carries a
 comment with `Remove after` and a date, three months after the release that made it.
 `./bin/shaffy outdated` names those past their date; they are deleted on dev together
-with what the comment says they cover (CLAUDE.md, "Retirements and migrations").
+with what the comment says they cover (AGENTS.md, "Retirements and migrations").
 """
 
 import datetime

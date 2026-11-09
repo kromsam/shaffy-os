@@ -187,6 +187,9 @@ def _effective_problems(settings):
     battery = settings.get('power', {}).get('low_battery_hibernate')
     if battery and not battery['low_percent'] > battery['critical_percent'] > battery['action_percent']:
         problems.append('power.low_battery_hibernate: require low_percent > critical_percent > action_percent')
+    limit = settings.get('power', {}).get('charge_limit', {})
+    if 'start' in limit and not limit['start'] < limit['end']:
+        problems.append('power.charge_limit: require start < end')
     for name, spec in servers.items():
         if not spec.get('enabled', True):
             continue

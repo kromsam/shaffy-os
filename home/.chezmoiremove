@@ -1,22 +1,8 @@
-# Retired with Bitwarden, which Proton Pass replaced. The vault's sign-in state in
-# ~/.config/Bitwarden and the bw CLI's own data stay untouched. Remove after 2027-01-28.
-.local/bin/bitwarden-login
-.local/bin/bw
-# Retired with the Sticky Notes plugin. Notes already saved in
-# <documents>/sticky-notes stay untouched. Remove after 2027-01-26.
-.local/share/applications/sticky-notes.desktop
-# Retired with the AUR's Beeper package, whose entry started it without Chromium's sandbox.
-# The AppImage writes its own Beeper.desktop. Remove after 2027-01-28.
-.local/share/applications/beeper.desktop
-# Retired with the official qpdf zip: qpdf is the writing group's package now.
-# Remove after 2027-01-28.
-.local/bin/qpdf
-# Retired with agent-browser, Compound Engineering's browser fallback, when pstack
-# replaced CE. Remove after 2027-01-29, with its block in scripts/install-workspace-tools.sh.
-.local/bin/agent-browser
-# Retired memory integration. Private data and recovery copies remain untouched.
-# Remove after 2027-01-16.
-.local/bin/gbrain
-.local/bin/gbrain-mcp
-.local/lib/shaffy/gbrain-mcp-proxy.py
-.config/systemd/user/gbrain-mcp.service
+# Home files that an earlier release created and Shaffy OS now removes from every home.
+# Each entry carries a comment with `Remove after YYYY-MM-DD` (AGENTS.md, "Retirements and
+# migrations"), and the self-test refuses one without it.
+# Renamed in 2026-11 to runtime-overrides.kdl, which shaffy-desktop rewrites at the next
+# toggle, and 90-shell.toml. Remove after 2027-02-06, with the test of the rename in
+# tests/test_apply.py.
+.config/niri/omarchy-overrides.kdl
+.config/noctalia/90-omarchy.toml

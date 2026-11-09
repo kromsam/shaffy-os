@@ -1,0 +1,35 @@
+name: Bug report
+description: Shaffy OS does something wrong, or fails where it should work.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Remove names, host names, addresses and paths that identify you from everything you
+        paste, and never paste `./bin/shaffy diff` or a secret. A security problem goes to
+        SECURITY.md instead.
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: "`git describe --tags` in the checkout."
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The relevant part of `./bin/shaffy check`, `./bin/shaffy status` or the failing command.
+      render: text
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Installation
+      description: Anything that differs from the supported baseline in the README (installer choices, hardware, a supplement setting involved).

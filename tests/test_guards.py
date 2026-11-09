@@ -92,7 +92,7 @@ class CommandMatrixTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         root = Path(self.temporary.name)
         self.checkout = root / 'checkout'
-        for part in ('home', 'bin', 'lib', 'schema', 'defaults'):
+        for part in ('home', '.agents', 'bin', 'lib', 'schema', 'defaults'):
             shutil.copytree(ROOT / part, self.checkout / part, ignore=shutil.ignore_patterns('__pycache__'))
         (self.checkout / 'scripts').mkdir()
         shutil.copy(ROOT / 'scripts/merge-ai-config.py', self.checkout / 'scripts')

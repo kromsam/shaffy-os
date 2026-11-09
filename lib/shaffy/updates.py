@@ -61,6 +61,24 @@ def aur():
     return Section('AUR packages', f'{len(upgrades)} upgrade(s)' if upgrades else 'up to date', upgrades)
 
 
+def firmware():
+    """Firmware updates fwupd knows of, from the metadata its daily timer refreshes."""
+    if not shutil.which('fwupdmgr'):
+        return Section('Firmware', 'not checked: fwupd is not installed')
+    result = _run(['fwupdmgr', 'get-updates', '--json', '--no-unreported-check', '--no-metadata-check'])
+    if result.returncode == 2:  # nothing to update
+        return Section('Firmware', 'up to date')
+    if result.returncode:
+        return Section('Firmware', f'not checked: {result.stderr.strip() or "fwupdmgr failed"}')
+    lines = [
+        f'{device["Name"]} {device.get("Version", "?")} → {device["Releases"][0]["Version"]}'
+        for device in json.loads(result.stdout or '{}').get('Devices', [])
+        if device.get('Releases')
+    ]
+    summary = f'{len(lines)} update(s); install with fwupdmgr update' if lines else 'up to date'
+    return Section('Firmware', summary, lines)
+
+
 def mise(root):
     # From the checkout, so its Ansible controller counts alongside the home's tools.
     result = _run(['mise', 'outdated', '--json'], cwd=root)
@@ -141,7 +159,9 @@ def pin_section(root, upstream=None):
     ]
     lines += [f'{p.name}: not checked: {p.error}' for p in found if p.error]
     summary = (
-        f'{len(behind)} behind; refresh them on dev with python3 scripts/refresh-pins.py' if behind else 'up to date'
+        f'{len(behind)} behind; the maintainers raise them for a release with scripts/refresh-pins.py (MAINTAINING.md)'
+        if behind
+        else 'up to date'
     )
     return Section('Repository pins', summary, lines)
 
@@ -152,7 +172,9 @@ def removal_section(root, today=None):
 
     due = sunset.due(root, today)
     lines = [f'{path}:{number}: {line}' for path, number, _, line in due]
-    summary = f'{len(due)} past their date; delete them on dev' if due else 'none due'
+    summary = (
+        f'{len(due)} past their date; the maintainers delete them for a release (MAINTAINING.md)' if due else 'none due'
+    )
     return Section('Removals', summary, lines)
 
 
@@ -161,6 +183,7 @@ def report(root, home, pins=True):
     checks = [
         pacman,
         aur,
+        firmware,
         lambda: mise(root),
         lambda: installs(root, home),
         lambda: lazyvim(home),
@@ -198,7 +221,7 @@ def steps(root, home):
     marker = home / '.local/share/icons/Yaru/.shaffy-version'
     return [
         Step(
-            'System packages (snap-pac snapshots the system around the upgrade)',
+            'System packages (snap-pac, where installed, snapshots the system around the upgrade)',
             ['sudo', 'pacman', '-Syu'],
             packages=True,
         ),

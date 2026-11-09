@@ -54,6 +54,8 @@
       tags: [login]
     - role: power
       tags: [power]
+    - role: boot_splash
+      tags: [boot_splash]
     - role: browser
       tags: [browser]
     - role: keyboard

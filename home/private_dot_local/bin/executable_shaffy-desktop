@@ -169,7 +169,7 @@ def gaps():
             if state['off']
             else '// Normal gaps and borders from the base configuration.\n'
         )
-        atomic_write(CONFIG / 'niri/omarchy-overrides.kdl', text, mode=0o644)
+        atomic_write(CONFIG / 'niri/runtime-overrides.kdl', text, mode=0o644)
 
 
 def square():

@@ -7,7 +7,8 @@ boot. This needs:
 
 - `/` on an encrypted device. Automatic login skips the password, so only the
   disk encryption keeps the desktop closed; the role refuses without it.
-  Shaffy OS does not encrypt disks.
+  Shaffy OS does not encrypt disks; choose encryption in the installer
+  ([supported baseline](../README.md#supported-baseline)).
 - A disk that systemd-cryptsetup unlocks with a passphrase. During boot it
   stores the passphrase in the kernel keyring as `cryptsetup`, where the
   handoff below finds it. Without it, Niri still starts, but the keyring stays

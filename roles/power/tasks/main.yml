@@ -1,7 +1,14 @@
 ---
+# Before the battery policy: hibernation needs the swap file and the resume first.
+- name: Converge the swap and resume for hibernation
+  ansible.builtin.import_tasks: hibernation.yml
+
 - name: Check hibernation support before changing the battery policy
   ansible.builtin.import_tasks: preflight.yml
   when: power_hibernate | length > 0
 
 - name: Converge the critical-battery override
   ansible.builtin.import_tasks: configure.yml
+
+- name: Converge the battery charge limit
+  ansible.builtin.import_tasks: charge-limit.yml

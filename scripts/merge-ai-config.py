@@ -14,11 +14,6 @@ sys.path.insert(0, str(REPO / 'lib'))
 PSTACK_REPOSITORY = 'michael-denyer/pstack-claude'
 PSTACK_MARKETPLACE = 'pstack-claude'
 PSTACK_PLUGIN = f'pstack@{PSTACK_MARKETPLACE}'
-# Compound Engineering, which pstack replaced: its entries are dropped, and
-# scripts/install-pstack.py uninstalls it. Remove after 2027-01-29, with the CE parts
-# of both scripts and of tests/test_pstack.py.
-CE_MARKETPLACE = 'compound-engineering-plugin'
-CE_PLUGIN = f'compound-engineering@{CE_MARKETPLACE}'
 # What marks the hooks this script owns, whichever checkout they name.
 SUPPLEMENT_HOOK = 'lint --hook --supplement'
 
@@ -84,9 +79,9 @@ def merge_codex(text, servers, pstack=None):
         return text
     existing = tomllib.loads(text)
     plugin = {**existing.get('plugins', {}).get(PSTACK_PLUGIN, {}), 'enabled': pstack}
-    text = merge_tables(text, 'plugins', {PSTACK_PLUGIN: plugin, CE_PLUGIN: None})
+    text = merge_tables(text, 'plugins', {PSTACK_PLUGIN: plugin})
     marketplace = {'source_type': 'git', 'source': f'https://github.com/{PSTACK_REPOSITORY}.git', 'ref': 'main'}
-    return merge_tables(text, 'marketplaces', {PSTACK_MARKETPLACE: marketplace, CE_MARKETPLACE: None})
+    return merge_tables(text, 'marketplaces', {PSTACK_MARKETPLACE: marketplace})
 
 
 def merge_claude(text, servers, typed=True):
@@ -170,11 +165,9 @@ def merge_claude_settings(text, pstack, hooks=None, plugins=None):
     original = copy.deepcopy(result)
     declared = claude_plugins(plugins)
     result.setdefault('enabledPlugins', {}).update({**dict.fromkeys(declared, True), PSTACK_PLUGIN: pstack})
-    result['enabledPlugins'].pop(CE_PLUGIN, None)
     marketplaces = result.setdefault('extraKnownMarketplaces', {})
     for plugin, repository in declared.items():
         marketplaces[plugin.partition('@')[2]] = {'source': {'source': 'github', 'repo': repository}}
-    marketplaces.pop(CE_MARKETPLACE, None)
     merge_hooks(result, hooks or {})
     if result == original and text.strip():
         return text

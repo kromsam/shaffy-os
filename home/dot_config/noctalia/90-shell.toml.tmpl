@@ -1,8 +1,9 @@
 {{- $s := (includeTemplate "shaffy.json" . | fromJson).shaffy.settings -}}
 {{- $home := .chezmoi.homeDir -}}
 {{- $folders := includeTemplate "folders.json" . | fromJson -}}
-# Omarchy-inspired layout with Noctalia's built-in Rosé Pine palette in light
-# mode. Managed by Shaffy OS; personal paths come from the settings.
+# The shell's bar, panels, lock screen and wallpaper, with Noctalia's built-in
+# Rosé Pine palette in light mode. Managed by Shaffy OS; personal paths come from
+# the settings.
 [theme]
 mode = "light"
 builtin = "Rosé Pine"
@@ -125,7 +126,7 @@ show_events_card = false
 wallpaper = {{ includeTemplate "path" (dict "home" $home "path" $s.desktop.lock_screen.image) | toJson }}
 transition = []
 
-# Omarchy locks after five minutes without input. The screen dims for three seconds
+# Lock after five minutes without input. The screen dims for three seconds
 # first, and any input cancels the lock. Applications that inhibit idle, such as a
 # playing video, and caffeine (Super+Ctrl+I) keep the session awake. The screens
 # turn off 30 seconds after the lock, whether it came from idle or from a key.

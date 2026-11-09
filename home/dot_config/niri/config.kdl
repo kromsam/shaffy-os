@@ -12,9 +12,10 @@ include "./cfg/misc.kdl"
 // Generated colors are applied last; geometry remains in cfg/layout.kdl.
 include "noctalia.kdl"
 // Runtime toggles must follow generated colors, so borders can be disabled.
-include "omarchy-overrides.kdl"
+include "runtime-overrides.kdl"
 
-// A named workspace approximates Omarchy scratchpad; it is not sticky floating.
+// Super+S shows and hides this named workspace; Niri has no sticky floating
+// windows to make a scratchpad from.
 workspace "scratchpad"
 
 // The supplement's optional fragment comes last, so its bindings override the

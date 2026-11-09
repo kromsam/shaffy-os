@@ -109,11 +109,11 @@ class DesktopControlsTests(unittest.TestCase):
         palette.parent.mkdir(parents=True)
         palette.write_text('palette sentinel')
         desktop.gaps()
-        self.assertIn('gaps 0', (palette.parent / 'omarchy-overrides.kdl').read_text())
+        self.assertIn('gaps 0', (palette.parent / 'runtime-overrides.kdl').read_text())
         desktop.gaps()
-        self.assertNotIn('gaps 0', (palette.parent / 'omarchy-overrides.kdl').read_text())
+        self.assertNotIn('gaps 0', (palette.parent / 'runtime-overrides.kdl').read_text())
         self.assertEqual(palette.read_text(), 'palette sentinel')
-        self.assertEqual((palette.parent / 'omarchy-overrides.kdl').stat().st_mode & 0o777, 0o644)
+        self.assertEqual((palette.parent / 'runtime-overrides.kdl').stat().st_mode & 0o777, 0o644)
         self.assertEqual((desktop.STATE / 'gaps.json').stat().st_mode & 0o777, 0o600)
 
     def test_clock_and_battery_toggles_preserve_each_other(self):

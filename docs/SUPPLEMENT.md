@@ -3,7 +3,8 @@
 A supplement holds one person's settings for Shaffy OS: identity, displays and
 keyboards, folder names, endpoints, package choices, native configuration
 fragments and personal files. Whatever it leaves out comes from the public
-defaults in `defaults/config.yaml`, and an installation also works without one.
+defaults in `defaults/config.yaml`; an installation bound with
+`./bin/shaffy supplement attach --none` uses those defaults alone.
 This document is the reference for its layout and for every setting it can
 declare. How `./bin/shaffy` selects, freezes and applies it is described in
 [the architecture](ARCHITECTURE.md).
@@ -34,9 +35,13 @@ supplement is refused. Nothing else in the directory, `tools/`, `tests/` and
 `docs/` included, is read, captured or copied by an apply. A supplement's
 `tools/` may change the machine where no setting reaches, such as its boot
 configuration; they run only by hand, and an apply never starts them.
+[Supplement suggestions](SUPPLEMENT-SUGGESTIONS.md) has patterns for such tools
+and for what else a supplement can carry.
 
 Keep the supplement beside the checkout, for example `~/Projects/shaffy-os` and
-`~/Projects/my-supplement`, and start from the synthetic example:
+`~/Projects/my-supplement`, and start from the synthetic example, which brings
+a `config.yaml`, a `.gitignore`, a `denylist.txt` and an optional
+[CI workflow](#the-same-checks-as-this-repository):
 
 ```sh
 cp -r ~/Projects/shaffy-os/supplement.example ~/Projects/my-supplement
@@ -45,22 +50,16 @@ git -C ~/Projects/my-supplement init
 
 ### Credentials and the denylist
 
-The supplement holds identifiers and trust material, such as host names, a
-server's public host key or the path of a public signing key. It never holds
-passwords, private keys or tokens; those stay in their own stores. A
-`.gitignore` keeps the usual credential files out of its history:
-
-```text
-*.password
-*.key
-*.pem
-.env
-client.json
-```
+The supplement holds identifiers and references, such as host names, a
+server's public host key or the path of a public signing key, never passwords,
+private keys or tokens ([AGENTS.md](../AGENTS.md#bringing-a-file-under-management)).
+The example's `.gitignore` keeps the usual credential files (`*.password`,
+`*.key`, `*.pem`, `.env`, `client.json`) out of its history.
 
 `denylist.txt` lists the values that must never appear in the public
 repository: one Python regular expression per line, matched case-insensitively,
-with blank lines and lines starting with `#` ignored.
+with blank lines and lines starting with `#` ignored. The example's holds only
+comments; write your own values in their place, for example:
 
 ```text
 # The account and the machine
@@ -75,12 +74,13 @@ settings: `supplement_id`, `identity.name` and `.email`, the backup host,
 repository ID, server, user and host key, the Tailnet server and the Tailnet
 address. It reports where a value matched,
 never the value. It is skipped when no supplement is bound, when the bound one
-has no `denylist.txt`, and under `selftest --skip-host`.
+has no `denylist.txt`, and under `selftest --skip-host`. A denylist with no
+pattern adds nothing to the identifying values.
 
 ## config.yaml
 
-The smallest valid supplement is the one in `supplement.example/`; copied beside
-a checkout named `shaffy-os`, it reads:
+The smallest valid supplement is the one in `supplement.example/`; without its
+explanatory comments, it reads:
 
 ```yaml
 # yaml-language-server: $schema=../shaffy-os/schema/supplement.schema.json
@@ -88,11 +88,11 @@ schema_version: 1
 supplement_id: my-desktop
 ```
 
-- The comment lets an editor with the YAML language server check and complete
-  the file against `schema/supplement.schema.json`, the schema the loader
-  validates with. The path is relative to `config.yaml`:
-  `../shaffy-os/schema/…` beside a checkout named `shaffy-os`. Shaffy OS itself
-  ignores the comment.
+- The first line lets an editor with the YAML language server check and
+  complete the file against `schema/supplement.schema.json`, the schema the
+  loader validates with. The path is relative to `config.yaml` and written for
+  a copy beside a checkout named `shaffy-os`; elsewhere, adjust it. Shaffy OS
+  itself ignores the comment.
 - `schema_version` is `1`. A version this Shaffy OS does not know is refused.
 - `supplement_id` names these settings wherever they live: lowercase letters,
   digits and hyphens, starting with a letter or digit, at most 63 characters.
@@ -104,9 +104,8 @@ supplement_id: my-desktop
   later release that day. `check` and `apply` refuse a checkout whose newest
   release tag is older, before they report anything else, so a supplement that
   uses a newer field gets that message rather than an unknown key. Raise it
-  when the supplement starts to depend on a release; `dev` and `workshop` count
-  as the last release they contain. `./bin/shaffy status` shows the checkout's
-  release.
+  when the supplement starts to depend on a release. A checkout of any branch
+  counts as the last release it contains; `./bin/shaffy status` shows it.
 
 The file is read as YAML 1.2 core: only `true` and `false` are booleans, so
 `no` and `yes` stay strings, an unquoted `0600` is the number 600, and there
@@ -145,6 +144,7 @@ shows home changes only.
 | `desktop.wallpaper` | `directory` for the picker and `image` for the default and initial wallpaper; each an absolute path or one starting with `~/`. | Noctalia's own wallpaper in `/usr/share/noctalia/assets/`. | home |
 | `desktop.lock_screen.image` | The lock-screen background, a path. | The same wallpaper. | home |
 | `desktop.browser` | The desktop entry that opens web links and HTML, such as `firefox.desktop`. | `zen.desktop` | `browser` |
+| `desktop.boot_splash` | The Plymouth theme of the boot screen and the disk password prompt: its folder name under `/usr/share/plymouth/themes/`, installed before the apply that selects it, or `false` to leave Plymouth's selection alone. A theme selected by hand, such as one a supplement's tool installed, is refused until this setting names it; from then on the setting chooses. | `shaffy-os`, CachyOS's theme with a Shaffy OS wordmark ([boot splash](MACHINE-SETUP.md#boot-splash)). | `boot_splash` |
 
 [Desktop setup](DESKTOP-SETUP.md#personal-settings) has an example, and
 [keyboard setup](KEYBOARD-SETUP.md) covers layouts and key maps.
@@ -217,13 +217,29 @@ Automatic login is described in [login keyring](LOGIN-KEYRING.md).
 
 ### power
 
+`power.hibernation` prepares hibernation: `swap_gib`, a whole number of GiB
+about the size of the memory, sizes a swap file in a Btrfs subvolume `@swap` at
+`/swap`, and the `power` role adds `resume=` and `resume_offset=` to the Limine
+entries. It refuses a resume or a `/swap` it did not set up, and adopts an
+existing `/swap/swapfile` of exactly that size. Removing the setting removes
+the resume and the `/etc/fstab` lines and switches the file off, but keeps the
+file. See [hibernation](POWER-MANAGEMENT.md#hibernation), including the
+change to `/etc/default/limine` that recent installations need first.
+
 `power.low_battery_hibernate` opts into direct hibernation on a critically low
 battery. Set its `low_percent`, `critical_percent` and `action_percent` in
 strictly descending order, each greater than zero and at most 100. Enable it
 only after testing hibernation and resume on the machine. The `power` role
 installs a UPower override; removing the setting removes that override on apply.
 Without the setting, the packaged policy remains in control. See
-[critical-battery hibernation](POWER-MANAGEMENT.md) for checks and sources.
+[critical-battery hibernation](POWER-MANAGEMENT.md#critical-battery-hibernation)
+for checks and sources.
+
+`power.charge_limit` stops charging at `end` percent and, with `start`, charges
+again only below `start` (`start` lower than `end`), on every battery that
+supports a limit. The `power` role writes the levels for UPower and switches the
+limit on; removing the setting removes its entry and switches the limit off
+where the role switched it on ([battery charge limit](POWER-MANAGEMENT.md#battery-charge-limit)).
 
 ### backup
 
@@ -433,7 +449,7 @@ afterwards. The protocol is described in
 
 ## Changing settings
 
-Edit the supplement, never the deployed files, then review and apply:
+Edit the supplement ([the rule](../AGENTS.md#the-rule)), then review and apply:
 
 ```sh
 ./bin/shaffy check                        # validate the settings and a sandboxed render
@@ -462,19 +478,15 @@ own for that:
 - `.github/workflows/supplement.yml` is a reusable workflow that checks a
   supplement in its own repository against the released `main`: the settings
   and the home they render, the lint, the supplement's tests under `tests/` and
-  a secret scan of its history. Copy `supplement.example/.github/workflows/shaffy.yml`
-  into the supplement to call it on every push. While the Shaffy OS repository is
-  private, the run's own token cannot read it: allow its workflows to be used by
-  repositories of the same owner, and store a fine-grained token that can only
-  read its contents as the supplement repository's `SHAFFY_OS_TOKEN` secret.
+  a secret scan of its history. `supplement.example/.github/workflows/shaffy.yml`,
+  which a copy of the example already holds, calls it on every push to a
+  supplement on GitHub; it needs no secret. The workflow is optional:
+  `./bin/shaffy check` validates the same settings on the machine.
 
-Never bring deployed files back into the public `home/` source. `chezmoi add`
-and `chezmoi re-add` write the rendered file, private values included, into
-public source; `chezmoi add --force` can replace a template with its rendered
-output; and accepting the destination's side in `chezmoi merge` does the same.
-A personal need that no setting covers is a public change: add the schema
-field, the template or role that consumes it and a test with synthetic values
-to the public repository, then set the value in the supplement.
+Deployed files never go back into the public `home/` source
+([bringing a file under management](../AGENTS.md#bringing-a-file-under-management)),
+and a personal need that no setting covers is a public change
+([AGENTS.md](../AGENTS.md#decide-first-whether-the-value-is-personal)).
 
 ## Recovery
 

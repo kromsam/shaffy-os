@@ -32,15 +32,15 @@ the next system apply. Application profiles remain untouched.
 | Tailscale | `tailscale` | The `tailnet` role, only with `tailnet` settings; see [Tailnet](#tailnet). |
 | Remmina, FreeRDP | `remmina`, `freerdp` | Noctalia's Remmina plugin lists saved connections; profiles stay private. |
 | Neovim with LazyVim | `neovim`, `lazygit`, `tree-sitter-cli` | chezmoi's `~/.config/nvim`; see [LazyVim](#lazyvim). |
-| mpv | `mpv` | Plays video and audio; Niri keeps its window opaque, as Omarchy does. |
+| mpv | `mpv` | Plays video and audio; Niri keeps its window opaque. |
 | Document Scanner | `simple-scan`, `sane-airscan` | Scans from network scanners without a vendor driver; see [Scanning](#scanning). |
 | Microsoft core fonts | AUR `ttf-ms-fonts` | Arial, Times New Roman and the other core fonts. |
 | tmux, zoxide, uv, GitHub CLI | `tmux`, `zoxide`, `uv`, `github-cli` | See [workspace tools](WORKSPACE-TOOLS.md). |
 
-The `desktop_apps` group also holds `nodejs`, `npm` and `yay`, the AUR helper that
-updates the AUR packages. `tailscale` is the group's `required` package: the
-settings loader refuses a supplement that omits it. The writing applications are
-in [Writing tools](#writing-tools).
+The `desktop_apps` group also holds `nodejs`, `npm` and `yay`, the AUR helper
+that `./bin/shaffy update` uses for the AUR packages. `tailscale` is the group's
+`required` package: the settings loader refuses a supplement that omits it. The
+writing applications are in [Writing tools](#writing-tools).
 
 ## Reapply
 
@@ -68,12 +68,11 @@ application set.
 The application launcher also lists Spotify through the package's desktop entry.
 No Spotify theme or extra launch flags are configured.
 
-Omarchy's [Spotify installer](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-install-service-spotify)
-installs its own prebuilt `spotify` package and opens it. Its
-[launcher](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-launch-spotify)
-focuses an existing window or offers installation when the package is missing.
-Shaffy OS declares its package for the system apply instead; the shortcut only
-launches or focuses. See the [spotify-launcher documentation](https://github.com/kpcyrd/spotify-launcher)
+Launching or focusing on one key is the approach of Omarchy's Spotify
+[launcher](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-launch-spotify),
+which offers its [installer](https://github.com/omacom/omarchy/blob/quattro/bin/omarchy-install-service-spotify)
+when the package is missing. Here the system apply installs the package, so the
+shortcut only launches or focuses. See the [spotify-launcher documentation](https://github.com/kpcyrd/spotify-launcher)
 for how the official client is downloaded and updated.
 
 ## Proton Pass
@@ -85,8 +84,6 @@ Its account, settings and vault cache are the app's own and stay outside both
 repositories. `packages.omit: [proton-pass]` leaves it out. The browser
 extension comes from the browser's own add-on store and signs in separately.
 The vault's command line is in [workspace tools](WORKSPACE-TOOLS.md#proton-pass-cli).
-[Migrating to Proton Pass and
-SilverBullet](MIGRATING-PASSWORDS-AND-NOTES.md) moves a Bitwarden vault.
 
 ## SilverBullet
 
@@ -116,8 +113,7 @@ Spaces, their sync settings and the server account are the app's own and stay
 outside both repositories. Create a space from a folder with **New space**,
 connect one to a server space with **Join Space**, or add sync later under the
 space's gear icon. SilverBullet Desktop is free for personal use and education;
-use at work needs a Pro licence. [Migrating to Proton Pass and
-SilverBullet](MIGRATING-PASSWORDS-AND-NOTES.md) converts a Logseq graph.
+use at work needs a Pro licence.
 
 ## Beeper
 
@@ -141,10 +137,6 @@ the AppImage's folder uninstalls the app.
 The account and profile in `~/.config/BeeperTexts` are Beeper's own. Beeper's
 MCP server is a public default that a supplement switches on; see [AI tools
 and MCP servers](WORKSPACE-TOOLS.md#ai-tools-and-mcp-servers).
-
-<!-- Remove after 2027-01-28, with beeper-v4-bin in defaults/packages/retired.yml. -->
-An installation that had the earlier AUR package `beeper-v4-bin` keeps using
-that profile.
 
 ## Scanning
 
@@ -400,11 +392,6 @@ refused; map it to a higher host port, such as `"8080:80"`. After a
 change to `daemon.json`, run `systemctl --user restart docker.service`, which stops
 running containers; those with a restart policy come back.
 
-<!-- Remove after 2027-01-19, this paragraph only. -->
-An earlier Shaffy OS added the target user to the `docker` group, and a system apply
-does not undo that. To leave it, run `sudo gpasswd -d "$USER" docker` and log
-out and back in; `id -nG` then no longer lists `docker`.
-
 <!-- Remove after 2027-02-06, this passage down to the commands that free the old space. -->
 An earlier Shaffy OS ran the system engine, as root. A system apply stops and
 disables it, but keeps its data and its configuration, which the rootless engine
@@ -467,13 +454,14 @@ packages it needs, which root installs as dependencies; the same script builds i
 with `makepkg`, as the target user. Root copies the package into the operation
 directory under `/var/lib/shaffy/ops/`, checks the copy's SHA-256 and name,
 records the recipe's AUR commit beside it and installs only that copy. Nothing is
-built as root. An installed package is left alone: updates are yay's. If a recipe
-asks for a newer dependency than the installed one, pacman refuses the package and
-the system apply stops unfinished; run `sudo pacman -Syu`, then
-`./bin/shaffy apply --resume`.
+built as root. An installed package is left alone by an apply; `./bin/shaffy
+update` upgrades it with `yay -Sua`, after the repository packages
+([Updating](UPDATING.md#the-machine)). If a recipe asks for a newer dependency
+than the installed one, pacman refuses the package and the system apply stops
+unfinished; run `sudo pacman -Syu`, then `./bin/shaffy apply --resume`.
 
 ```sh
-yay            # repository packages and AUR packages together, showing recipe changes
+./bin/shaffy update   # repository packages, then the AUR packages, showing recipe changes
 ```
 
 Read what yay shows before confirming: an AUR recipe is code its maintainer can

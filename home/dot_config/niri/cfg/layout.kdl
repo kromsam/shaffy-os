@@ -1,6 +1,7 @@
 // Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
 // GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
-// Omarchy-inspired geometry with native Niri scrolling columns.
+// Geometry. noctalia.kdl, included later, replaces these border colours with the
+// palette's.
 layout {
     gaps 10
     center-focused-column "never"

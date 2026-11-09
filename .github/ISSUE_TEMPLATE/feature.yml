@@ -1,0 +1,22 @@
+name: Feature
+description: A new default application, integration, setting or behaviour.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Propose it before you build it, so that the scope is agreed first. The default desktop is
+        complete and opinionated: a new default has to suit most people who install Shaffy OS
+        (AGENTS.md, "Product scope").
+  - type: textarea
+    id: need
+    attributes:
+      label: The need
+      description: What you want to do that Shaffy OS does not support, and why.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: How Shaffy OS could provide it, and whether it is a default for everyone or a setting a supplement chooses.

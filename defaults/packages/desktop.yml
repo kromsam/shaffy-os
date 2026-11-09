@@ -1,5 +1,5 @@
-# The Omarchy desktop equivalents Niri and Noctalia use: fonts, screen capture, text and
-# QR recognition, local sharing, monitor control and dialogs. Text recognition reads every
+# What the desktop's features need beside Niri and Noctalia: fonts, screen capture, text
+# and QR recognition, local sharing, monitor control and dialogs. Text recognition reads every
 # installed Tesseract language; a supplement adds more with packages.extra.
 packages:
   - ttf-jetbrains-mono-nerd
@@ -12,4 +12,6 @@ packages:
   - localsend
   - ddcutil
   - zenity
+  # Firmware updates for the machine and its devices; ./bin/shaffy outdated lists them.
+  - fwupd
 required: []

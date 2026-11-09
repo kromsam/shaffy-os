@@ -1,7 +1,7 @@
 // Derived from CachyOS cachyos-niri-noctalia 1.4.0 (github.com/CachyOS/cachyos-niri-noctalia),
 // GPL-3.0-only; modified for Shaffy OS, 2026. See THIRD-PARTY.md.
     window-rule {
-        geometry-corner-radius 0 // Omarchy square corners
+        geometry-corner-radius 0 // square, like the bar and panels
         clip-to-geometry true
         draw-border-with-background false
         opacity 0.985
@@ -19,7 +19,8 @@
         match app-id=r#"(?i)(zen|firefox|chromium|google-chrome|brave|vivaldi)"# is-active=false
         opacity 0.985
     }
-    // Omarchy keeps video, remote desktops, games and PiP opaque.
+    // Video, images, remote desktops, virtual machines, games and PiP stay opaque,
+    // so what they show is not dimmed.
     window-rule {
         match app-id=r#"(?i)(mpv|vlc|totem|clapper|imv|loupe|gwenview|qemu|virt-manager|remmina|freerdp|steam_app_)"#
         match title=r#"(?i)^(picture.in.picture|pip)$"#
@@ -34,7 +35,7 @@
         border { off; }
     }
     // Password managers and credential prompts stay out of screen shares, recordings
-    // and screenshots, as Omarchy keeps them out of screen sharing.
+    // and screenshots, so a capture never shows a secret.
     window-rule {
         match app-id=r#"(?i)^(bitwarden|1password|org\.keepassxc\.keepassxc|proton[- ]pass|org\.gnome\.world\.secrets|org\.gnome\.seahorse\.application|gcr-prompter|(org\.gnupg\.)?pinentry(-[a-z0-9]+)?)$"#
         block-out-from "screen-capture"

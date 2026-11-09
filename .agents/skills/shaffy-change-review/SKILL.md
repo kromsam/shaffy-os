@@ -5,8 +5,9 @@ description: Review a Shaffy OS change for where it belongs and what it implies 
 
 # Shaffy OS change review
 
-Read CLAUDE.md first; this review checks a change against it. For each changed
-file, ask:
+Read AGENTS.md first; this review checks a change, to the checkout or to a
+supplement, against it. Paths below are in the Shaffy OS checkout; outside it, the `shaffy-os` skill
+names the checkout. For each changed file, ask:
 
 1. **The owning source.** Is the change made in the source that owns it
    (`home/`, `roles/`, `defaults/`, the schema, the wrapper), never in the live
@@ -28,7 +29,7 @@ file, ask:
    (`/etc/skel/.config/`, from `cachyos-niri-noctalia`) or an already installed
    package adds nothing.
 6. **Transitions.** Does it retire or migrate something? Then it carries
-   `Remove after YYYY-MM-DD` (CLAUDE.md, "Retirements and migrations").
+   `Remove after YYYY-MM-DD` (AGENTS.md, "Retirements and migrations").
 7. **The documents.** The README's command table, the "as implemented"
    statements in docs/ARCHITECTURE.md, docs/SUPPLEMENT.md for a setting, and any
    document that repeats a value the code holds: do they still say what the

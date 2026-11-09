@@ -24,8 +24,9 @@ It is selected by path and remembered by a binding, not included as a
 submodule. Keep it beside the checkout, for example `~/Projects/shaffy-os` and
 `~/Projects/my-supplement`.
 
-A supplement holds identifiers and trust material, never credential values, and
-must stay private. Its native fragments are trusted configuration and may run
+A supplement holds identifiers and references, never passwords, private keys
+or tokens ([AGENTS.md](../AGENTS.md#bringing-a-file-under-management)), and
+stays private. Its native fragments are trusted configuration and may run
 commands.
 
 The wrapper's records, runs and ledger follow `$XDG_STATE_HOME` when it is set
@@ -343,8 +344,9 @@ terminal, and every task that needs root becomes root through sudo:
    which the play reads with an `env` lookup. A lookup's result stays literal,
    whereas extra vars are templated, so a path containing `{{` would change.
 4. After asserting an Arch-based host, the play's first tasks, tagged `always`,
-   run the `operation` role. It copies `lib/shaffy/root_op.py` into the
-   root-owned `/var/lib/shaffy/ops/<op>/` (0700) and runs that copy with
+   run the `operation` role. It copies `lib/shaffy/root_op.py`, and the
+   scripts the `power` and `boot_splash` roles run as root, into the
+   root-owned `/var/lib/shaffy/ops/<op>/` (0700), and runs those copies with
    `/usr/bin/python3 -I`. Holding the root lock, under umask 077, the root step:
    - refuses while any target's root record holds another operation;
    - checks the root record's target against the operation's;
@@ -382,14 +384,15 @@ terminal, and every task that needs root becomes root through sudo:
 
 Each routine role carries one fixed tag, its own name: `packages`, `desktop`,
 `desktop_apps`, `workflows`, `writing`, `sync`, `home_backup`, `kde_connect`, `localsend`,
-`tailnet`, `login`, `power`, `browser` and `keyboard`. `--tags` takes a comma-separated
+`tailnet`, `login`, `power`, `boot_splash`, `browser` and `keyboard`. `--tags` takes a comma-separated
 list of them; the operation steps and the settings role run with every
 selection. The wrapper never passes `--skip-tags`, and never runs the play in
 check mode. The second play, `records.yml`, runs only the root step that abandons an
 operation or moves the root binding.
 
-Scripts from the checkout run as the target user. The one program root runs
-from the checkout, `root_op.py`, runs from its copy in the operation directory,
+Scripts from the checkout run as the target user. The programs root runs,
+`root_op.py` and the scripts of the `power` and `boot_splash` roles, run from
+root's copies in the operation directory, never from the checkout,
 and packages built from reviewed sources are built by the target user and
 installed from a checked copy there. Root keeps its copies of the ten newest
 completed system operations under `/var/lib/shaffy/ops/`, and never prunes the
@@ -521,9 +524,9 @@ What stays unguarded:
   what it wrote, not the home, but an edited or deleted entry changes how
   chezmoi judges drift.
 - Commands that write the source rather than the home, such as `add`, `re-add`
-  and `forget`, are not refused. They change the public checkout, and adding a
-  deployed file back into `home/` can copy personal values into it; personal
-  values belong in the supplement.
+  and `forget`, are not refused. They change the public checkout
+  ([AGENTS.md](../AGENTS.md#bringing-a-file-under-management) says why a
+  deployed file never goes back into `home/`).
 - The guards prevent accidents. They are not a security boundary against
   someone who controls the account and the source.
 

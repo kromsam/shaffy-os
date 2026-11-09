@@ -24,7 +24,7 @@ PINNED = (
     'scripts/install-yaru-icons.py',
     'scripts/install-better-bibtex.py',
     'README.md',
-    'docs/OMARCHY-IMPLEMENTATION.md',
+    'docs/DESKTOP-BEHAVIOUR.md',
     'scripts/build-audio-bridge.sh',
     '.github/workflows/selftest.yml',
     '.github/workflows/supplement.yml',
@@ -115,7 +115,7 @@ class PinTests(unittest.TestCase):
         text = {path: (self.root / path).read_text() for path in PINNED}
         self.assertIn('version: 97.1.0', text['requirements.yml'])
         yaru = hashlib.sha256(YARU).hexdigest()
-        for path in ('scripts/install-yaru-icons.py', 'docs/OMARCHY-IMPLEMENTATION.md'):
+        for path in ('scripts/install-yaru-icons.py', 'docs/DESKTOP-BEHAVIOUR.md'):
             self.assertIn('30.04.1ubuntu', text[path])
             self.assertIn(yaru, text[path])
         self.assertIn('refs/tags/30.04.1ubuntu.tar.gz', text['README.md'])
@@ -201,6 +201,25 @@ class ReportTests(unittest.TestCase):
                     self.assertTrue(updates.aur().summary.startswith(summary))
         with mock.patch.object(updates.shutil, 'which', return_value=None):
             self.assertIn('pacman-contrib', updates.pacman().summary)
+
+    def test_firmware_updates_come_from_fwupds_metadata(self):
+        device = {'Name': 'System Firmware', 'Version': '309', 'Releases': [{'Version': '312'}]}
+        with mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/fwupdmgr'):
+            for result, summary, lines in (
+                (Result(2), 'up to date', []),
+                (
+                    Result(0, json.dumps({'Devices': [device, {'Name': 'Mouse'}]})),
+                    '1 update(s)',
+                    ['System Firmware 309 → 312'],
+                ),
+                (Result(1, stderr='daemon not running'), 'not checked: daemon not running', []),
+            ):
+                with self.subTest(summary=summary), mock.patch.object(updates, '_run', return_value=result):
+                    section = updates.firmware()
+                    self.assertTrue(section.summary.startswith(summary), section.summary)
+                    self.assertEqual(section.lines, lines)
+        with mock.patch.object(updates.shutil, 'which', return_value=None):
+            self.assertEqual(updates.firmware().summary, 'not checked: fwupd is not installed')
 
     def test_user_installs_are_compared_with_this_checkouts_pins(self):
         (self.home / '.local/share/icons/Yaru').mkdir(parents=True)

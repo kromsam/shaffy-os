@@ -1,0 +1,5 @@
+# The theme the shaffy-os boot splash takes its spinner and password prompt from. CachyOS's
+# graphical installer installs it; its text installer brings only cachyos-plymouth-bootanimation.
+packages:
+  - cachyos-plymouth-theme
+required: []

@@ -6,7 +6,9 @@ description: Review a Shaffy OS change for what it could destroy or leave half d
 # Shaffy OS risk review
 
 Shaffy OS never deletes user data, and every apply can be finished or given up
-(docs/ARCHITECTURE.md). Trace the changed paths for the ways that breaks:
+(docs/ARCHITECTURE.md). Paths below are in the Shaffy OS checkout; outside it, the `shaffy-os` skill
+names the checkout. Trace the changed paths for the
+ways that breaks:
 
 - **Removal.** A `home/.chezmoiremove` entry, a `packages.remove` or
   `retired.yml` package, an integration switched to `disabled`: does it touch
@@ -26,8 +28,8 @@ Shaffy OS never deletes user data, and every apply can be finished or given up
 - **Privileges and secrets.** No secret in the supplement, the settings, a log
   or a copy; no new path to sudo; Docker without the docker group.
 - **Tests that would miss it.** Name the defect each changed test should catch,
-  and check that it would
-  (pstack's `principle-test-behavior-not-implementation` skill).
+  and check that it would (where pstack is installed, its
+  `principle-test-behavior-not-implementation` skill).
 
 Report a demonstrated defect with its file and line, the trigger, the
 consequence and the evidence. Report a concern with its assumption and how to

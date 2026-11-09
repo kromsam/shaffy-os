@@ -1,25 +1,24 @@
 # Updating
 
-Three things move independently: the installed software on the machine, this
-repository's own pins, and Shaffy OS releases. Each has one route.
+Two things move independently: the software installed on the machine, and
+Shaffy OS itself, which arrives as releases. Each has one route.
 
-| What | Route | Rhythm |
-| --- | --- | --- |
-| Packages, the AUR, mise tools and the user installs | `./bin/shaffy update`, in the bound checkout | Weekly |
-| This repository's pins | `python3 scripts/refresh-pins.py`, on dev, then a release | Monthly |
-| A Shaffy OS release | `git pull --ff-only`, then an apply ([A release](#a-release)) | When one is made |
+| What | Route |
+| --- | --- |
+| Packages, the AUR, mise tools and the user installs | `./bin/shaffy update`, in the bound checkout ([The machine](#the-machine)) |
+| A Shaffy OS release | Review it, `git pull --ff-only`, then an apply ([A release](#a-release)) |
 
-`./bin/shaffy outdated` shows all three at once and changes nothing. It asks
-the network, so it takes a few seconds:
+`./bin/shaffy outdated` shows both at once and changes nothing. It asks the
+network, so it takes a few seconds:
 
 ```sh
-./bin/shaffy outdated            # everything
-./bin/shaffy outdated --no-pins  # the machine and the release only
+./bin/shaffy outdated --no-pins  # the machine and the release
+./bin/shaffy outdated            # also this repository's pins and expired transitions
 ```
 
-With the pins it also lists the retirements and migrations whose removal date
-has passed ([CLAUDE.md](../CLAUDE.md#retirements-and-migrations)); delete them on
-dev like a pin refresh.
+The last two sections of the full report, the repository's pins and the
+removals past their date, are the maintainers' work. They reach the machine
+with a later release ([MAINTAINING.md](../MAINTAINING.md#pins-and-transitions)).
 
 ## The machine
 
@@ -31,9 +30,13 @@ dev like a pin refresh.
 `update` runs these steps in order and stops at the first that fails; fix that
 one and run it again. A step with nothing to do is skipped.
 
-1. **System packages**: `sudo pacman -Syu`. snap-pac takes snapper snapshots
-   before and after the transaction, and limine-snapper-sync lists them in
-   the boot menu, so a bad upgrade can be booted around and rolled back.
+1. **System packages**: `sudo pacman -Syu`. Where snap-pac is installed, as
+   `cachyos-snapper-support` installs it on the
+   [supported baseline](../README.md#supported-baseline), snapper takes a
+   snapshot of `/` before and after the transaction. With the Limine boot
+   loader and `limine-snapper-sync`, those snapshots also appear in the boot
+   menu, so a bad upgrade can be booted around and rolled back. Without them,
+   the snapshots are there to compare and restore files from, but not to boot.
 2. **AUR packages**: `yay -Sua`. Read the recipe changes yay shows before
    confirming; a recipe is code its maintainer can change at any time.
 3. **Ansible controller**: `mise upgrade ansible-core` in the checkout.
@@ -64,55 +67,32 @@ use.
   client, Claude Code and Codex refresh pstack through their
   plugin managers, and Zotero updates Better BibTeX. `outdated` lists which of
   them are installed.
-- **yabridge**: a reviewed source, rebuilt by hand ([maintenance](MAINTENANCE.md)).
-  `outdated` reports a build whose revision differs from the pin.
+- **yabridge**: a reviewed source, rebuilt by hand
+  ([maintenance](MAINTENANCE.md#windows-audio-plugins-reaper)). `outdated`
+  reports a build whose revision differs from the checkout's pin.
+- **Firmware**: `outdated` lists the updates fwupd knows of; install them with
+  `fwupdmgr update`, with the charger connected
+  ([machine setup](MACHINE-SETUP.md#firmware)). With Secure Boot set up, run
+  `sudo /usr/bin/python3 scripts/configure-secure-boot.py` after a firmware
+  update: some put back the vendor's keys or turn Secure Boot off. Kernel
+  updates need nothing; the boot hooks enrol and sign again.
 - **Mason's language tools**: `:Mason` in Neovim, then `U` to update them.
 - **Personal pins**: a version the supplement's mise fragment fixes, such as a
   Node.js release, stays where the supplement puts it.
 
-## This repository's pins
-
-The repository pins what it cannot take as `latest`: the Ansible collections,
-the Yaru icons, the Better BibTeX release a new Zotero profile gets, yabridge's
-revision, the CI container and its checkout action,
-the LazyVim plugin lock and ruff's Python target, which follows the system
-Python. Packages and mise tools have no pins here. Raise them on dev:
-
-```sh
-# in the dev worktree
-python3 scripts/refresh-pins.py --check   # what is behind; changes nothing
-python3 scripts/refresh-pins.py           # raise every pin it can
-git diff
-./bin/shaffy selftest
-```
-
-The script refuses to change main. For each pin it takes the newest stable
-release, at least three days old where the upstream records a date (Galaxy
-does), recomputes the SHA-256 of a download that is checked against one, and
-rewrites every file that names the pin, the docs included. The CI container follows `cachyos/cachyos:latest`, and the checkout
-action its newest release tag. A pin it cannot raise is reported and left as
-it was, and the run then exits with an error.
-
-The LazyVim lock counts as behind 30 days after its last commit; pass
-`--lazyvim` to refresh it sooner. The script copies the Neovim configuration
-into a throwaway home, lets every plugin move with `SHAFFY_LAZY_REFRESH` set
-(`lua/config/lazy.lua` otherwise holds each plugin to the lock), runs
-`Lazy! sync` twice, because LazyVim discovers some plugins only once it is
-installed, and keeps the lock that results. It names plugins that were added
-or removed.
-
-yabridge is reported only;
-[maintenance](MAINTENANCE.md#windows-audio-plugins-reaper) says how to take a
-newer revision.
-
-Commit the refreshed pins on dev. Once CI passes and dev is released, the next
-`./bin/shaffy update` on the machine installs the new Yaru icons, the new
-collections and the plugins of the new lock.
-
 ## A release
 
-Keep the bound checkout on `main`. Review the incoming changes, then pull them,
-install the Ansible collections the release pins, and apply:
+Keep the bound checkout on `main`. First see what is coming:
+
+```sh
+git fetch
+git log HEAD..origin/main   # the commits a pull would bring
+```
+
+Read the notes of each new release on
+[GitHub](https://github.com/kromsam/shaffy-os/releases). They say what changes
+for an installation and what a supplement must change with it. Then pull the
+release, install the Ansible collections it pins, and apply:
 
 ```sh
 git pull --ff-only
@@ -121,10 +101,29 @@ mise exec ansible-core -- ansible-galaxy collection install -r requirements.yml 
 ./bin/shaffy diff
 ./bin/shaffy apply --system
 ./bin/shaffy apply --home
+./bin/shaffy update
 ```
 
 The system apply refuses until the installed collections match
 `requirements.yml`. If the checkout's `mise.toml` changed, review it and trust it
 again when mise asks. An apply installs what is missing but upgrades nothing;
-the next `./bin/shaffy update` takes the tools and user installs to the
+the closing `./bin/shaffy update` takes the tools and user installs to the
 release's pins.
+
+`git pull --ff-only` refuses when the checkout holds commits of its own. Make
+personal changes in the supplement, and try a change to Shaffy OS from a
+checkout of its own ([Contributing](../README.md#contributing)).
+
+### When a release needs supplement changes
+
+A release that renames, removes or adds a setting says so in its notes. After
+the pull, `./bin/shaffy check` reports every problem in the supplement with its
+file and key, and every apply refuses until the supplement is valid again, so
+the machine stays as it was. Change the supplement as the notes say, run
+`check` again, commit the supplement, and apply.
+
+`minimum_release` in the supplement names the oldest release it works with
+([config.yaml](SUPPLEMENT.md#configyaml)). Raise it when the supplement starts
+to use something a release introduced: on a machine whose checkout is older,
+`check` and `apply` then ask for a newer checkout instead of reporting an
+unknown key. `./bin/shaffy status` shows the checkout's release.

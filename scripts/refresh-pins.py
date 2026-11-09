@@ -2,7 +2,7 @@
 """Raise this repository's pins to their newest usable upstream versions, on dev.
 
 Run it in the dev worktree, read the diff, run ./bin/shaffy selftest and commit; CI tests
-the new pins and a release takes them to the machine (docs/UPDATING.md). It changes only
+the new pins and a release takes them to the machine (MAINTAINING.md). It changes only
 files in this checkout. A pin it cannot raise is reported and left alone.
 """
 

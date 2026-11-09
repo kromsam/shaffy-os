@@ -1,5 +1,6 @@
 """Routine applies cannot restore a backup, move a personal profile, enroll firmware keys or
-convert disks; those stay explicit, guarded commands."""
+convert disks; those stay explicit, guarded commands. A swap file for hibernation is made only
+when the supplement's power.hibernation asks for it."""
 
 from pathlib import Path
 import re
@@ -8,7 +9,10 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-# Commands and markers of the sensitive operations, which only explicit tools may contain.
+# Commands and markers of the sensitive operations, which only explicit tools may contain. sbctl
+# stands for creating and enrolling firmware keys, which only scripts/configure-secure-boot.py does,
+# run by hand: limine-mkinitcpio, which the power and boot_splash roles run to rebuild the boot
+# images, signs the loader through CachyOS's boot hooks with the keys already enrolled.
 SENSITIVE = (
     'sbctl',
     'move-zotero-profile',
@@ -18,6 +22,13 @@ SENSITIVE = (
     'btrfs subvolume',
     'restic restore',
 )
+# The sensitive operations a routine apply may run, each only creating what is missing and deleting
+# nothing: power.hibernation's swap file in a subvolume of its own, when the supplement asks for it,
+# and the rootless Docker engine's data subvolume, created once before the engine first starts.
+OPT_IN = {
+    'scripts/configure-hibernation.py': {'mkswap', 'btrfs subvolume'},
+    'roles/workflows/tasks/docker-data.yml': {'btrfs subvolume'},
+}
 
 
 def included_roles(node):
@@ -74,14 +85,44 @@ class RoutineApplyTests(unittest.TestCase):
             (str(path.relative_to(ROOT)), word)
             for path in routine_files()
             for word in SENSITIVE
-            if word in path.read_text(errors='replace')
+            # A command written as separate arguments ('btrfs', 'subvolume') counts as well.
+            if re.search(r'[\'",\s]+'.join(map(re.escape, word.split())), path.read_text(errors='replace'))
+            and word not in OPT_IN.get(str(path.relative_to(ROOT)), ())
         ]
         self.assertEqual(found, [])
+
+    def test_secure_boot_is_set_up_by_hand_only(self):
+        # It runs sbctl, so the test above also fails once a routine role or a home source names it.
+        script = ROOT / 'scripts/configure-secure-boot.py'
+        self.assertIn('sbctl', script.read_text())
+        self.assertNotIn(script, routine_files())
 
     def test_every_sensitive_user_command_takes_a_snapshot_pair_first(self):
         for script in ('move-zotero-profile.py',):
             with self.subTest(script=script):
                 self.assertIn('home_pair(', (ROOT / 'scripts' / script).read_text())
+
+    def test_root_runs_its_scripts_from_its_own_copies(self):
+        # A script read from the checkout at run time could have changed since the operation began.
+        import yaml
+
+        prepare = yaml.safe_load((ROOT / 'roles/operation/tasks/prepare.yml').read_text())
+        copied = {Path(item).name for task in prepare for item in task.get('loop', []) if isinstance(item, str)}
+        scripts = {
+            name: value
+            for path in ROOT.glob('roles/*/defaults/main.yml')
+            for name, value in (yaml.safe_load(path.read_text()) or {}).items()
+            if name.endswith('_script')
+        }
+        self.assertTrue(scripts)
+        for name, value in scripts.items():
+            self.assertTrue(value.startswith('{{ shaffy_op_dir }}/'), f"{name} runs {value}, not root's copy")
+            self.assertIn(Path(value).name, copied, f'{name}: prepare.yml does not copy {Path(value).name}')
+            self.assertTrue((ROOT / 'scripts' / Path(value).name).is_file(), name)
+        # Nothing lies beside root's copy: a script that looks for files next to itself finds none.
+        for name in copied:
+            source = ROOT / ('lib/shaffy' if name == 'root_op.py' else 'scripts') / name
+            self.assertNotIn('__file__', source.read_text(), f'{name} looks beside itself, where its copy is alone')
 
 
 if __name__ == '__main__':

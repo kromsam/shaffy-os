@@ -41,13 +41,13 @@
           }
         },
         "claude_plugins": {
-          "description": "Claude Code plugins installed and enabled beside pstack: each PLUGIN@MARKETPLACE names the GitHub repository (OWNER/REPO) of its marketplace, which may not be pstack's own or the retired Compound Engineering one. Deleting a name leaves that plugin as it is.",
+          "description": "Claude Code plugins installed and enabled beside pstack: each PLUGIN@MARKETPLACE names the GitHub repository (OWNER/REPO) of its marketplace, which may not be pstack's own. Deleting a name leaves that plugin as it is.",
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
             "pattern": "^[a-z0-9][a-z0-9._-]*@[a-z0-9][a-z0-9._-]*$",
             "not": {
-              "pattern": "@(pstack-claude|compound-engineering-plugin)$"
+              "pattern": "@pstack-claude$"
             }
           },
           "additionalProperties": {
@@ -132,6 +132,19 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9._-]+\\.desktop$",
           "description": "Desktop entry of the default web browser, for http, https and HTML (for example zen.desktop)."
+        },
+        "boot_splash": {
+          "description": "The Plymouth theme of the boot screen and disk password prompt: a folder under /usr/share/plymouth/themes/, which must exist when applied (the boot_splash role installs shaffy-os itself), or false to leave Plymouth's selection alone.",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "maxLength": 64
+            },
+            {
+              "const": false
+            }
+          ]
         }
       }
     },
@@ -350,6 +363,40 @@
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
+        "charge_limit": {
+          "description": "Stop charging at end percent and, with start, charge again only below start, on every battery that supports a limit (UPower). Removing the block switches the limit off where Shaffy OS switched it on.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "hibernation": {
+          "description": "Prepare hibernation: a swap file of swap_gib GiB, about the size of the memory, in a Btrfs subvolume @swap at /swap, and resume= and resume_offset= in the Limine entries. Removing the block removes the resume and the fstab lines and switches the swap file off, but keeps the file.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "swap_gib"
+          ],
+          "properties": {
+            "swap_gib": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
         "low_battery_hibernate": {
           "description": "Opt in only after a successful hibernation/resume test. Removing this block restores the packaged critical-battery policy.",
           "type": "object",

@@ -75,6 +75,13 @@ precedence = "override"
 SPDX-FileCopyrightText = ["CachyOS", "2026 Sam Simons"]
 SPDX-License-Identifier = "GPL-3.0-only"
 
+# CachyOS's Plymouth theme (github.com/CachyOS/cachyos-plymouth-theme): its theme file, modified.
+[[annotations]]
+path = "roles/boot_splash/files/shaffy-os/shaffy-os.plymouth"
+precedence = "override"
+SPDX-FileCopyrightText = ["CachyOS", "2026 Sam Simons"]
+SPDX-License-Identifier = "GPL-3.0-only"
+
 # Noctalia (github.com/noctalia-dev/noctalia): its Niri colour template, adapted.
 [[annotations]]
 path = "home/dot_config/noctalia/templates/niri.kdl"

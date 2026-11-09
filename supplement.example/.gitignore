@@ -1,0 +1,6 @@
+# Credentials stay in their own stores, never in the supplement's history.
+*.password
+*.key
+*.pem
+.env
+client.json

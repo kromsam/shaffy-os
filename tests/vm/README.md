@@ -7,7 +7,8 @@ sandbox and container tests cannot reach: a real Niri session started by SDDM,
 reboots, snapper pre and post pairs taken by snapper itself, services that
 start at login, and Noctalia fetching its plugins from its sources. Disk
 encryption and automatic login, swap and hibernation, Secure Boot and the boot
-splash are outside its scope.
+splash's look are outside its scope; the system applies select the splash and
+rebuild the boot images as on any installation.
 
 It has two halves:
 
@@ -177,14 +178,14 @@ Then run the stages in this order, each as
 | `bootstrap` | Next | Clones the bundle into `~/Projects/shaffy-os`, or fast-forwards an earlier clone. Runs `check --no-render` to show what is missing, then each command of the Bootstrap section of the top-level README in turn, trusting `mise.toml` if mise asks, as that section says it may. `check` must then report the system scope ready and render the home. |
 | `defaults` | Next | `supplement attach --none`, `check` and `diff`; `apply --system`, which must create snapper's `home` configuration; `apply --home`; `status`. Then both applies once more, which must change nothing, and a snapper pre and post pair, marked important, for every apply: `root` and `home` for the system, `home` for the home. |
 | `after-reboot` | After a reboot and a fresh login | The guest booted after the last apply; the session is Niri on Wayland, started by SDDM; Niri and Noctalia answer; no user or system unit failed; the rootless Docker user service is active, the system engine is off, a rootless container publishes a port, a port published without an address listens on loopback only, and `~/.local/share/docker` is a Btrfs subvolume the user owns; every managed helper in `~/.local/bin` and `shaffy-desktop-key` is installed; Noctalia fetched and enabled every configured plugin, each from one of its configured sources, and knows both sources; the units of managed integrations are enabled and running; `status` shows nothing unfinished and no drift. Three observations are asked of you: the login screen, the bar and wallpaper, and the launcher on Super+Space, ready for typing. |
-| `supplement` | Next | Copies and checks `supplement.example`, as the top-level README's Choose the settings section starts one; copies and checks the VM supplement and previews it with `diff --supplement`; moves the binding to it with `supplement rebind --path PATH --new-id`; applies the system and the home. Each requested integration must become managed, its units enabled and running. It then asks you to start REAPER, Zettlr and Zotero once: a home apply afterwards must set the keys each integration manages in their files, and Zotero's local API must answer. Both applies once more change nothing, `status` names the binding, and the snapper pairs are checked. |
+| `supplement` | Next | Copies and checks `supplement.example`, as the top-level README's A first supplement section starts one; copies and checks the VM supplement and previews it with `diff --supplement`; moves the binding to it with `supplement rebind --path PATH --new-id`; applies the system and the home. Each requested integration must become managed, its units enabled and running. It then asks you to start REAPER, Zettlr and Zotero once: a home apply afterwards must set the keys each integration manages in their files, and Zotero's local API must answer. Both applies once more change nothing, `status` names the binding, and the snapper pairs are checked. |
 | `after-reboot` | After another reboot | As before, now with the integrations' units. |
 
 The public defaults follow the installed user's XDG directories. No English
 home folders need to be created before `defaults`. If testing a supplement
 with explicit directory overrides, create or migrate those targets first.
 After `defaults` and before the first reboot, follow its
-[user-level tool and icon installation steps](../../README.md#apply-and-finish-installation)
+[user-level tool and icon installation steps](../../README.md#finish-the-installation)
 inside the guest. The stages validate package and configuration applies; they
 do not run those separate installers. Verify the installed tools in the guest
 as well: executable launchers alone do not prove that their binaries exist.

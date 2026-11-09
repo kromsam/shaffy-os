@@ -113,8 +113,8 @@ class HomeApplyTests(unittest.TestCase):
             self.assertEqual(applied.returncode, 0, applied.stderr)
             self.assertEqual(dirs.read_text(), text)
             self.assertEqual(dirs.stat().st_mode & 0o777, 0o644)
-            omarchy = tomllib.loads((self.home / '.config/noctalia/90-omarchy.toml').read_text())
-            self.assertEqual(omarchy['shell']['screenshot']['directory'], f'{self.home}/{name}/Screenshots')
+            shell = tomllib.loads((self.home / '.config/noctalia/90-shell.toml').read_text())
+            self.assertEqual(shell['shell']['screenshot']['directory'], f'{self.home}/{name}/Screenshots')
         repeated = self.shaffy('apply', '--home')
         self.assertEqual(repeated.returncode, 0, repeated.stderr)
         self.assertIn('(0 target(s) changed)', repeated.stdout)
@@ -379,24 +379,33 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(self.runs(), [])
 
     def test_targets_chezmoi_removes_are_copied_first(self):
-        # Retirements expire (lib/shaffy/sunset.py), so take whichever the file lists now.
-        entries = [
-            line
-            for line in (ROOT / 'home/.chezmoiremove').read_text().splitlines()
-            if line.strip() and not line.startswith('#')
-        ]
-        if not entries:
-            self.skipTest('home/.chezmoiremove retires nothing')
-        retired = self.home / entries[0]
+        # Real retirements expire (lib/shaffy/sunset.py), so retire a synthetic file in a copy.
+        checkout = self.copy_checkout()
+        with open(checkout / 'home/.chezmoiremove', 'a') as removals:
+            removals.write('.local/bin/example-retired\n')
+        retired = self.home / '.local/bin/example-retired'
         retired.parent.mkdir(parents=True, exist_ok=True)
         retired.write_text('probe\n')
-        self.attach()
-        result = self.shaffy('apply', '--home')
+        self.attach(checkout=checkout)
+        result = self.shaffy('apply', '--home', checkout=checkout)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(retired.exists())
         op = self.record()['last_completed_op']
-        copy = self.state / 'runs' / op / 'before' / entries[0]
+        copy = self.state / 'runs' / op / 'before' / '.local/bin/example-retired'
         self.assertEqual(copy.read_text(), 'probe\n')
+
+    def test_the_renamed_niri_and_noctalia_files_replace_the_old_names(self):
+        # Remove after 2027-02-06, with the old names in home/.chezmoiremove.
+        old = [self.home / '.config/niri/omarchy-overrides.kdl', self.home / '.config/noctalia/90-omarchy.toml']
+        for path in old:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('// the old name\n')
+        self.attach()
+        result = self.shaffy('apply', '--home')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([path.exists() for path in old], [False, False])
+        self.assertTrue((self.home / '.config/niri/runtime-overrides.kdl').exists())
+        self.assertTrue((self.home / '.config/noctalia/90-shell.toml').exists())
 
     def test_old_runs_are_pruned_to_the_newest_ten_completed(self):
         self.attach()

@@ -58,14 +58,6 @@ plugin managers; home apply never downloads it. Use this install path instead of
 the tools' own update commands, so mise keeps ownership of its binaries and the
 other tools retain their declared versions.
 
-<!-- Remove after 2027-01-28, with the uv tool removal in the script. -->
-Zotero MCP was a `uv tool` until 2026-10; the script removes that copy before
-mise installs the server.
-
-<!-- Remove after 2027-01-29, with the agent-browser retirement in the script. -->
-agent-browser was Compound Engineering's browser fallback until 2026-10; the
-script uninstalls it and deletes the browsers it downloaded to `~/.agent-browser`.
-
 The Proton Pass CLI comes from mise's aqua backend, which checks each release
 against the checksum Proton publishes beside it.
 
@@ -114,6 +106,21 @@ servers. Merely deleting a custom server from the supplement leaves an
 existing client entry alone. An unfamiliar inline TOML entry is refused for
 review rather than rewriting the whole Codex configuration.
 
+## Agent skills
+
+The home apply installs four skills for Claude Code and Codex, in
+`~/.claude/skills/` and `~/.codex/skills/`, so an agent in any directory
+knows how this desktop is managed:
+
+- `shaffy-os` names the checkout and tells the agent to change the source that
+  owns a file, never the live file, and to leave applies to the person.
+- `shaffy-change-review`, `shaffy-risk-review` and `shaffy-lean-review` review a
+  change to the checkout or to a supplement: where it belongs, what it could
+  destroy, what can go.
+
+The review skills come from the repository's `.agents/skills/`, the same ones an
+agent uses inside the checkout ([agent tooling](../AGENTS.md#agent-tooling)).
+
 ## Other Claude Code plugins
 
 A supplement adds Claude Code plugins beside pstack with `ai.claude_plugins`,
@@ -151,11 +158,10 @@ Claude Code, Codex and other tools that open an editor open Neovim.
 
 ## Directory jumping in Fish
 
-Omarchy makes `cd` fall back to zoxide: an existing path changes directory as
-usual, and anything else is handed to zoxide, which ranks the directories
-visited before by frequency and recency.
-`home/dot_config/fish/conf.d/60-zoxide.fish` does the same in Fish, wrapping
-Fish's own `cd` so `cd -` and the directory-history keys still work:
+`cd` falls back to zoxide: an existing path changes directory as usual, and
+anything else is handed to zoxide, which ranks the directories visited before by
+frequency and recency. `home/dot_config/fish/conf.d/60-zoxide.fish` wraps Fish's
+own `cd` for this, so `cd -` and the directory-history keys still work:
 
 ```sh
 cd shaffy           # ~/Projects/shaffy-os, once visited before
@@ -172,17 +178,16 @@ keeps the plain `cd`.
 
 ## fzf keys in Fish
 
-`home/dot_config/fish/conf.d/65-fzf.fish` loads fzf's own Fish key bindings,
-as Omarchy does in Bash: **Ctrl+R** searches the command history, **Ctrl+T**
-inserts file paths below the current directory and **Alt+C** changes into one
-of its directories. fzf comes with CachyOS's Fish configuration; a shell
+`home/dot_config/fish/conf.d/65-fzf.fish` loads fzf's own Fish key bindings:
+**Ctrl+R** searches the command history, **Ctrl+T** inserts file paths below
+the current directory and **Alt+C** changes into one of its directories. fzf comes with CachyOS's Fish configuration; a shell
 without it keeps Fish's own keys.
 
 ## Git defaults
 
-`~/.config/git/config` (source `home/dot_config/git/config.tmpl`) carries
-Omarchy's Git defaults: `git pull` rebases local commits, the first `git push`
-of a branch sets its upstream, diffs use the histogram algorithm and colour
+`~/.config/git/config` (source `home/dot_config/git/config.tmpl`) sets these
+defaults: `git pull` rebases local commits, the first `git push` of a branch
+sets its upstream, diffs use the histogram algorithm and colour
 moved lines, `rerere` remembers conflict resolutions, `git branch` lists the
 most recently committed branches first and `git tag` the newest versions
 first, and `git commit` shows the diff in the message editor. The name, e-mail
@@ -195,14 +200,14 @@ their entries win.
 ## Worktrees and tmux with workmux
 
 [workmux](https://github.com/raine/workmux) gives each task its own Git worktree
-and tmux window. Inside the window, `~/.config/workmux/config.yaml` applies
-Omarchy's tdl geometry: the editor in the upper left 70%, the agent in the upper
-right 30%, and a full-width Fish shell in the bottom 15%.
+and tmux window. Inside the window, `~/.config/workmux/config.yaml` puts the
+editor in the upper left 70%, the agent in the upper right 30%, and a full-width
+Fish shell in the bottom 15%.
 
 ```sh
 wm add fix-login              # worktree + window: nvim left, claude right, shell below
 wm add fix-login -l codex     # Codex instead of Claude
-wm add fix-login -l duo       # Claude above Codex, like Omarchy's tdl claude codex
+wm add fix-login -l duo       # Claude above Codex on the right
 wm add fix-login -p "…"       # start the agent with a prompt
 wm list                       # worktrees, windows and agent status
 wm dashboard                  # TUI overview of running agents
@@ -215,9 +220,9 @@ wm remove fix-login           # drop without merging
 `<project>__worktrees/`. Branch names become window names, prefixed with a Nerd
 Font branch icon (`nerdfont: true` skips the first-run font question). A project
 can replace the panes with its own `.workmux.yaml`; the global file sets only the
-default layout, the `codex` and `duo` layouts and `agent: claude`. Omarchy's
-`tds` layout (it needs `hunk` and `opencode`) and its swarm layout are not
-ported; `wm add NAME -a claude -a codex` creates one worktree per agent instead.
+default layout, the `codex` and `duo` layouts and `agent: claude`. To give
+several agents the same task, `wm add NAME -a claude -a codex` creates one
+worktree per agent.
 
 mise's GitHub backend downloads workmux's latest published release binary for
 the machine's platform, so workmux needs no Rust toolchain to install.
@@ -233,10 +238,9 @@ files; the home apply's Codex merge keeps settings it does not own.
 
 ### Keys
 
-`home/dot_config/tmux/tmux.conf` is Omarchy's tmux configuration; only the `?`
-popup differs, listing tmux's own bindings instead of the Omarchy menu. Colours
-are the terminal's named colours, so Noctalia's Alacritty palette applies without
-a template. The status bar sits at the top. Keys without the prefix:
+`home/dot_config/tmux/tmux.conf` sets the keys below. Colours are the
+terminal's named colours, so Noctalia's Alacritty palette applies without a
+template. The status bar sits at the top. Keys without the prefix:
 
 | Key | Action |
 | --- | --- |
@@ -265,7 +269,7 @@ Press **Ctrl+Space** (or Ctrl+B), then:
 | ? | Popup listing every binding |
 
 Inside tmux, Alt+Left/Right and Alt+Up/Down shadow Fish's directory-history and
-token-search bindings, as in Omarchy.
+token-search bindings.
 
 `./bin/shaffy check` renders the home in a sandbox; when tmux is installed it
 sources the rendered `tmux.conf` on a private tmux server
@@ -345,20 +349,3 @@ configuration in each opted-in worktree. A tracked `.claude/settings.json` can
 also explicitly enable pstack. See
 [Claude settings](https://code.claude.com/docs/en/settings) and
 [Codex project plugins](https://developers.openai.com/plugins/build/plugins).
-
-<!-- Remove after 2027-01-29, with retire_compound_engineering in scripts/install-pstack.py. -->
-pstack replaced Compound Engineering in 2026-10. The home apply drops CE's plugin
-and marketplace entries, and the workspace installer uninstalls the user's CE
-from both hosts and deletes its install record. A project that installs CE in
-its own `.claude/settings.json` keeps it, and Claude keeps CE's marketplace for
-it. Lessons CE wrote under a project's `docs/solutions/` stay with the project.
-A supplement that set `ai.compound_engineering.enabled` renames it to
-`ai.pstack.enabled`: the apply refuses the old key, and deleting it instead turns
-pstack on.
-
-<!-- Remove after 2027-01-16, with the gbrain marker in defaults/config.yaml. -->
-The GBrain integration is retired. Its MCP entry is explicitly disabled by the
-public default, and home apply removes its old launchers, proxy and service.
-Private databases and memory are preserved. Follow
-[the retirement runbook](MIGRATING-AGENT-TOOLS.md) before applying this change to
-an installation that previously managed GBrain.

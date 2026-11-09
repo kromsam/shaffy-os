@@ -2,19 +2,19 @@
 
 One palette runs through Noctalia, Niri and the applications; the launcher reaches
 the desktop controls by name; and the lock screen shows the supplement's image.
-The bar, the launcher layout and the shortcuts are in
-[desktop setup](DESKTOP-SETUP.md).
+The bar and the launcher layout are in [desktop setup](DESKTOP-SETUP.md), the
+shortcuts in [desktop behaviour](DESKTOP-BEHAVIOUR.md#shortcuts).
 
 ## Shared palette
 
 The managed palette is Noctalia's built-in Rosé Pine in light mode, set in
-`~/.config/noctalia/90-omarchy.toml`. Noctalia's template engine writes each
+`~/.config/noctalia/90-shell.toml`. Noctalia's template engine writes each
 application's colours from it, as `92-app-themes.toml` configures:
 
 | Component | Implementation | When colours update |
 | --- | --- | --- |
 | Noctalia | Built-in palette `Rosé Pine`, light mode | Immediately |
-| Niri | Local template `templates/niri.kdl`, written to `~/.config/niri/noctalia.kdl`, which `config.kdl` includes after `cfg/`: borders and tab indicators in the palette's primary colour, with Omarchy's inactive border `#595959aa` | Niri's live configuration reload |
+| Niri | Local template `templates/niri.kdl`, written to `~/.config/niri/noctalia.kdl`, which `config.kdl` includes after `cfg/`: borders and tab indicators in the palette's primary colour, with a translucent grey inactive border, `#595959aa` | Niri's live configuration reload |
 | Alacritty | Built-in template, written to `themes/noctalia.toml`, the first of Alacritty's imports | Alacritty's live configuration reload |
 | btop | Built-in template; the seeded `btop.conf` selects the `noctalia` theme | Next launch |
 | GTK 3 and GTK 4 | Built-in CSS, which the template's own hook imports into each `gtk.css`, plus the local `gtk-settings.ini` template, which selects adw-gtk3 or adw-gtk3-dark and the Yaru-yellow icons | Reopen applications that keep the old colours |
@@ -79,7 +79,7 @@ and no bar buttons are added. The Tailnet and Syncthing panel entries in
 ## Lock screen
 
 The lock screen shows the supplement's `desktop.lock_screen.image`, which
-`90-omarchy.toml` renders as `[lockscreen] wallpaper`; without it, Noctalia's own
+`90-shell.toml` renders as `[lockscreen] wallpaper`; without it, Noctalia's own
 wallpaper, `/usr/share/noctalia/assets/noctalia-wallpaper.png`. The lock-screen
 widgets and their layout are Noctalia's own; the idle lock and its timings are in
 [wallpaper and lock screen](DESKTOP-SETUP.md#wallpaper-and-lock-screen). Disk

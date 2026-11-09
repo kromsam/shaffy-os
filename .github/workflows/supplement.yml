@@ -13,7 +13,7 @@ on:
         default: main
     secrets:
       SHAFFY_OS_TOKEN:
-        description: A read-only token for kromsam/shaffy-os, needed while that repository is private
+        description: Optional; a read-only token for kromsam/shaffy-os, used instead of the run's own token
         required: false
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
           ref: ${{ inputs.shaffy-ref }}
           path: shaffy-os
           fetch-depth: 0 # the release tags, which a supplement's minimum_release is checked against
-          # The run's own token reads only the supplement's repository.
+          # The run's own token unless the caller passes SHAFFY_OS_TOKEN.
           token: ${{ secrets.SHAFFY_OS_TOKEN || github.token }}
       # runuser without -l keeps the step's directory.
       - name: Install the development tools (mise.dev.toml)
@@ -56,7 +56,7 @@ jobs:
         env:
           # The container is disposable, so the home render runs without bubblewrap.
           SHAFFY_RENDER_DIRECT: '1'
-        # --no-home: CI's fresh home has none of the folders or files the owner's machine has.
+        # --no-home: CI's fresh home has none of the folders or files an installation has.
         run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy check --no-home --supplement ../supplement
       # The checks after the first run also after a failure, so one run reports them all.
       - name: Lint (STYLE.md)

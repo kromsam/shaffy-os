@@ -25,6 +25,7 @@ desktop:
     layouts: "us,de"
     variants: "intl,"
     options: "grp:alt_shift_toggle"
+  boot_splash: "spinner"
 folders:
   pictures: "Bilder"
   videos: "Filme"
@@ -42,6 +43,11 @@ assets:
 lazyvim:
   extras: [lazyvim.plugins.extras.lang.ruby]
 power:
+  charge_limit:
+    start: 60
+    end: 80
+  hibernation:
+    swap_gib: 16
   low_battery_hibernate:
     low_percent: 18
     critical_percent: 9

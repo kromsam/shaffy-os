@@ -1,9 +1,9 @@
 # Maintenance commands
 
 Recurring commands for the tools Shaffy OS keeps beside its applies. Run them
-from the checkout as the desktop user unless noted. Tools that exist only for
-one particular laptop's hardware and data are documented outside this
-repository.
+from the checkout as the desktop user unless noted. A helper for one machine's
+hardware or data belongs in the supplement's `tools/`
+([the supplement](SUPPLEMENT.md#layout)).
 
 ## Windows audio plugins (REAPER)
 
@@ -13,10 +13,10 @@ at the exact revision the script names and installs it with a hash receipt under
 `~/.local/share/yabridge` (64-bit VST2 only). Wine Staging and the build
 dependencies come from the `workflows` package group.
 
-`./bin/shaffy outdated` reports when the branch has moved past the revision. To
-take a newer one, read the upstream changes, set the revision in the script on
-dev and release it. Then remove `~/.cache/shaffy/build/audio-bridge`,
-where the build keeps its source at the old revision, and run the script again.
+`./bin/shaffy outdated` reports when the installed build's revision differs
+from the one the checkout names, as it does after a release that moves it.
+Rebuild then: remove `~/.cache/shaffy/build/audio-bridge`, where the build
+keeps its source at the old revision, and run the script again.
 `python3 scripts/test-windows-vst2.py` then loads every bridged plugin under
 `~/.vst/yabridge` and exercises its parameters and audio processing.
 

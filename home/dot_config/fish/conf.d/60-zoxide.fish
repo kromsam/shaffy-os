@@ -1,5 +1,6 @@
-# Omarchy's cd: an existing path changes directory as usual; anything else is a
-# zoxide query over directories visited before, so a name or part of one is enough.
+# Adapted from Omarchy's cd: an existing path changes directory as usual; anything
+# else is a zoxide query over directories visited before, so a name or part of one
+# is enough.
 if status is-interactive; and command -q zoxide
     zoxide init fish | source
     functions --copy cd __cd_before_zoxide

@@ -18,8 +18,8 @@ from shaffy.sandbox import RenderError, render
 # The public Git defaults every rendered ~/.config/git/config ends with.
 GIT_DEFAULTS = (
     '[init]\n    defaultBranch = main\n'
-    "# Omarchy's Git defaults: rebase local commits on pull, track the remote branch on\n"
-    '# the first push, clearer diffs and remembered conflict resolutions.\n'
+    '# Defaults: rebase local commits on pull, track the remote branch on the first\n'
+    '# push, clearer diffs and remembered conflict resolutions.\n'
     '[pull]\n    rebase = true\n[push]\n    autoSetupRemote = true\n'
     '[diff]\n    algorithm = histogram\n    colorMoved = plain\n    mnemonicPrefix = true\n'
     '[rerere]\n    enabled = true\n[branch]\n    sort = -committerdate\n'
@@ -84,6 +84,16 @@ class RenderTests(unittest.TestCase):
         if not DIRECT:
             self.assertEqual(result['identity'], '/home/tester|tester|4242|synthetic-host')
 
+    def test_every_home_gets_the_repositorys_agent_skills(self):
+        with tempfile.TemporaryDirectory() as keep:
+            self.assertClean(render(ROOT, without=True, keep=keep))
+            home = Path(keep) / 'home'
+            for skill in sorted((ROOT / '.agents/skills').iterdir()):
+                for host in ('.claude', '.codex'):
+                    installed = home / host / 'skills' / skill.name / 'SKILL.md'
+                    self.assertEqual(installed.read_text(), (skill / 'SKILL.md').read_text(), installed)
+                    self.assertIn('AGENTS.md', (home / host / 'skills/shaffy-os/SKILL.md').read_text())
+
     def test_minimal_example_renders_like_the_defaults(self):
         self.assertClean(render(ROOT, supplement=ROOT / 'supplement.example'))
 
@@ -108,9 +118,9 @@ class RenderTests(unittest.TestCase):
                 prefix = str(home) if DIRECT else '/home/tester'
                 self.assertEqual((home / '.config/user-dirs.dirs').read_text(), native)
                 self.assertEqual((home / '.config/user-dirs.dirs').stat().st_mode & 0o777, 0o644)
-                omarchy = tomllib.loads((home / '.config/noctalia/90-omarchy.toml').read_text())
+                shell = tomllib.loads((home / '.config/noctalia/90-shell.toml').read_text())
                 apps = tomllib.loads((home / '.config/noctalia/95-desktop-apps.toml').read_text())
-                self.assertEqual(omarchy['shell']['screenshot']['directory'], f'{prefix}/{pictures}/Screenshots')
+                self.assertEqual(shell['shell']['screenshot']['directory'], f'{prefix}/{pictures}/Screenshots')
                 self.assertEqual(apps['plugin_settings']['rylos/tailnet']['taildrop_dir'], f'{prefix}/{downloads}')
                 self.assertEqual(
                     apps['plugin_settings']['noctalia/screen_recorder']['directory'], f'{prefix}/{videos}/Recordings'
@@ -168,10 +178,10 @@ class RenderTests(unittest.TestCase):
             self.assertClean(render(ROOT, supplement=ROOT / 'tests/fixtures/supplements/comprehensive', keep=keep))
             home = Path(keep) / 'home'
             prefix = str(home) if DIRECT else '/home/tester'
-            omarchy = (home / '.config/noctalia/90-omarchy.toml').read_text()
-            self.assertIn(f'directory = "{prefix}/Bilder/Screenshots"', omarchy)
-            self.assertIn(f'directory = "{prefix}/Wallpapers"', omarchy)
-            self.assertIn('path = "/usr/share/backgrounds/example.png"', omarchy)
+            shell = (home / '.config/noctalia/90-shell.toml').read_text()
+            self.assertIn(f'directory = "{prefix}/Bilder/Screenshots"', shell)
+            self.assertIn(f'directory = "{prefix}/Wallpapers"', shell)
+            self.assertIn('path = "/usr/share/backgrounds/example.png"', shell)
             apps = (home / '.config/noctalia/95-desktop-apps.toml').read_text()
             self.assertIn(f'directory = "{prefix}/Filme/Recordings"', apps)
 
@@ -202,8 +212,6 @@ class RenderTests(unittest.TestCase):
         group = yaml.safe_load((ROOT / 'defaults/packages/desktop_apps.yml').read_text())
         self.assertIn('proton-pass', group['packages'])
         self.assertNotIn('proton-pass', group.get('required', []), 'a supplement may omit it')
-        self.assertNotIn('bitwarden', group['packages'])
-        self.assertNotIn('logseq-og-bin', [entry['name'] for entry in group['aur']])
 
     def test_noctalia_public_defaults_skip_the_wizard_and_lock_when_idle(self):
         import tomllib
@@ -211,11 +219,11 @@ class RenderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as keep:
             self.assertClean(render(ROOT, without=True, keep=keep))
             home = Path(keep) / 'home'
-            omarchy = tomllib.loads((home / '.config/noctalia/90-omarchy.toml').read_text())
+            shell = tomllib.loads((home / '.config/noctalia/90-shell.toml').read_text())
             keybinds = (home / '.config/niri/cfg/keybinds.kdl').read_text()
-        self.assertIs(omarchy['shell']['setup_wizard_enabled'], False)
-        self.assertIs(omarchy['shell']['polkit_agent'], True)
-        behaviors = omarchy['idle']['behavior']
+        self.assertIs(shell['shell']['setup_wizard_enabled'], False)
+        self.assertIs(shell['shell']['polkit_agent'], True)
+        behaviors = shell['idle']['behavior']
         self.assertEqual((behaviors['lock']['action'], behaviors['lock']['timeout']), ('lock', 300))
         self.assertEqual(behaviors['screen-off']['action'], 'screen_off')
         self.assertGreater(behaviors['screen-off']['timeout'], behaviors['lock']['timeout'])
@@ -271,8 +279,8 @@ class RenderTests(unittest.TestCase):
             ):
                 self.assertEqual((home / target).read_text(), '', target)
             # The public wallpaper is the one the noctalia package installs; none is redistributed.
-            omarchy = (home / '.config/noctalia/90-omarchy.toml').read_text()
-            self.assertEqual(omarchy.count('"/usr/share/noctalia/assets/noctalia-wallpaper.png"'), 3)
+            shell = (home / '.config/noctalia/90-shell.toml').read_text()
+            self.assertEqual(shell.count('"/usr/share/noctalia/assets/noctalia-wallpaper.png"'), 3)
             self.assertFalse((home / '.local/share/wallpapers').exists())
 
     def test_identity_and_folders_render_from_the_settings(self):
@@ -335,7 +343,6 @@ class RenderTests(unittest.TestCase):
             self.assertClean(render(ROOT, without=True, keep=keep))
             home = Path(keep) / 'home'
             self.assertNotIn('admin_url', (home / '.config/noctalia/95-desktop-apps.toml').read_text())
-            self.assertFalse((home / '.local/bin/bitwarden-login').exists())
             launcher = (home / '.local/share/applications/silverbullet.desktop').read_text()
             appimage = f'{home if DIRECT else "/home/tester"}/.local/lib/silverbullet-desktop/SilverBullet.AppImage'
             self.assertIn(f'Exec="{appimage}" %U', launcher)
@@ -465,13 +472,13 @@ class RenderTests(unittest.TestCase):
             keybinds = (home / '.config/niri/cfg/keybinds.kdl').read_text()
             self.assertNotRegex(keybinds, r'(?<![\w.-])/home/(?!tester(?:/|"))')  # no other account's home
             self.assertIn(f'"{home if DIRECT else "/home/tester"}/.local/bin/shaffy-desktop"', keybinds)
-            for fragment in ('90-omarchy.toml', '94-desktop-controls.toml', '95-desktop-apps.toml'):
+            for fragment in ('90-shell.toml', '94-desktop-controls.toml', '95-desktop-apps.toml'):
                 self.assertNotRegex(
                     (home / '.config/noctalia' / fragment).read_text(), r'(?<![\w.-])/home/(?!tester(?:/|"))'
                 )
             self.assertIn(
                 f'directory = "{home if DIRECT else "/home/tester"}/Screenshots"',
-                (home / '.config/noctalia/90-omarchy.toml').read_text(),
+                (home / '.config/noctalia/90-shell.toml').read_text(),
             )
             self.assertEqual((home / '.config/git/config').read_text(), GIT_DEFAULTS + GIT_GITHUB)
             self.assertFalse((home / '.config/user-dirs.dirs').exists())
@@ -501,7 +508,7 @@ class RenderTests(unittest.TestCase):
     def test_broken_configuration_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             checkout = Path(directory) / 'checkout'
-            for part in ('home', 'lib', 'schema', 'defaults'):
+            for part in ('home', '.agents', 'lib', 'schema', 'defaults'):
                 shutil.copytree(ROOT / part, checkout / part, ignore=shutil.ignore_patterns('__pycache__'))
             (checkout / 'scripts').mkdir()
             for script in ('merge-ai-config.py', 'validate-tmux-config.py'):

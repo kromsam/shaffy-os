@@ -649,8 +649,8 @@ def outdated(args):
         for line in section.lines:
             print(f'  {line}')
     print(
-        'The machine: ./bin/shaffy update. The repository pins: python3 scripts/refresh-pins.py on dev. '
-        'See docs/UPDATING.md.'
+        'The machine: ./bin/shaffy update (docs/UPDATING.md). The repository pins and removals are the '
+        "maintainers' work and reach the machine with a release (MAINTAINING.md)."
     )
     return 0
 

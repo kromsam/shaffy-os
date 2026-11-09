@@ -13,3 +13,4 @@ home-path	tests/test_home_backup.py	/home/old	a snapshot path from another home
 private-ip	tests/vm/vm-post-install.sh	10.0.2.2	QEMU user networking's fixed address for the host, which the VM kit lets reach sshd
 email	scripts/install-better-bibtex.py	better-bibtex@iris-advies.com.xpi	Better BibTeX's add-on id, which names its file in Zotero's profile
 email	lib/shaffy/updates.py	better-bibtex@iris-advies.com.xpi	Better BibTeX's add-on id, which names its file in Zotero's profile
+device-id	scripts/configure-secure-boot.py	8be4df61-93ca-11d2-aa0d-00e098032b8c	the UEFI specification's global variable GUID, under which every firmware keeps SecureBoot and SetupMode

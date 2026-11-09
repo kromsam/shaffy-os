@@ -5,7 +5,8 @@
             off
         }
         window-open {
-            // Hyprland speed 4.1 is 410 ms; 87% pop-in translated to Niri's shader API.
+            // From Omarchy: Hyprland speed 4.1 is 410 ms; its 87% pop-in is
+            // translated to Niri's shader API.
             duration-ms 410
             curve "cubic-bezier" 0.23 1.0 0.32 1.0
             custom-shader r#"

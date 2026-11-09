@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import runpy
-import shutil
 import subprocess
 import sys
 import tomllib
@@ -50,30 +49,6 @@ def commands(plugins=None):
     ]
 
 
-def retire_compound_engineering(home, env):
-    """Uninstall the user's Compound Engineering, which pstack replaced. A project's own CE
-    install keeps its plugin and the Claude marketplace it comes from. Remove after 2027-01-29."""
-    plugin, marketplace = MERGE['CE_PLUGIN'], MERGE['CE_MARKETPLACE']
-    registry = home / '.claude/plugins/installed_plugins.json'
-    installs = json.loads(registry.read_text()).get('plugins', {}).get(plugin, []) if registry.exists() else []
-    if any(install.get('scope') == 'user' for install in installs):
-        subprocess.run(
-            ['mise', 'exec', 'claude', '--', 'claude', 'plugin', 'uninstall', plugin, '--scope', 'user'],
-            check=True,
-            env=env,
-        )
-    # Codex removes a plugin that is already gone without complaint, but not a marketplace.
-    # Its list omits a marketplace whose table the home apply dropped; the downloaded copy stays.
-    subprocess.run(['mise', 'exec', 'codex', '--', 'codex', 'plugin', 'remove', plugin], check=True, env=env)
-    if (home / '.codex/.tmp/marketplaces' / marketplace).exists():
-        subprocess.run(
-            ['mise', 'exec', 'codex', '--', 'codex', 'plugin', 'marketplace', 'remove', marketplace],
-            check=True,
-            env=env,
-        )
-    shutil.rmtree(home / '.local/state/shaffy/compound-engineering', ignore_errors=True)
-
-
 def settings_snapshot(home):
     return {
         'claude': json.loads((home / '.claude/settings.json').read_text()),
@@ -109,9 +84,6 @@ def refresh(home, enabled, hooks, original_settings, env, plugins=None):
                 )
         for command in commands(plugins):
             subprocess.run(['mise', 'exec', command[0], '--', *command], check=True, env=env)
-        # After the upgrade: Codex refuses plugin commands while a declared marketplace is
-        # not yet downloaded.
-        retire_compound_engineering(home, env)
     finally:
         # Restore source-owned activation even when a later native command fails.
         reconcile_settings(home, enabled, hooks, original_settings, plugins)

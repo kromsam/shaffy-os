@@ -1,0 +1,32 @@
+name: Configuration
+description: A setting, override or file from your supplement that others would want.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Replace your personal values (names, hosts, addresses, paths) with placeholders before you
+        paste.
+  - type: textarea
+    id: configuration
+    attributes:
+      label: The configuration
+      description: The supplement setting, native override or asset, and what it does.
+      render: yaml
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it should go
+      options:
+        - A public default, for everyone
+        - A setting any supplement can use
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Who else it helps, and what it changes for someone who installs Shaffy OS.

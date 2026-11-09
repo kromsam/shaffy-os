@@ -121,7 +121,7 @@ class InvalidInputTests(LoaderCase):
         plugins = self.load(supplement=path)['shaffy']['settings']['ai']['claude_plugins']
         self.assertEqual(plugins, {'example-lsp@example-plugins': 'example/plugins'})
         self.assertIn('example-lsp', self.problems(base + '    example-lsp: example/plugins\n'))
-        for name in ('pstack@pstack-claude', 'fork@pstack-claude', 'old@compound-engineering-plugin'):
+        for name in ('pstack@pstack-claude', 'fork@pstack-claude'):
             self.assertIn(name, self.problems(base + f'    {name}: a/b\n'))
 
     def test_yaml_1_2_typing_keeps_yes_a_string_and_rejects_bare_true(self):
@@ -348,7 +348,8 @@ class PackageTests(LoaderCase):
         groups, retired, problems = load_groups(ROOT, parse)
         self.assertEqual(problems, [])
         self.assertEqual(
-            set(groups), {'desktop', 'desktop_apps', 'home_backup', 'kde_connect', 'sync', 'workflows', 'writing'}
+            set(groups),
+            {'boot_splash', 'desktop', 'desktop_apps', 'home_backup', 'kde_connect', 'sync', 'workflows', 'writing'},
         )
         import yaml
 
@@ -360,13 +361,14 @@ class PackageTests(LoaderCase):
             self.assertIn(f'shaffy.packages.groups.{name}', (ROOT / f'roles/{name}/tasks/main.yml').read_text())
             self.assertEqual(site.get(name), [name], f'site.yml does not run the {name} role under its tag')
         self.assertEqual(site.get('packages'), ['packages'])
-        self.assertEqual(retired, ['zotero-bin', 'beeper-v4-bin'])
+        for name in retired:  # a retired package is installed by no group
+            self.assertFalse(any(name in group['packages'] for group in groups.values()), name)
 
     def test_defaults_install_every_group_and_remove_only_the_retired(self):
         packages = self.load()['shaffy']['packages']
         self.assertIn('docker', packages['groups']['workflows'])
         self.assertEqual(packages['extra'], [])
-        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'zotero-bin'])
+        self.assertEqual(packages['remove'], [])
         self.assertIn('zotero', packages['groups']['writing'])
         aur = {'desktop_apps': [{'name': 'ttf-ms-fonts'}], 'workflows': [{'name': 'docker-rootless-extras'}]}
         self.assertEqual(packages['aur'], {group: aur.get(group, []) for group in packages['groups']})
@@ -376,12 +378,23 @@ class PackageTests(LoaderCase):
         self.assertNotIn('reaper', packages['groups']['workflows'])
         self.assertEqual(packages['extra'], ['htop', 'zellij'])
         # Only listed packages are removed: the settings' and the public retirements.
-        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'reaper', 'zotero-bin'])
+        self.assertEqual(packages['remove'], ['reaper'])
+
+    def test_public_retirements_are_removed_with_the_settings_removals(self):
+        import shutil
+
+        checkout = self.tmp / 'checkout'
+        for part in ('defaults', 'schema'):
+            shutil.copytree(ROOT / part, checkout / part)
+        (checkout / 'defaults/packages/retired.yml').write_text('retired:\n  - example-retired\n')
+        path = self.supplement('schema_version: 1\nsupplement_id: t\npackages:\n  remove: [example-old]\n')
+        packages = load(checkout, home=self.home, supplement=path)['shaffy']['packages']
+        self.assertEqual(packages['remove'], ['example-old', 'example-retired'])
 
     def test_aur_omissions_and_removals_follow_the_same_rules(self):
         packages = self.packages('packages:\n  omit: [ttf-ms-fonts]\n  remove: [ttf-ms-fonts]\n')
         self.assertEqual(packages['aur']['desktop_apps'], [])
-        self.assertEqual(packages['remove'], ['beeper-v4-bin', 'ttf-ms-fonts', 'zotero-bin'])
+        self.assertEqual(packages['remove'], ['ttf-ms-fonts'])
 
     def test_contradictory_choices_fail(self):
         for text, message in (

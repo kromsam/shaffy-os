@@ -25,12 +25,6 @@ clipboard transfer, sharing, SMS, media control and browsing the phone's files.
 Android grants each permission in the phone's KDE Connect app; file browsing
 needs a folder chosen there.
 
-Two upstream bugs are known: with a phone that reports no cellular details the
-plugin's refresh fails, and the panel errors when the phone reports no media
-volume. The fix for both is proposed in
-[community-plugins PR #794](https://github.com/noctalia-dev/community-plugins/pull/794);
-Noctalia's automatic updates bring it once upstream merges it.
-
 To leave the panel out, set `enabled` under `[plugins]` in the supplement's
 Noctalia fragment (`overrides.noctalia`) to the list without
 `icefish/phone-connect`; the supplement's fragment loads after the public one.

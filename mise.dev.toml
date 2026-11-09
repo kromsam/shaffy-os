@@ -9,6 +9,9 @@ node = "lts"
 # In a virtual environment of its own, beside the controller.
 "pipx:ansible-lint" = "latest"
 ruff = "latest"
+# The history's secret scan and the licence check, which CI also runs (CONTRIBUTING.md).
+gitleaks = "latest"
+"pipx:reuse" = "latest"
 shellcheck = "latest"
 shfmt = "latest"
 stylua = "latest"

@@ -1,0 +1,4 @@
+---
+boot_splash_state_dir: /var/lib/shaffy
+# Root's copy in the operation directory (roles/operation/tasks/prepare.yml).
+boot_splash_script: "{{ shaffy_op_dir }}/configure-boot-splash.py"

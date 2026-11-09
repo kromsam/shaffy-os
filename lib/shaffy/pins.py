@@ -146,10 +146,10 @@ def yaru(root, upstream):
         archive = upstream.read(f'https://github.com/ubuntu/yaru/archive/refs/tags/{pin.latest}.tar.gz')
         sha256 = hashlib.sha256(archive).hexdigest()
         changed = [
-            _edit(root, path, current, pin.latest) for path in (script, 'README.md', 'docs/OMARCHY-IMPLEMENTATION.md')
+            _edit(root, path, current, pin.latest) for path in (script, 'README.md', 'docs/DESKTOP-BEHAVIOUR.md')
         ]
         _edit(root, script, digest, sha256, 1)
-        _edit(root, 'docs/OMARCHY-IMPLEMENTATION.md', digest, sha256, 1)
+        _edit(root, 'docs/DESKTOP-BEHAVIOUR.md', digest, sha256, 1)
         return changed
 
     pin.raise_to = raise_to

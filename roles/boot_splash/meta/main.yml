@@ -1,0 +1,4 @@
+---
+# Every role that reads `shaffy` depends on the settings role, which runs once per play.
+dependencies:
+  - role: settings

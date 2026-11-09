@@ -1,3 +1,7 @@
 ---
 power_config_dir: /etc/UPower/UPower.conf.d
 power_state_dir: /var/lib/shaffy
+power_hwdb_dir: /etc/udev/hwdb.d
+# Root's copies in the operation directory (roles/operation/tasks/prepare.yml).
+power_charge_limit_script: "{{ shaffy_op_dir }}/configure-charge-limit.py"
+power_hibernation_script: "{{ shaffy_op_dir }}/configure-hibernation.py"

@@ -3,7 +3,7 @@
 sha256 over the sorted (path, content sha256) pairs of the tracked and
 untracked-but-not-ignored files, plus HEAD and a dirty flag. A capture freezes
 the supplement; this detects changes to the framework itself during an operation.
-The release is the newest release tag HEAD contains (CLAUDE.md, "Branches").
+The release is the newest release tag HEAD contains (MAINTAINING.md, "Branches and releases").
 """
 
 import hashlib

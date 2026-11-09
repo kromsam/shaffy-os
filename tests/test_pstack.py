@@ -86,57 +86,6 @@ class PstackTests(unittest.TestCase):
         self.assertNotIn('gbrain', tomllib.loads(output)['mcp_servers'])
         self.assertEqual(tomllib.loads(output)['mcp_servers']['zotero']['command'], '/kept')
 
-    # Compound Engineering's retirement. Remove after 2027-01-29, with CE_PLUGIN in
-    # scripts/merge-ai-config.py.
-    def test_ce_entries_go_and_everything_else_stays(self):
-        ce, ce_marketplace = MERGE['CE_PLUGIN'], MERGE['CE_MARKETPLACE']
-        claude = {
-            'enabledPlugins': {ce: True, 'other@official': True},
-            'extraKnownMarketplaces': {
-                ce_marketplace: {'source': {'source': 'github', 'repo': 'EveryInc/compound-engineering-plugin'}},
-                'other': {'source': {'source': 'github', 'repo': 'org/other'}},
-            },
-        }
-        output = MERGE['merge_claude_settings'](json.dumps(claude), True)
-        actual = json.loads(output)
-        self.assertEqual(actual['enabledPlugins'], {'other@official': True, PLUGIN: True})
-        self.assertEqual(set(actual['extraKnownMarketplaces']), {'other', MARKETPLACE})
-        self.assertEqual(MERGE['merge_claude_settings'](output, True), output)
-        codex = (
-            f'[plugins."{ce}"]\nenabled = true\n[plugins."other@official"]\nenabled = true\n'
-            f'[marketplaces.{ce_marketplace}]\nsource_type = "git"\nsource = "https://example.org/ce.git"\n'
-        )
-        output = MERGE['merge_codex'](codex, {}, True)
-        actual = tomllib.loads(output)
-        self.assertEqual(set(actual['plugins']), {'other@official', PLUGIN})
-        self.assertEqual(set(actual['marketplaces']), {MARKETPLACE})
-        self.assertEqual(MERGE['merge_codex'](output, {}, True), output)
-
-    def test_installer_uninstalls_only_the_users_ce(self):
-        ce, ce_marketplace = MERGE['CE_PLUGIN'], MERGE['CE_MARKETPLACE']
-        project = {'scope': 'project', 'projectPath': '/work/project'}
-        for installs, present in (([{'scope': 'user'}, project], True), ([project], False)):
-            with self.subTest(installs=installs), tempfile.TemporaryDirectory() as directory:
-                home = Path(directory)
-                registry = home / '.claude/plugins/installed_plugins.json'
-                registry.parent.mkdir(parents=True)
-                registry.write_text(json.dumps({'plugins': {ce: installs}}))
-                record = home / '.local/state/shaffy/compound-engineering/installed.json'
-                record.parent.mkdir(parents=True)
-                record.write_text('{}')
-                if present:
-                    # Codex's downloaded copy, which its list no longer names once the table is gone.
-                    (home / '.codex/.tmp/marketplaces' / ce_marketplace).mkdir(parents=True)
-                with mock.patch.object(INSTALL['subprocess'], 'run') as run:
-                    INSTALL['retire_compound_engineering'](home, {})
-                # Each host's own command, after `mise exec TOOL --`.
-                calls = [call.args[0][call.args[0].index('--') + 1 :] for call in run.call_args_list]
-                expected = [['claude', 'plugin', 'uninstall', ce, '--scope', 'user']] if present else []
-                expected += [['codex', 'plugin', 'remove', ce]]
-                expected += [['codex', 'plugin', 'marketplace', 'remove', ce_marketplace]] if present else []
-                self.assertEqual(calls, expected)
-                self.assertFalse(record.parent.exists())
-
     def test_installer_requires_source_declared_configs_and_supports_opt_out(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)

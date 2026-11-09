@@ -70,11 +70,14 @@ class LicenceTests(unittest.TestCase):
         noticed = {
             path
             for path in self.files
-            if path.startswith('home/')
-            and 'Derived from CachyOS cachyos-niri-noctalia' in (ROOT / path).read_text(errors='replace')
+            if path.startswith(('home/', 'roles/'))
+            and re.search(
+                r'Derived from CachyOS cachyos-(niri-noctalia|plymouth-theme)',
+                (ROOT / path).read_text(errors='replace'),
+            )
         }
         self.assertEqual(noticed, gpl)
-        self.assertEqual(len(gpl), 7)
+        self.assertEqual(len(gpl), 8)  # seven Niri files and the boot splash's theme file
 
     def test_modified_apache_files_say_so(self):
         holder = (ROOT / 'LICENSE').read_text().splitlines()[2].removeprefix('Copyright (c) ')
@@ -206,6 +209,26 @@ class TidinessTests(unittest.TestCase):
                 self.assertTrue(resolved.exists(), f'{path}: {target} does not exist')
                 if anchor and resolved.suffix == '.md':
                     self.assertIn(anchor, heading_slugs(resolved.read_text()), f'{path}: {target}')
+
+    def test_agent_hosts_only_point_to_the_agents_folder(self):
+        # .agents/ is the one source: a copy under .claude/ would drift from it.
+        for folder in ('.claude/skills', '.claude/agents'):
+            for entry in sorted((ROOT / folder).iterdir()):
+                self.assertTrue(entry.is_symlink(), f'{folder}/{entry.name} is a copy, not a link into .agents/')
+                target = entry.resolve().relative_to(ROOT)
+                self.assertEqual(target.parts[0], '.agents', f'{folder}/{entry.name} -> {target}')
+        self.assertIn('.agents/agents/shaffy-reviewer.md', (ROOT / '.codex/agents/shaffy-reviewer.toml').read_text())
+
+    def test_claude_codes_denied_commands_are_the_ones_the_contract_forbids(self):
+        import json
+
+        contract = (ROOT / 'AGENTS.md').read_text()
+        for rule in json.loads((ROOT / '.claude/settings.json').read_text())['permissions']['deny']:
+            kind, argument = re.fullmatch(r'(\w+)\((.*)\)', rule).groups()
+            named = argument.removesuffix(':*') if kind == 'Bash' else argument.removesuffix('**').lstrip('/')
+            self.assertIn(
+                named.removeprefix('/'), contract, f'.claude/settings.json denies {rule}; AGENTS.md is silent'
+            )
 
     def test_every_file_a_role_writes_names_its_role(self):
         for path in sorted(self.files):

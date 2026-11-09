@@ -57,7 +57,9 @@ class ScannerTests(unittest.TestCase):
     def test_outdated_names_each_due_marker(self):
         (self.repo / 'typo.md').unlink()
         section = removal_section(self.repo, datetime.date(2027, 2, 1))
-        self.assertEqual(section.summary, '1 past their date; delete them on dev')
+        self.assertEqual(
+            section.summary, '1 past their date; the maintainers delete them for a release (MAINTAINING.md)'
+        )
         self.assertEqual(section.lines, ['old.py:3: Remove after 2027-01-16.'])
         self.assertEqual(removal_section(self.repo, datetime.date(2027, 1, 1)).summary, 'none due')
 
@@ -80,7 +82,8 @@ class RetirementsCarryADateTests(unittest.TestCase):
     def test_every_retired_package(self):
         path = 'defaults/packages/retired.yml'
         lines = (ROOT / path).read_text().splitlines()
-        self.assert_marked(path, lines[lines.index('retired:') + 1 :])
+        start = next(number for number, line in enumerate(lines) if line.startswith('retired:'))
+        self.assert_marked(path, lines[start + 1 :])
 
     def test_every_public_mcp_server_retirement(self):
         path = 'defaults/config.yaml'
