@@ -32,7 +32,7 @@ chown -R tester: /home/tester
 
 run() { # run a command as the target user in the checkout; never fails the script
   runuser -u tester -- env -i HOME=/home/tester USER=tester PATH=/usr/bin:/bin LANG=C.UTF-8 \
-    SHAFFY_TEST_PREREQUISITES=fake SHAFFY_TEST_ROOT_STATE=/var/lib/shaffy ${FAULT:+SHAFFY_TEST_FAULT=$FAULT} \
+    SHAFFY_TEST_PREREQUISITES=fake SHAFFY_TEST_ROOT_STATE=/var/lib/shaffy ${FAULT:+SHAFFY_TEST_FAULT=${FAULT}} \
     bash -c 'cd /home/tester/checkout && exec "$@"' bash "$@"
 }
 state() { # print the records as one JSON line
@@ -63,12 +63,12 @@ for attempt in first second; do
   output=$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1)
   code=$?
   set -e
-  recap=$(grep -E '^localhost +:' <<<"$output" | tr -s ' ')
-  echo "RESULT apply-$attempt code=$code recap=$recap"
-  echo "RESULT state-$attempt $(state)"
-  echo "RESULT jinja-$attempt $(test -e /tmp/shaffy-jinja-ran && echo evaluated || echo literal)"
-  [[ $code == 0 ]] || {
-    echo "$output" | tail -40
+  recap=$(grep -E '^localhost +:' <<<"${output}" | tr -s ' ')
+  echo "RESULT apply-${attempt} code=${code} recap=${recap}"
+  echo "RESULT state-${attempt} $(state)"
+  echo "RESULT jinja-${attempt} $(test -e /tmp/shaffy-jinja-ran && echo evaluated || echo literal)"
+  [[ ${code} == 0 ]] || {
+    echo "${output}" | tail -40
     exit 1
   }
 done
@@ -79,15 +79,15 @@ echo "RESULT desktop $(pacman -Q grim tesseract localsend restic htop 2>&1 | cut
 for fault in after-pending after-root-pre-snapshots after-root-pending after-root-phase-start \
   after-root-phase-done after-play; do
   set +e
-  FAULT=$fault run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
+  FAULT=${fault} run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
   crashed=$?
-  echo "RESULT crash-$fault code=$crashed $(state)"
+  echo "RESULT crash-${fault} code=${crashed} $(state)"
   resumed=$(run ./bin/shaffy apply --resume 2>&1)
   code=$?
   set -e
-  echo "RESULT resume-$fault code=$code $(state)"
-  [[ $code == 0 ]] || {
-    echo "$resumed" | tail -40
+  echo "RESULT resume-${fault} code=${code} $(state)"
+  [[ ${code} == 0 ]] || {
+    echo "${resumed}" | tail -40
     exit 1
   }
 done
@@ -102,7 +102,7 @@ resumed=$?
 run ./bin/shaffy apply --abandon >/dev/null 2>&1
 abandoned=$?
 set -e
-echo "RESULT failing apply=$failed resume=$resumed abandon=$abandoned $(state)"
+echo "RESULT failing apply=${failed} resume=${resumed} abandon=${abandoned} $(state)"
 grep -q 'pacman groups' <<<"$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1 || true)" &&
   echo "RESULT group-refusal named" || echo "RESULT group-refusal missing"
 run ./bin/shaffy apply --abandon >/dev/null 2>&1 || true
@@ -111,11 +111,11 @@ set +e
 run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
 code=$?
 set -e
-echo "RESULT after-abandon code=$code $(state)"
+echo "RESULT after-abandon code=${code} $(state)"
 
 # / rolled back to a moment root held an operation: root pending the user record does not know.
 uid=$(id -u tester)
-python3 - "$uid" <<'EOF2'
+python3 - "${uid}" <<'EOF2'
 import json, sys
 path = f'/var/lib/shaffy/targets/{sys.argv[1]}.json'
 record = json.load(open(path))
@@ -131,25 +131,25 @@ cleared=$?
 run ./bin/shaffy apply --system --tags packages,home_backup,desktop >/dev/null 2>&1
 code=$?
 set -e
-echo "RESULT rollback refused=$refused abandon=$cleared apply=$code $(state)"
+echo "RESULT rollback refused=${refused} abandon=${cleared} apply=${code} $(state)"
 echo "RESULT status $(run ./bin/shaffy status --no-drift | grep -E '^System:')"
 
 # An AUR package: the probe recipe served from a local git repository in place of the AUR,
 # built as the target user in the cache, installed as root from a verified copy.
 aur=/home/tester/aur
-mkdir -p "$aur" && cp -a /src/tests/fixtures/packages/shaffy-probe "$aur/shaffy-probe.git"
-chown -R tester: "$aur"
+mkdir -p "${aur}" && cp -a /src/tests/fixtures/packages/shaffy-probe "${aur}/shaffy-probe.git"
+chown -R tester: "${aur}"
 # As the target user, who owns the repository and clones it; git refuses another owner's.
-runuser -u tester -- git -C "$aur/shaffy-probe.git" init -q
-runuser -u tester -- git -C "$aur/shaffy-probe.git" add PKGBUILD
-runuser -u tester -- git -C "$aur/shaffy-probe.git" -c user.name=t -c user.email=t@example.invalid \
+runuser -u tester -- git -C "${aur}/shaffy-probe.git" init -q
+runuser -u tester -- git -C "${aur}/shaffy-probe.git" add PKGBUILD
+runuser -u tester -- git -C "${aur}/shaffy-probe.git" -c user.name=t -c user.email=t@example.invalid \
   -c commit.gpgsign=false commit -q -m probe
 # shellcheck disable=SC2174 # only the operation directory needs 0700
 mkdir -p -m 0700 /var/lib/shaffy/ops/test-aur-package
 for attempt in first second; do
   recap=$(run env ANSIBLE_ROLES_PATH=/home/tester/checkout/roles mise exec ansible-core -- ansible-playbook \
     -i localhost, tests/container/aur-package.yml 2>&1 | grep -E '^localhost +:' | tr -s ' ')
-  echo "RESULT aur-$attempt $recap"
+  echo "RESULT aur-${attempt} ${recap}"
 done
 # shellcheck disable=SC2012 # a listing for the log
 echo "RESULT aur-installed $(pacman -Q shaffy-probe 2>&1) copy=$(ls /var/lib/shaffy/ops/test-aur-package/packages/ | tr '\n' ' ')\

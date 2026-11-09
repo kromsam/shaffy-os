@@ -1,3 +1,4 @@
+---
 # What the desktop's features need beside Niri and Noctalia: fonts, screen capture, text
 # and QR recognition, local sharing, monitor control and dialogs. Text recognition reads every
 # installed Tesseract language; a supplement adds more with packages.extra.

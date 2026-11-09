@@ -4,7 +4,7 @@
 
 - name: Remove automatic login and its keyring handoff when they are not requested
   ansible.builtin.file:
-    path: '{{ item }}'
+    path: "{{ item }}"
     state: absent
   loop:
     - /etc/sddm.conf.d/90-shaffy-autologin.conf
@@ -15,7 +15,7 @@
 - name: Remove the disk password handoff when automatic login is not requested
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sddm-autologin
-    regexp: '^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$'
+    regexp: ^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$
     state: absent
   when: not login_autologin
 
@@ -34,7 +34,7 @@
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
 
 - name: Automatically start Niri for the target user after disk unlock
   ansible.builtin.template:
@@ -42,7 +42,7 @@
     dest: /etc/sddm.conf.d/90-shaffy-autologin.conf
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Unlock the encrypted login keyring using the disk-unlock password
   ansible.builtin.import_tasks: keyring.yml

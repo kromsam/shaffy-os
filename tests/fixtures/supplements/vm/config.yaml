@@ -1,3 +1,4 @@
+---
 # The supplement of the VM validation (tests/vm/README.md): supplement.example plus
 # the optional integrations that work in a virtual machine without outside
 # services. nextcloud needs a Nextcloud server, backup an SFTP repository and a

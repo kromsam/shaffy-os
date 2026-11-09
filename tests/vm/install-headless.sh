@@ -26,9 +26,9 @@ esac
 [[ -d /run/archiso ]] || refuse 'this is not the installer'"'"'s live session'
 [[ -b /dev/vda ]] || refuse 'there is no /dev/vda to install to'
 disks=$(lsblk -dn -o NAME,TYPE | awk '$2 == "disk" && $1 !~ /^(loop|sr|zram)/ {print $1}')
-[[ $disks == vda ]] || refuse "expected one disk, vda; found: ${disks//$'\n'/ }"
+[[ ${disks} == vda ]] || refuse "expected one disk, vda; found: ${disks//$'\n'/ }"
 command -v cachyos-installer >/dev/null || refuse 'cachyos-installer is missing from this image'
-[[ $here == /run/shaffy-share ]] || refuse "mount the share at /run/shaffy-share (vm-install.json names its post_install step there); it is at $here"
+[[ ${here} == /run/shaffy-share ]] || refuse "mount the share at /run/shaffy-share (vm-install.json names its post_install step there); it is at ${here}"
 
 keep_log() { :; }
 if ((at_boot)); then
@@ -74,18 +74,18 @@ lists=(cachyos-mirrorlist cachyos-v3-mirrorlist cachyos-v4-mirrorlist)
 pacman -Syw --noconfirm "${lists[@]}" >/dev/null
 cache=$(pacman-conf CacheDir | head -n 1)
 for list in "${lists[@]}"; do
-  bsdtar -xOf "${cache%/}/$(pacman -Sp --print-format %f "$list")" "etc/pacman.d/$list" >"/etc/pacman.d/$list"
-  say "$list starts with $(grep -m 1 '^Server' "/etc/pacman.d/$list")"
+  bsdtar -xOf "${cache%/}/$(pacman -Sp --print-format %f "${list}")" "etc/pacman.d/${list}" >"/etc/pacman.d/${list}"
+  say "${list} starts with $(grep -m 1 '^Server' "/etc/pacman.d/${list}")"
 done
 mkdir -p /etc/conf.d
 printf '%s\n' '# install-headless.sh (Shaffy OS VM kit): keep the default mirror lists' 'exit 0' \
   >/etc/conf.d/cachyos-rate-mirrors.env
 
-say "$(cachyos-installer --version); installing to /dev/vda from $here/vm-install.json"
+say "$(cachyos-installer --version); installing to /dev/vda from ${here}/vm-install.json"
 attempts=1
 ((at_boot)) && attempts=3 # unattended: a mirror caught mid-sync fails a database sync at random
 for ((attempt = 1; ; attempt++)); do
-  if cachyos-installer --config "$here/vm-install.json"; then
+  if cachyos-installer --config "${here}/vm-install.json"; then
     installed=1
     break
   fi
@@ -93,7 +93,7 @@ for ((attempt = 1; ; attempt++)); do
   keep_log
   diagnose
   ((attempt < attempts)) || break
-  say "attempt $attempt failed; trying again from the start in two minutes"
+  say "attempt ${attempt} failed; trying again from the start in two minutes"
   sleep 120
 done
 if ((installed)); then

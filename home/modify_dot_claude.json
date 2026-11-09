@@ -2,4 +2,4 @@
 # Run the merge script of the checkout that is applying, never a fixed path.
 # Not private_: Claude Code rewrites the file as 0644 itself, so 0600 would always show drift.
 : "${CHEZMOI_SOURCE_DIR:?run through chezmoi}"
-exec /usr/bin/python3 "$CHEZMOI_SOURCE_DIR/../scripts/merge-ai-config.py" claude
+exec /usr/bin/python3 "${CHEZMOI_SOURCE_DIR}/../scripts/merge-ai-config.py" claude

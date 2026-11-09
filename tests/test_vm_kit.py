@@ -97,7 +97,7 @@ class ScriptTests(unittest.TestCase):
         compile(guest_python(), f'{GUEST.name} (Python checks)', 'exec')
 
     def test_the_installer_is_pinned_by_path_and_checksum(self):
-        self.assertRegex(pin('ISO'), r'^\$HOME/Downloads/cachyos-desktop-linux-\d{6}\.iso$')
+        self.assertRegex(pin('ISO'), r'^\$\{HOME\}/Downloads/cachyos-desktop-linux-\d{6}\.iso$')
         self.assertRegex(pin('ISO_SHA256'), r'^[0-9a-f]{64}$')
 
 
@@ -143,7 +143,7 @@ class HostScriptTests(unittest.TestCase):
         self.assertIn(f'file={vm}/OVMF_VARS', variables)
         self.assertIn('would run: install -m 0600 ', output)  # a private copy of the variables
         self.assertIn(f'qemu-img create -q -f qcow2 -o nocow=on {vm}/disk.qcow2 40G', output)
-        installer = pin('ISO').replace('$HOME', str(self.home))
+        installer = pin('ISO').replace('${HOME}', str(self.home))
         self.assertIn(f'file={installer},media=cdrom,readonly=on', ' '.join(self.options(argv, '-drive')))
         self.assertIn(f'against its pinned SHA-256 {pin("ISO_SHA256")}', output)
         self.assertIn('ide-cd,drive=installer,bootindex=0', self.options(argv, '-device'))

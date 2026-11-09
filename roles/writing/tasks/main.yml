@@ -6,15 +6,15 @@
 
 - name: Select the Tabbed LibreOffice interface in the target user's profile
   become: true
-  become_user: '{{ shaffy_target_user }}'
+  become_user: "{{ shaffy_target_user }}"
   environment:
-    HOME: '{{ shaffy_target_home }}'
-    XDG_CONFIG_HOME: '{{ shaffy_target_home }}/.config'
-    XDG_STATE_HOME: '{{ shaffy_target_home }}/.local/state'
+    HOME: "{{ shaffy_target_home }}"
+    XDG_CONFIG_HOME: "{{ shaffy_target_home }}/.config"
+    XDG_STATE_HOME: "{{ shaffy_target_home }}/.local/state"
   ansible.builtin.command:
     argv:
       - /usr/bin/python3
-      - '{{ playbook_dir }}/scripts/configure-libreoffice.py'
+      - "{{ playbook_dir }}/scripts/configure-libreoffice.py"
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
   check_mode: false
   register: writing_libreoffice_layout

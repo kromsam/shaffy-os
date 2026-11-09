@@ -17,9 +17,9 @@
     group: root
     mode: "{{ item.mode }}"
   loop:
-    - {path: "{{ shaffy_root_state }}", mode: '0755'}
-    - {path: "{{ shaffy_root_state }}/ops", mode: '0700'}
-    - {path: "{{ shaffy_root_op_dir }}", mode: '0700'}
+    - {path: "{{ shaffy_root_state }}", mode: "0755"}
+    - {path: "{{ shaffy_root_state }}/ops", mode: "0700"}
+    - {path: "{{ shaffy_root_op_dir }}", mode: "0700"}
   changed_when: false
 
 # Root runs these from its own copies, never from the checkout, which the target user can change.
@@ -29,7 +29,7 @@
     dest: "{{ shaffy_root_op_dir }}/{{ item | basename }}"
     owner: root
     group: root
-    mode: '0600'
+    mode: "0600"
   loop:
     - lib/shaffy/root_op.py
     - scripts/configure-charge-limit.py

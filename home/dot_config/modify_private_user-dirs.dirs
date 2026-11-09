@@ -1,4 +1,4 @@
 #!/bin/sh
 # Keep the installation's XDG entries except for explicit supplement overrides.
 : "${CHEZMOI_SOURCE_DIR:?run through chezmoi}"
-exec /usr/bin/python3 -I "$CHEZMOI_SOURCE_DIR/../lib/shaffy/folders.py" merge
+exec /usr/bin/python3 -I "${CHEZMOI_SOURCE_DIR}/../lib/shaffy/folders.py" merge

@@ -1,3 +1,4 @@
+---
 # ansible-lint for site.yml, records.yml and roles/ (STYLE.md). The shared profile, plus the
 # fully qualified module names the playbooks already use.
 profile: shared

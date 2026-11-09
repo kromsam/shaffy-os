@@ -2,17 +2,17 @@
 # Run as the desktop user, without sudo. Defaults to read-only.
 set -euo pipefail
 mode=${1:---check}
-[[ $# -le 1 && ($mode == --check || $mode == --apply) ]] || {
+[[ $# -le 1 && (${mode} == --check || ${mode} == --apply) ]] || {
   echo 'Usage: bash scripts/configure-office-apps.sh [--check|--apply]' >&2
   exit 2
 }
-[[ $(id -u) != 0 && $HOME == "$(getent passwd "$(id -un)" | cut -d: -f6)" ]] || {
+[[ $(id -u) != 0 && ${HOME} == "$(getent passwd "$(id -un)" | cut -d: -f6)" ]] || {
   echo 'Run as the desktop user with their own HOME, without sudo.' >&2
   exit 1
 }
 [[ -f /etc/arch-release ]]
 for app in libreoffice-writer libreoffice-calc libreoffice-impress; do
-  [[ -f /usr/share/applications/$app.desktop ]]
+  [[ -f /usr/share/applications/${app}.desktop ]]
 done
 command -v xdg-mime >/dev/null
 
@@ -46,18 +46,18 @@ declare -A office_defaults=(
 changed=0
 mismatch=0
 for mime in $(printf '%s\n' "${!office_defaults[@]}" | sort); do
-  wanted=${office_defaults[$mime]}
-  before=$(xdg-mime query default "$mime")
-  if [[ $before != "$wanted" && $mode == --apply ]]; then
-    xdg-mime default "$wanted" "$mime"
+  wanted=${office_defaults[${mime}]}
+  before=$(xdg-mime query default "${mime}")
+  if [[ ${before} != "${wanted}" && ${mode} == --apply ]]; then
+    xdg-mime default "${wanted}" "${mime}"
     changed=1
   fi
-  after=$(xdg-mime query default "$mime")
-  printf '%s: %s -> %s\n' "$mime" "${before:-unset}" "${after:-unset}"
-  [[ $after == "$wanted" ]] || mismatch=1
+  after=$(xdg-mime query default "${mime}")
+  printf '%s: %s -> %s\n' "${mime}" "${before:-unset}" "${after:-unset}"
+  [[ ${after} == "${wanted}" ]] || mismatch=1
 done
-printf 'configuration_changed: %s\n' "$changed"
-[[ $mismatch == 0 ]] || {
+printf 'configuration_changed: %s\n' "${changed}"
+[[ ${mismatch} == 0 ]] || {
   echo 'Office defaults need attention; use --apply to set the LibreOffice defaults.' >&2
   exit 1
 }

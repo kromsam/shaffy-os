@@ -16,6 +16,6 @@ if pgrep -x reaper >/dev/null; then
 fi
 # Reopen REAPER whether or not the apply went through; its refusal says why.
 status=0
-"$repo/bin/shaffy" apply --home || status=$?
+"${repo}/bin/shaffy" apply --home || status=$?
 niri msg action spawn -- /usr/bin/reaper -new
-exit "$status"
+exit "${status}"

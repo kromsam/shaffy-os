@@ -1,3 +1,4 @@
+---
 # Checks a private supplement against a Shaffy OS release, as this repository checks
 # itself: its settings and the home they render, `shaffy lint --supplement`, the
 # supplement's own tests and a secret scan of its history. A supplement calls it from a
@@ -66,7 +67,7 @@ jobs:
         working-directory: shaffy-os
         env:
           # The container is disposable, so the home render runs without bubblewrap.
-          SHAFFY_RENDER_DIRECT: '1'
+          SHAFFY_RENDER_DIRECT: "1"
         # --no-home: CI's fresh home has none of the folders or files an installation has.
         run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy check --no-home --supplement ../supplement
       # The checks after the first run also after a failure, so one run reports them all.

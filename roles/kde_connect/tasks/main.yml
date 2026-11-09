@@ -23,9 +23,9 @@
 # An identical rule with another comment is updated in place.
 - name: Allow KDE Connect only from the configured network and interface
   ansible.builtin.command:
-    argv: [ufw, allow, in, 'on', '{{ shaffy.settings.kde_connect.interface }}',
-           from, '{{ shaffy.settings.kde_connect.subnet }}', to, any, port, '1714:1764', proto, '{{ item }}',
-           comment, 'shaffy KDE Connect']
+    argv: [ufw, allow, in, "on", "{{ shaffy.settings.kde_connect.interface }}",
+           from, "{{ shaffy.settings.kde_connect.subnet }}", to, any, port, "1714:1764", proto, "{{ item }}",
+           comment, "shaffy KDE Connect"]
   environment:
     LC_ALL: C
   loop: [tcp, udp]

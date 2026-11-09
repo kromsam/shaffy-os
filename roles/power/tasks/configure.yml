@@ -1,7 +1,7 @@
 ---
 - name: Inspect the current managed policy
   ansible.builtin.stat:
-    path: '{{ power_config_dir }}/90-shaffy-critical-battery.conf'
+    path: "{{ power_config_dir }}/90-shaffy-critical-battery.conf"
     checksum_algorithm: sha256
   register: power_current_policy
 
@@ -9,11 +9,11 @@
 # already correct. The system operation has created the root-owned state directory.
 - name: Record a required reload before changing the policy
   ansible.builtin.copy:
-    dest: '{{ power_state_dir }}/power-reload-pending'
+    dest: "{{ power_state_dir }}/power-reload-pending"
     content: "Managed by Shaffy OS (power role); remove only after UPower restarts.\n"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when: >-
     (power_current_policy.stat.checksum | default('')) !=
     ((lookup('template', 'critical-battery.conf.j2') | hash('sha256'))
@@ -21,31 +21,31 @@
 
 - name: Create the UPower override directory when the policy is requested
   ansible.builtin.file:
-    path: '{{ power_config_dir }}'
+    path: "{{ power_config_dir }}"
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   when: power_hibernate | length > 0
 
 - name: Hibernate directly at the configured battery level
   ansible.builtin.template:
     src: critical-battery.conf.j2
-    dest: '{{ power_config_dir }}/90-shaffy-critical-battery.conf'
+    dest: "{{ power_config_dir }}/90-shaffy-critical-battery.conf"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when: power_hibernate | length > 0
 
 - name: Remove only the Shaffy override when the policy is no longer requested
   ansible.builtin.file:
-    path: '{{ power_config_dir }}/90-shaffy-critical-battery.conf'
+    path: "{{ power_config_dir }}/90-shaffy-critical-battery.conf"
     state: absent
   when: power_hibernate | length == 0
 
 - name: Check for a pending reload including an interrupted apply
   ansible.builtin.stat:
-    path: '{{ power_state_dir }}/power-reload-pending'
+    path: "{{ power_state_dir }}/power-reload-pending"
   register: power_reload_pending
 
 - name: Load the changed battery policy
@@ -56,5 +56,5 @@
 
 - name: Clear the completed reload
   ansible.builtin.file:
-    path: '{{ power_state_dir }}/power-reload-pending'
+    path: "{{ power_state_dir }}/power-reload-pending"
     state: absent

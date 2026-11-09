@@ -1,3 +1,4 @@
+---
 # markdownlint's rules for the documentation (STYLE.md), with the desktop's own choice
 # (home/dot_config/nvim/dot_markdownlint-cli2.yaml): prose lines may be any length.
 config:

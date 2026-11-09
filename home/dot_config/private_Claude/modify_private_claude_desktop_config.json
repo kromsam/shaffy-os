@@ -1,4 +1,4 @@
 #!/bin/sh
 # Claude Desktop rewrites this file for its own preferences; only the MCP entries are merged.
 : "${CHEZMOI_SOURCE_DIR:?run through chezmoi}"
-exec /usr/bin/python3 "$CHEZMOI_SOURCE_DIR/../scripts/merge-ai-config.py" claude-desktop
+exec /usr/bin/python3 "${CHEZMOI_SOURCE_DIR}/../scripts/merge-ai-config.py" claude-desktop

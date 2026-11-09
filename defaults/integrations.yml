@@ -1,3 +1,4 @@
+---
 # Optional integrations. A supplement
 # requests each with `integrations: {name: managed|disabled|released}`; one that
 # is not requested stays unmanaged. `targets` are the chezmoi targets that render

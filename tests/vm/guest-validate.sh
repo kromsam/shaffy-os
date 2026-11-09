@@ -17,10 +17,10 @@ set -uo pipefail
 
 SHARE=${SHAFFY_VM_SHARE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 EVIDENCE=${SHAFFY_VM_EVIDENCE:-/mnt/shaffy-evidence}
-PROJECTS=$HOME/Projects
-CHECKOUT=${SHAFFY_VM_CHECKOUT:-$PROJECTS/shaffy-os}
-EXAMPLE=$PROJECTS/example-supplement
-SUPPLEMENT=$PROJECTS/vm-supplement
+PROJECTS=${HOME}/Projects
+CHECKOUT=${SHAFFY_VM_CHECKOUT:-${PROJECTS}/shaffy-os}
+EXAMPLE=${PROJECTS}/example-supplement
+SUPPLEMENT=${PROJECTS}/vm-supplement
 export PAGER=cat GIT_PAGER=cat SYSTEMD_PAGER=cat
 
 STAGE='' STAGE_DIR='' STEP=0 PASSES=0 FAILS=0 NOTES=0 LAST='' NEXT='' OUTPUT=''
@@ -56,10 +56,10 @@ die() {
 
 report() { # report KIND TEXT: one result line, on screen and in the evidence
   local line
-  line=$(printf '%-4s %s: %s' "$1" "$STAGE" "$2")
-  printf '%s\n' "$line"
-  printf '%s\n' "$line" >>"$STAGE_DIR/results.txt"
-  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$line" >>"$EVIDENCE/results.txt"
+  line=$(printf '%-4s %s: %s' "$1" "${STAGE}" "$2")
+  printf '%s\n' "${line}"
+  printf '%s\n' "${line}" >>"${STAGE_DIR}/results.txt"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${line}" >>"${EVIDENCE}/results.txt"
 }
 pass() {
   PASSES=$((PASSES + 1))
@@ -77,34 +77,34 @@ note() {
 check() { # check DESCRIPTION COMMAND...: PASS when the command succeeds
   local description=$1
   shift
-  if "$@"; then pass "$description"; else fail "$description"; fi
+  if "$@"; then pass "${description}"; else fail "${description}"; fi
 }
 
 evidence_file() {
   STEP=$((STEP + 1))
-  LAST=$(printf '%s/%02d-%s.txt' "$STAGE_DIR" "$STEP" "$1")
+  LAST=$(printf '%s/%02d-%s.txt' "${STAGE_DIR}" "${STEP}" "$1")
   {
     printf '$ %s\n' "${*:2}"
     printf '# %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  } >"$LAST"
+  } >"${LAST}"
 }
 
 capture() { # capture NAME COMMAND...: run it on screen and keep its output; its status
   evidence_file "$@"
   shift
-  "$@" 2>&1 | tee -a "$LAST"
+  "$@" 2>&1 | tee -a "${LAST}"
   local status=${PIPESTATUS[0]}
-  printf '\n# exit status %s\n' "$status" >>"$LAST"
-  return "$status"
+  printf '\n# exit status %s\n' "${status}" >>"${LAST}"
+  return "${status}"
 }
 
 keep() { # keep NAME COMMAND...: only keep its output; its status
   evidence_file "$@"
   shift
-  "$@" >>"$LAST" 2>&1
+  "$@" >>"${LAST}" 2>&1
   local status=$?
-  printf '\n# exit status %s\n' "$status" >>"$LAST"
-  return "$status"
+  printf '\n# exit status %s\n' "${status}" >>"${LAST}"
+  return "${status}"
 }
 
 keep_output() { # keep_output NAME COMMAND...: keep its output and leave it in OUTPUT; its status
@@ -112,18 +112,18 @@ keep_output() { # keep_output NAME COMMAND...: keep its output and leave it in O
   shift
   OUTPUT=$("$@" 2>&1)
   local status=$?
-  printf '%s\n\n# exit status %s\n' "$OUTPUT" "$status" >>"$LAST"
-  return "$status"
+  printf '%s\n\n# exit status %s\n' "${OUTPUT}" "${status}" >>"${LAST}"
+  return "${status}"
 }
 
 shaffy() { # the checkout's wrapper, run from the checkout
-  (cd "$CHECKOUT" && PYTHONUNBUFFERED=1 ./bin/shaffy "$@")
+  (cd "${CHECKOUT}" && PYTHONUNBUFFERED=1 ./bin/shaffy "$@")
 }
 
 ask() { # ask QUESTION: 0 for yes, 1 for no, 2 for skip
   local answer
   while read -r -p "$1 [y/n/s(kip)] " answer </dev/tty; do
-    case $answer in
+    case ${answer} in
       y | Y | yes) return 0 ;;
       n | N | no) return 1 ;;
       s | S | skip) return 2 ;;
@@ -383,17 +383,17 @@ PY
 py_report() { # py_report NAME CHECK ARGS...: run a Python check and record its lines
   local name=$1 kind text
   shift
-  evidence_file "$name" python3 check "$@"
+  evidence_file "${name}" python3 check "$@"
   # shellcheck disable=SC2094 # both streams append to the step's log on purpose
   while IFS= read -r line; do
     kind=${line%% *}
     text=${line#* }
-    case $kind in
-      PASS) pass "$text" ;;
-      FAIL) fail "$text" ;;
-      NOTE) note "$text" ;;
+    case ${kind} in
+      PASS) pass "${text}" ;;
+      FAIL) fail "${text}" ;;
+      NOTE) note "${text}" ;;
     esac
-  done < <(python3 -c "$PYTHON" "$@" 2>>"$LAST" | tee -a "$LAST")
+  done < <(python3 -c "${PYTHON}" "$@" 2>>"${LAST}" | tee -a "${LAST}")
 }
 
 # -- helpers -------------------------------------------------------------------
@@ -406,30 +406,30 @@ readme_bootstrap() { # the commands of the sh block in README.md's Bootstrap sec
 }
 
 require_checkout() {
-  [[ -x $CHECKOUT/bin/shaffy ]] || die "no checkout at $CHECKOUT; run the bootstrap stage first"
+  [[ -x ${CHECKOUT}/bin/shaffy ]] || die "no checkout at ${CHECKOUT}; run the bootstrap stage first"
 }
 
 require_no_unfinished() { # a failed apply leaves its operation unfinished; every later apply refuses
   local line
   line=$(shaffy status --no-drift 2>&1 | grep '^Unfinished operation: ')
-  [[ -z $line || $line == 'Unfinished operation: none' ]] ||
-    die "operation ${line#Unfinished operation: } is unfinished. In $CHECKOUT, read ./bin/shaffy status," \
+  [[ -z ${line} || ${line} == 'Unfinished operation: none' ]] ||
+    die "operation ${line#Unfinished operation: } is unfinished. In ${CHECKOUT}, read ./bin/shaffy status," \
       "then run ./bin/shaffy apply --resume (or --abandon), and run this stage again"
 }
 
 bundle_valid() { # bundle_valid BUNDLE: git verifies a bundle only inside a repository
   local scratch status
   scratch=$(mktemp -d) || return 1
-  git init -q "$scratch" && git -C "$scratch" bundle verify "$1"
+  git init -q "${scratch}" && git -C "${scratch}" bundle verify "$1"
   status=$?
-  rm -rf "$scratch"
-  return "$status"
+  rm -rf "${scratch}"
+  return "${status}"
 }
 
 operation_of() { # the operation an apply's output names, recorded for the pair check
   local op
-  op=$(sed -nE 's/.*Applied the (home|system) .*as operation ([^;]+);.*/\2/p' "$LAST" | tail -1)
-  [[ -z $op ]] || OPS+=("$op")
+  op=$(sed -nE 's/.*Applied the (home|system) .*as operation ([^;]+);.*/\2/p' "${LAST}" | tail -1)
+  [[ -z ${op} ]] || OPS+=("${op}")
 }
 
 apply_system() { # apply_system NAME DESCRIPTION [converged]
@@ -437,11 +437,11 @@ apply_system() { # apply_system NAME DESCRIPTION [converged]
     pass "$2"
     operation_of
     local recap
-    recap=$(grep -E '^localhost +:' "$LAST" | tail -1 | tr -s ' ')
+    recap=$(grep -E '^localhost +:' "${LAST}" | tail -1 | tr -s ' ')
     if [[ ${3:-} == converged ]]; then
-      check "the system apply changes nothing ($recap)" grep -qE 'changed=0 .*failed=0' <<<"$recap"
+      check "the system apply changes nothing (${recap})" grep -qE 'changed=0 .*failed=0' <<<"${recap}"
     else
-      note "system apply: $recap"
+      note "system apply: ${recap}"
     fi
   else
     fail "$2"
@@ -453,7 +453,7 @@ apply_home() { # apply_home NAME DESCRIPTION [converged]
     pass "$2"
     operation_of
     if [[ ${3:-} == converged ]]; then
-      check "the home apply changes nothing" grep -q 'Applied the home (0 target(s) changed)' "$LAST"
+      check "the home apply changes nothing" grep -q 'Applied the home (0 target(s) changed)' "${LAST}"
     fi
   else
     fail "$2"
@@ -462,9 +462,9 @@ apply_home() { # apply_home NAME DESCRIPTION [converged]
 
 status_is() { # status_is BINDING-LINE: status names the binding, nothing unfinished, no drift
   capture status shaffy status
-  check "status reports: $1" grep -qxF "$1" "$LAST"
-  check "status reports no unfinished operation" grep -qx 'Unfinished operation: none' "$LAST"
-  check "status reports no home drift" grep -qx 'Home drift: none' "$LAST"
+  check "status reports: $1" grep -qxF "$1" "${LAST}"
+  check "status reports no unfinished operation" grep -qx 'Unfinished operation: none' "${LAST}"
+  check "status reports no home drift" grep -qx 'Home drift: none' "${LAST}"
 }
 
 snapshot_evidence() {
@@ -489,18 +489,18 @@ stage_prerequisites() {
   keep mounts findmnt --real
   keep memory-and-disk bash -c 'free -m; echo; df -h / /home'
   keep packages-synchronised bash -c 'ls -l --time-style=full-iso /var/lib/pacman/sync/'
-  keep share-info cat "$SHARE/SHARE-INFO"
+  keep share-info cat "${SHARE}/SHARE-INFO"
 
   check "the guest runs CachyOS" grep -qx 'ID=cachyos' /etc/os-release
   check "the guest booted through UEFI" test -d /sys/firmware/efi
   local fs root
   for mount in / /home; do
-    fs=$(findmnt -no FSTYPE "$mount")
-    root=$(findmnt -no FSROOT "$mount")
+    fs=$(findmnt -no FSTYPE "${mount}")
+    root=$(findmnt -no FSROOT "${mount}")
     local want=/@
-    [[ $mount == /home ]] && want=/@home
-    check "$mount is the Btrfs subvolume ${want#/} (found $fs ${root:-nothing})" \
-      test "$fs" = btrfs -a "$root" = "$want"
+    [[ ${mount} == /home ]] && want=/@home
+    check "${mount} is the Btrfs subvolume ${want#/} (found ${fs} ${root:-nothing})" \
+      test "${fs}" = btrfs -a "${root}" = "${want}"
   done
   if check "the account can use sudo" sudo -v; then
     keep btrfs-subvolumes sudo btrfs subvolume list /
@@ -517,66 +517,66 @@ stage_prerequisites() {
   keep cachyos-niri-noctalia pacman -Q cachyos-niri-noctalia || note "cachyos-niri-noctalia is not installed"
   check "SDDM is the enabled display manager" keep sddm systemctl is-enabled sddm.service
   check "this terminal runs in a Niri session" test -n "${NIRI_SOCKET:-}"
-  check "Noctalia is running" keep noctalia-process pgrep -a -u "$UID" -x noctalia
+  check "Noctalia is running" keep noctalia-process pgrep -a -u "${UID}" -x noctalia
   check "the guest has a render node (virtio-vga-gl)" keep render-nodes compgen -G '/dev/dri/renderD*'
-  check "the account is a normal user (uid $UID)" test "$UID" -ge 1000
+  check "the account is a normal user (uid ${UID})" test "${UID}" -ge 1000
   check "the network reaches GitHub, where Noctalia's plugin sources live" \
     keep network curl -fsSI --max-time 30 https://github.com
-  check "the share holds a valid Git bundle" keep bundle bundle_valid "$SHARE/shaffy-os.bundle"
-  check "the share holds the synthetic supplements" test -f "$SHARE/supplements/example/config.yaml" -a \
-    -f "$SHARE/supplements/vm/config.yaml"
-  NEXT="bash $SHARE/guest-validate.sh bootstrap"
+  check "the share holds a valid Git bundle" keep bundle bundle_valid "${SHARE}/shaffy-os.bundle"
+  check "the share holds the synthetic supplements" test -f "${SHARE}/supplements/example/config.yaml" -a \
+    -f "${SHARE}/supplements/vm/config.yaml"
+  NEXT="bash ${SHARE}/guest-validate.sh bootstrap"
 }
 
 stage_bootstrap() {
   local commit
-  commit=$(sed -n 's/^commit=//p' "$SHARE/SHARE-INFO")
-  mkdir -p "$PROJECTS"
-  if [[ ! -d $CHECKOUT/.git ]]; then
-    check "cloned the checkout from the share's bundle" capture clone git clone "$SHARE/shaffy-os.bundle" "$CHECKOUT"
-  elif [[ -n $(git -C "$CHECKOUT" status --porcelain) ]]; then
-    fail "the checkout at $CHECKOUT has local changes; it is left as it is"
+  commit=$(sed -n 's/^commit=//p' "${SHARE}/SHARE-INFO")
+  mkdir -p "${PROJECTS}"
+  if [[ ! -d ${CHECKOUT}/.git ]]; then
+    check "cloned the checkout from the share's bundle" capture clone git clone "${SHARE}/shaffy-os.bundle" "${CHECKOUT}"
+  elif [[ -n $(git -C "${CHECKOUT}" status --porcelain) ]]; then
+    fail "the checkout at ${CHECKOUT} has local changes; it is left as it is"
   else
     # The bundle's HEAD, not a branch: the share may since have been built from another branch.
     # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
     check "fast-forwarded the checkout to the share's commit" capture update \
-      bash -c 'git -C "$1" fetch origin HEAD && git -C "$1" merge --ff-only "$2"' bash "$CHECKOUT" "$commit"
+      bash -c 'git -C "$1" fetch origin HEAD && git -C "$1" merge --ff-only "$2"' bash "${CHECKOUT}" "${commit}"
   fi
   require_checkout
-  keep checkout git -C "$CHECKOUT" log -1 --format='%H %cI %s'
-  check "the checkout is at the share's commit $commit" test "$(git -C "$CHECKOUT" rev-parse HEAD)" = "$commit"
+  keep checkout git -C "${CHECKOUT}" log -1 --format='%H %cI %s'
+  check "the checkout is at the share's commit ${commit}" test "$(git -C "${CHECKOUT}" rev-parse HEAD)" = "${commit}"
 
   capture check-before shaffy check --no-render
   note "before the bootstrap, check exits with $? (it should name what is missing)"
 
   local lines line number=0
-  mapfile -t lines < <(readme_bootstrap "$CHECKOUT/README.md")
+  mapfile -t lines < <(readme_bootstrap "${CHECKOUT}/README.md")
   check "README's Bootstrap section holds commands (${#lines[@]})" test "${#lines[@]}" -ge 3
   for line in "${lines[@]}"; do
     number=$((number + 1))
-    if capture "readme-$number" bash -c "cd \"\$1\" && $line" bash "$CHECKOUT"; then
-      pass "README: $line"
-    elif grep -q 'not trusted' "$LAST"; then
+    if capture "readme-${number}" bash -c "cd \"\$1\" && ${line}" bash "${CHECKOUT}"; then
+      pass "README: ${line}"
+    elif grep -q 'not trusted' "${LAST}"; then
       note "mise asked to trust mise.toml, as README says it may; trusting it"
-      keep mise-toml cat "$CHECKOUT/mise.toml"
+      keep mise-toml cat "${CHECKOUT}/mise.toml"
       # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
-      capture mise-trust bash -c 'cd "$1" && mise trust mise.toml' bash "$CHECKOUT"
-      check "README: $line (after mise trust)" \
-        capture "readme-$number-again" bash -c "cd \"\$1\" && $line" bash "$CHECKOUT"
+      capture mise-trust bash -c 'cd "$1" && mise trust mise.toml' bash "${CHECKOUT}"
+      check "README: ${line} (after mise trust)" \
+        capture "readme-${number}-again" bash -c "cd \"\$1\" && ${line}" bash "${CHECKOUT}"
     else
-      fail "README: $line"
+      fail "README: ${line}"
     fi
   done
   # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
   keep versions bash -c 'pacman -Q mise uv chezmoi python-yaml python-jsonschema snapper git bubblewrap niri noctalia
-    cd "$1" && mise exec ansible-core -- ansible --version' bash "$CHECKOUT"
+    cd "$1" && mise exec ansible-core -- ansible --version' bash "${CHECKOUT}"
   if capture check-after shaffy check; then
-    check "check reports the system scope ready" grep -qx 'System scope: prerequisites are in place.' "$LAST"
-    check "check renders the home" grep -q '^Rendered [0-9]* files for a synthetic user' "$LAST"
+    check "check reports the system scope ready" grep -qx 'System scope: prerequisites are in place.' "${LAST}"
+    check "check renders the home" grep -q '^Rendered [0-9]* files for a synthetic user' "${LAST}"
   else
     fail "check passes after the bootstrap"
   fi
-  NEXT="bash $SHARE/guest-validate.sh defaults"
+  NEXT="bash ${SHARE}/guest-validate.sh defaults"
 }
 
 stage_defaults() {
@@ -584,11 +584,11 @@ stage_defaults() {
   require_no_unfinished
   local binding
   binding=$(shaffy status --no-drift 2>&1 | sed -n 's/^Binding: //p')
-  case $binding in
+  case ${binding} in
     'not bound'*) check "bound the installation to the public defaults" capture attach shaffy supplement attach --none ;;
     'public defaults only') note "the installation is already bound to the public defaults" ;;
     *)
-      fail "the installation is bound to something else: $binding"
+      fail "the installation is bound to something else: ${binding}"
       return
       ;;
   esac
@@ -602,34 +602,34 @@ stage_defaults() {
   apply_system apply-system-again "a second system apply completes" converged
   apply_home apply-home-again "a second home apply completes" converged
   snapshot_evidence
-  NEXT="reboot the VM, log in through SDDM, mount the shares, then: bash $SHARE/guest-validate.sh after-reboot"
+  NEXT="reboot the VM, log in through SDDM, mount the shares, then: bash ${SHARE}/guest-validate.sh after-reboot"
 }
 
 published_on_loopback_only() { # published_on_loopback_only: a port published without a host address
   local id bindings
   id=$(docker run -d -p 8080 busybox:stable sleep 60) || return 1
-  bindings=$(docker port "$id" 8080)
-  docker rm -f "$id" >/dev/null
-  [[ -n $bindings ]] && ! grep -qv '^127\.0\.0\.1:' <<<"$bindings"
+  bindings=$(docker port "${id}" 8080)
+  docker rm -f "${id}" >/dev/null
+  [[ -n ${bindings} ]] && ! grep -qv '^127\.0\.0\.1:' <<<"${bindings}"
 }
 
 stage_after_reboot() {
   require_checkout
   py_report booted booted
   local session
-  session=$(loginctl show-user "$USER" -p Display --value 2>/dev/null)
-  keep session loginctl show-session "$session"
-  check "the graphical session is Niri on Wayland" grep -qx 'Type=wayland' "$LAST"
-  check "the session's desktop is Niri" grep -qx 'Desktop=niri' "$LAST"
-  check "SDDM started the session" grep -qE '^Service=sddm' "$LAST"
+  session=$(loginctl show-user "${USER}" -p Display --value 2>/dev/null)
+  keep session loginctl show-session "${session}"
+  check "the graphical session is Niri on Wayland" grep -qx 'Type=wayland' "${LAST}"
+  check "the session's desktop is Niri" grep -qx 'Desktop=niri' "${LAST}"
+  check "SDDM started the session" grep -qE '^Service=sddm' "${LAST}"
   check "Niri answers on its socket" keep niri-version niri msg version
   keep niri-outputs niri msg outputs
-  check "Noctalia is running" keep noctalia-process pgrep -a -u "$UID" -x noctalia
+  check "Noctalia is running" keep noctalia-process pgrep -a -u "${UID}" -x noctalia
   check "Noctalia answers" keep noctalia-status noctalia msg status
   keep_output failed-user-units systemctl --user list-units --state=failed --no-legend --plain
-  check "no user unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"$OUTPUT")}" test -z "$OUTPUT"
+  check "no user unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"${OUTPUT}")}" test -z "${OUTPUT}"
   keep_output failed-system-units systemctl list-units --state=failed --no-legend --plain
-  check "no system unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"$OUTPUT")}" test -z "$OUTPUT"
+  check "no system unit failed${OUTPUT:+: $(awk '{printf "%s ", $1}' <<<"${OUTPUT}")}" test -z "${OUTPUT}"
   check "the rootless Docker engine, the user service the home enables, is active" systemctl --user is-active --quiet docker.service
   check "the system Docker engine is off" bash -c '! systemctl is-active --quiet docker.service'
   check "a rootless container publishes a port on a boot that never ran the system engine" \
@@ -638,15 +638,15 @@ stage_after_reboot() {
     published_on_loopback_only
   # Inode 256 is the root of a Btrfs subvolume; the system apply made it before the engine started.
   check "Docker's data is the user's own subvolume, outside the home's snapshots" \
-    test "$(stat -c '%i %U' "$HOME/.local/share/docker")" = "256 $(id -un)"
+    test "$(stat -c '%i %U' "${HOME}/.local/share/docker")" = "256 $(id -un)"
 
   local missing=() target
   while IFS= read -r target; do
-    [[ -x $HOME/$target ]] || missing+=("$target")
-  done < <(chezmoi --config "$CHECKOUT/chezmoi.toml" --source "$CHECKOUT/home" managed --include files \
+    [[ -x ${HOME}/${target} ]] || missing+=("${target}")
+  done < <(chezmoi --config "${CHECKOUT}/chezmoi.toml" --source "${CHECKOUT}/home" managed --include files \
     --path-style relative 2>/dev/null | grep '^\.local/bin/')
-  [[ -x $HOME/.local/bin/shaffy-desktop-key ]] || missing+=(.local/bin/shaffy-desktop-key)
-  keep helpers ls -l "$HOME/.local/bin"
+  [[ -x ${HOME}/.local/bin/shaffy-desktop-key ]] || missing+=(.local/bin/shaffy-desktop-key)
+  keep helpers ls -l "${HOME}/.local/bin"
   check "every managed helper in ~/.local/bin and shaffy-desktop-key is installed and executable${missing:+; missing: ${missing[*]}}" \
     test "${#missing[@]}" -eq 0
 
@@ -654,16 +654,16 @@ stage_after_reboot() {
   py_report integrations integrations
   local binding
   binding=$(shaffy status --no-drift 2>&1 | grep '^Binding: ')
-  status_is "$binding"
-  keep noctalia-log tail -n 300 "${XDG_CACHE_HOME:-$HOME/.cache}/noctalia/noctalia.log"
+  status_is "${binding}"
+  keep noctalia-log tail -n 300 "${XDG_CACHE_HOME:-${HOME}/.cache}/noctalia/noctalia.log"
   keep journal-errors journalctl -b -p err --no-pager
   keep user-journal-errors journalctl --user -b -p err --no-pager
 
   confirm "SDDM showed its login screen and accepted the password"
   confirm "the Noctalia bar and the wallpaper are shown"
   confirm "Super+Space opens the Noctalia launcher and typing immediately searches applications"
-  if [[ $binding == 'Binding: public defaults only' ]]; then
-    NEXT="bash $SHARE/guest-validate.sh supplement"
+  if [[ ${binding} == 'Binding: public defaults only' ]]; then
+    NEXT="bash ${SHARE}/guest-validate.sh supplement"
   else
     NEXT="the validation is complete; keep the evidence folder as tests/vm/README.md describes"
   fi
@@ -674,22 +674,22 @@ stage_supplement() {
   require_no_unfinished
   local id integrations
   read -r id integrations < <(python3 -c 'import sys, yaml; s = yaml.safe_load(open(sys.argv[1]))
-print(s["supplement_id"], *sorted(s["integrations"]))' "$SHARE/supplements/vm/config.yaml")
-  [[ -n $integrations ]] || die "the VM supplement in the share requests no integrations"
+print(s["supplement_id"], *sorted(s["integrations"]))' "${SHARE}/supplements/vm/config.yaml")
+  [[ -n ${integrations} ]] || die "the VM supplement in the share requests no integrations"
 
-  check "copied supplement.example as README describes" copy_supplement "$SHARE/supplements/example" "$EXAMPLE"
-  check "check validates and renders the example supplement" capture check-example shaffy check --supplement "$EXAMPLE"
-  check "copied the VM supplement" copy_supplement "$SHARE/supplements/vm" "$SUPPLEMENT"
-  check "check validates and renders the VM supplement" capture check-vm shaffy check --supplement "$SUPPLEMENT"
-  keep diff-preview shaffy diff --supplement "$SUPPLEMENT"
+  check "copied supplement.example as README describes" copy_supplement "${SHARE}/supplements/example" "${EXAMPLE}"
+  check "check validates and renders the example supplement" capture check-example shaffy check --supplement "${EXAMPLE}"
+  check "copied the VM supplement" copy_supplement "${SHARE}/supplements/vm" "${SUPPLEMENT}"
+  check "check validates and renders the VM supplement" capture check-vm shaffy check --supplement "${SUPPLEMENT}"
+  keep diff-preview shaffy diff --supplement "${SUPPLEMENT}"
 
   local binding
   binding=$(shaffy status --no-drift 2>&1 | sed -n 's/^Binding: //p')
-  if [[ $binding == "supplement $id at $SUPPLEMENT" ]]; then
+  if [[ ${binding} == "supplement ${id} at ${SUPPLEMENT}" ]]; then
     note "the installation is already bound to the VM supplement"
   else
     check "rebound the installation from the public defaults to the VM supplement" \
-      capture rebind shaffy supplement rebind --path "$SUPPLEMENT" --new-id
+      capture rebind shaffy supplement rebind --path "${SUPPLEMENT}" --new-id
   fi
   capture status-before shaffy status --no-drift
   # An earlier run of this stage may have made some managed already; the ledger check covers those.
@@ -700,21 +700,21 @@ try:
 except (OSError, ValueError, KeyError, TypeError):
     owned = {}
 print(*sorted(name for name, entry in owned.items() if entry.get("state") == "managed"))' \
-    "${XDG_STATE_HOME:-$HOME/.local/state}/shaffy/ledger.json") "
+    "${XDG_STATE_HOME:-${HOME}/.local/state}/shaffy/ledger.json") "
   apply_system apply-system "the system apply with the VM supplement completes"
   apply_home apply-home "the home apply with the VM supplement completes"
   local name
-  for name in $integrations; do
-    if [[ $managed_before == *" $name "* ]]; then
-      note "integration $name was already managed before this run"
+  for name in ${integrations}; do
+    if [[ ${managed_before} == *" ${name} "* ]]; then
+      note "integration ${name} was already managed before this run"
     else
-      check "the home apply made integration $name managed" grep -qF "Integration $name is now managed." "$LAST"
+      check "the home apply made integration ${name} managed" grep -qF "Integration ${name} is now managed." "${LAST}"
     fi
   done
   # shellcheck disable=SC2086  # one argument per integration
-  py_report integrations integrations $integrations
-  check "the SSH client configuration is private" test "$(stat -c %a "$HOME/.ssh/config" 2>/dev/null)" = 600
-  check "Zotero's managed profile is the default one" grep -qx 'Path=shaffy.default' "$HOME/.zotero/zotero/profiles.ini"
+  py_report integrations integrations ${integrations}
+  check "the SSH client configuration is private" test "$(stat -c %a "${HOME}/.ssh/config" 2>/dev/null)" = 600
+  check "Zotero's managed profile is the default one" grep -qx 'Path=shaffy.default' "${HOME}/.zotero/zotero/profiles.ini"
 
   # REAPER, Zettlr and Zotero write their own configuration on first start; the next apply
   # then sets the catalogued keys in it.
@@ -723,8 +723,8 @@ print(*sorted(name for name, entry in owned.items() if entry.get("state") == "ma
     0)
       apply_home apply-home-first-run "the home apply after the applications' first start completes"
       # shellcheck disable=SC2086
-      py_report config-keys config-keys "$CHECKOUT/defaults/integrations.yml" $integrations
-      check "Zotero keeps its library in ~/.local/share/zotero-data" test -f "$HOME/.local/share/zotero-data/zotero.sqlite"
+      py_report config-keys config-keys "${CHECKOUT}/defaults/integrations.yml" ${integrations}
+      check "Zotero keeps its library in ~/.local/share/zotero-data" test -f "${HOME}/.local/share/zotero-data/zotero.sqlite"
       if curl -fsS --max-time 5 http://127.0.0.1:23119/connector/ping >/dev/null 2>&1; then
         check "Zotero's local API answers" keep zotero-api curl -fsS --max-time 5 -H 'Zotero-API-Version: 3' \
           'http://127.0.0.1:23119/api/users/0/items?limit=1'
@@ -737,9 +737,9 @@ print(*sorted(name for name, entry in owned.items() if entry.get("state") == "ma
 
   apply_system apply-system-again "a second system apply completes" converged
   apply_home apply-home-again "a second home apply completes" converged
-  status_is "Binding: supplement $id at $SUPPLEMENT"
+  status_is "Binding: supplement ${id} at ${SUPPLEMENT}"
   snapshot_evidence
-  NEXT="reboot the VM, log in through SDDM, mount the shares, then: bash $SHARE/guest-validate.sh after-reboot"
+  NEXT="reboot the VM, log in through SDDM, mount the shares, then: bash ${SHARE}/guest-validate.sh after-reboot"
 }
 
 # -- main ----------------------------------------------------------------------
@@ -751,27 +751,27 @@ begin() {
     kvm | qemu) ;;
     *) die "this is not a QEMU or KVM guest, and the stages change the system they run on" ;;
   esac
-  if [[ ! -d $EVIDENCE || ! -w $EVIDENCE ]]; then
+  if [[ ! -d ${EVIDENCE} || ! -w ${EVIDENCE} ]]; then
     mount_help >&2
-    die "the evidence share is not mounted and writable at $EVIDENCE"
+    die "the evidence share is not mounted and writable at ${EVIDENCE}"
   fi
-  [[ -f $SHARE/SHARE-INFO ]] || {
+  [[ -f ${SHARE}/SHARE-INFO ]] || {
     mount_help >&2
-    die "no share at $SHARE (run this script from the mounted share)"
+    die "no share at ${SHARE} (run this script from the mounted share)"
   }
-  STAGE_DIR=$EVIDENCE/$STAGE-$(date -u +%Y%m%dT%H%M%SZ)
-  mkdir -p "$STAGE_DIR" || die "cannot write $STAGE_DIR"
-  printf 'Stage %s; evidence in %s\n\n' "$STAGE" "$STAGE_DIR"
+  STAGE_DIR=${EVIDENCE}/${STAGE}-$(date -u +%Y%m%dT%H%M%SZ)
+  mkdir -p "${STAGE_DIR}" || die "cannot write ${STAGE_DIR}"
+  printf 'Stage %s; evidence in %s\n\n' "${STAGE}" "${STAGE_DIR}"
   # shellcheck disable=SC2016 # $1 and $2 belong to the inner shell
   keep context bash -c 'date -u; id; hostnamectl 2>/dev/null; echo; cat "$1"
-    git -C "$2" log -1 --format="checkout %H %s" 2>/dev/null' bash "$SHARE/SHARE-INFO" "$CHECKOUT"
+    git -C "$2" log -1 --format="checkout %H %s" 2>/dev/null' bash "${SHARE}/SHARE-INFO" "${CHECKOUT}"
 }
 
 finish() {
-  printf '\nStage %s: %d passed, %d failed, %d notes. Evidence: %s\n' "$STAGE" "$PASSES" "$FAILS" "$NOTES" "$STAGE_DIR"
-  printf '%s %s: %d passed, %d failed, %d notes\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$STAGE" "$PASSES" "$FAILS" \
-    "$NOTES" >>"$EVIDENCE/results.txt"
-  [[ -z $NEXT ]] || printf 'Next: %s\n' "$NEXT"
+  printf '\nStage %s: %d passed, %d failed, %d notes. Evidence: %s\n' "${STAGE}" "${PASSES}" "${FAILS}" "${NOTES}" "${STAGE_DIR}"
+  printf '%s %s: %d passed, %d failed, %d notes\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${STAGE}" "${PASSES}" "${FAILS}" \
+    "${NOTES}" >>"${EVIDENCE}/results.txt"
+  [[ -z ${NEXT} ]] || printf 'Next: %s\n' "${NEXT}"
   ((FAILS == 0))
 }
 
@@ -781,7 +781,7 @@ case ${1:-} in
     "stage_${1//-/_}"
     finish
     ;;
-  --show-bootstrap) readme_bootstrap "$CHECKOUT/README.md" ;;
+  --show-bootstrap) readme_bootstrap "${CHECKOUT}/README.md" ;;
   -h | --help) usage ;;
   *)
     usage >&2

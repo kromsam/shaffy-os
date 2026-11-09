@@ -22,30 +22,30 @@ usage() {
 }
 [[ $# -ge 2 && $2 =~ ^[a-z0-9@_+][a-z0-9@._+-]*$ ]] || usage
 action=$1 name=$2
-build="${XDG_CACHE_HOME:-$HOME/.cache}/shaffy/build/$name"
-recipe="$build/recipe"
+build="${XDG_CACHE_HOME:-${HOME}/.cache}/shaffy/build/${name}"
+recipe="${build}/recipe"
 aur="${SHAFFY_AUR_URL:-https://aur.archlinux.org}"
 
-case $action in
+case ${action} in
   fetch)
     [[ $# == 2 ]] || usage
-    rm -rf "$recipe" "$build/out"
-    mkdir -p "$build"
-    git clone --quiet --depth 1 "$aur/$name.git" "$recipe" >&2 ||
+    rm -rf "${recipe}" "${build}/out"
+    mkdir -p "${build}"
+    git clone --quiet --depth 1 "${aur}/${name}.git" "${recipe}" >&2 ||
       {
-        echo "build-aur-package: cannot fetch $name from $aur" >&2
+        echo "build-aur-package: cannot fetch ${name} from ${aur}" >&2
         exit 1
       }
     # The AUR answers an unknown name with an empty repository.
-    [[ -f $recipe/PKGBUILD ]] || {
-      echo "build-aur-package: $aur has no recipe for $name" >&2
+    [[ -f ${recipe}/PKGBUILD ]] || {
+      echo "build-aur-package: ${aur} has no recipe for ${name}" >&2
       exit 1
     }
-    cd "$recipe"
+    cd "${recipe}"
     srcinfo=$(makepkg --printsrcinfo)
-    grep -qxF "pkgname = $name" <<<"$srcinfo" ||
+    grep -qxF "pkgname = ${name}" <<<"${srcinfo}" ||
       {
-        echo "build-aur-package: the $name recipe does not build $name" >&2
+        echo "build-aur-package: the ${name} recipe does not build ${name}" >&2
         exit 1
       }
     commit=$(git rev-parse HEAD)
@@ -62,30 +62,30 @@ for line in sys.stdin.read().splitlines():
         if name not in needed:
             needed.append(name)
 print(json.dumps({"commit": commit, "depends": needed}))
-' "$commit" "$(uname -m)" <<<"$srcinfo"
+' "${commit}" "$(uname -m)" <<<"${srcinfo}"
     ;;
   build)
     [[ $# == 3 && $3 =~ ^[0-9a-f]{40}$ ]] || usage
-    [[ -d $recipe/.git ]] || {
-      echo "build-aur-package: fetch $name first" >&2
+    [[ -d ${recipe}/.git ]] || {
+      echo "build-aur-package: fetch ${name} first" >&2
       exit 1
     }
-    [[ $(git -C "$recipe" rev-parse HEAD) == "$3" ]] ||
+    [[ $(git -C "${recipe}" rev-parse HEAD) == "$3" ]] ||
       {
-        echo "build-aur-package: the fetched $name recipe is not at $3" >&2
+        echo "build-aur-package: the fetched ${name} recipe is not at $3" >&2
         exit 1
       }
-    rm -rf "$build/out"
-    mkdir -p "$build/out" "$build/src" "$build/work"
-    cd "$recipe"
-    export BUILDDIR="$build/work" PKGDEST="$build/out" SRCDEST="$build/src"
+    rm -rf "${build}/out"
+    mkdir -p "${build}/out" "${build}/src" "${build}/work"
+    cd "${recipe}"
+    export BUILDDIR="${build}/work" PKGDEST="${build}/out" SRCDEST="${build}/src"
     makepkg --force --noconfirm >&2
-    package=$(makepkg --packagelist | grep -m1 "/$name-[^/]*\.pkg\.tar\.[a-z]*$")
-    [[ -f $package ]] || {
-      echo "build-aur-package: makepkg did not produce $name" >&2
+    package=$(makepkg --packagelist | grep -m1 "/${name}-[^/]*\.pkg\.tar\.[a-z]*$")
+    [[ -f ${package} ]] || {
+      echo "build-aur-package: makepkg did not produce ${name}" >&2
       exit 1
     }
-    /usr/bin/python3 -c 'import hashlib, json, sys; print(json.dumps({"path": sys.argv[1], "sha256": hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()}))' "$package"
+    /usr/bin/python3 -c 'import hashlib, json, sys; print(json.dumps({"path": sys.argv[1], "sha256": hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()}))' "${package}"
     ;;
   *) usage ;;
 esac

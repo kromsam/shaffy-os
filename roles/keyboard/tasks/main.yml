@@ -7,7 +7,7 @@
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   when: "'keyboard_hwdb' in shaffy.system_overrides"
 
 - name: Install the supplement's keyboard hardware database
@@ -16,7 +16,7 @@
     dest: /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   notify: Rebuild keyboard hardware database
   when: "'keyboard_hwdb' in shaffy.system_overrides"
 

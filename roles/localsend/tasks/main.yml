@@ -1,3 +1,4 @@
+---
 # LocalSend: the desktop role installs the app; this role adds a firewall opening only for
 # the network the supplement names (`localsend` settings).
 - name: Add no firewall opening without localsend settings
@@ -18,9 +19,9 @@
 # An identical rule with another comment is updated in place.
 - name: Allow LocalSend only from the configured network and interface
   ansible.builtin.command:
-    argv: [ufw, allow, in, 'on', '{{ shaffy.settings.localsend.interface }}',
-           from, '{{ shaffy.settings.localsend.subnet }}', to, any, port, '53317', proto, '{{ item }}',
-           comment, 'shaffy LocalSend']
+    argv: [ufw, allow, in, "on", "{{ shaffy.settings.localsend.interface }}",
+           from, "{{ shaffy.settings.localsend.subnet }}", to, any, port, "53317", proto, "{{ item }}",
+           comment, "shaffy LocalSend"]
   environment:
     LC_ALL: C
   loop: [tcp, udp]

@@ -3,9 +3,9 @@
 - name: Pass the cached startup password to the existing optional keyring module
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sddm-autologin
-    regexp: '^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$'
-    line: '-auth       optional    pam_systemd_loadkey.so'
-    insertbefore: '^-?auth\s+optional\s+pam_gnome_keyring\.so'
+    regexp: ^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$
+    line: "-auth       optional    pam_systemd_loadkey.so"
+    insertbefore: ^-?auth\s+optional\s+pam_gnome_keyring\.so
 
 - name: Create the SDDM service override directory
   ansible.builtin.file:
@@ -13,7 +13,7 @@
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
 
 - name: Let SDDM inherit the startup password cache
   ansible.builtin.copy:
@@ -21,7 +21,7 @@
     dest: /etc/systemd/system/sddm.service.d/20-shaffy-keyring.conf
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   register: login_keyring_override
 
 # Now rather than in a handler: an apply stopped before the handlers would leave the change unloaded.

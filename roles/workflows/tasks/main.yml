@@ -8,7 +8,7 @@
 - name: Install the rootless Docker launcher that comes from the AUR
   ansible.builtin.include_role:
     name: aur_package
-  loop: '{{ shaffy.packages.aur.workflows }}'
+  loop: "{{ shaffy.packages.aur.workflows }}"
   loop_control:
     loop_var: aur_package
 # Docker runs rootless, as the target user's own service, which the home enables. The system
@@ -19,7 +19,7 @@
 # on moving to the rootless engine in docs/DESKTOP-APPLICATIONS.md.
 - name: Stop and disable the system Docker engine, the socket first so it cannot restart the service
   ansible.builtin.systemd_service:
-    name: '{{ item }}'
+    name: "{{ item }}"
     enabled: false
     state: stopped
   loop: [docker.socket, docker.service]

@@ -5,7 +5,7 @@
 # Updates are yay's (`yay`), not the apply's. `aur_package: {name}`.
 - name: Check the installed {{ aur_package.name }}
   ansible.builtin.command:
-    argv: ['pacman', '-Q', '{{ aur_package.name }}']
+    argv: ["pacman", "-Q", "{{ aur_package.name }}"]
   register: aur_package_installed
   changed_when: false
   failed_when: aur_package_installed.rc not in [0, 1]
@@ -20,8 +20,8 @@
   block:
     - name: Fetch the AUR recipe as the target user, of {{ aur_package.name }}
       ansible.builtin.command:
-        argv: ['runuser', '--user', '{{ shaffy_target_user }}', '--', '/usr/bin/bash',
-               '{{ aur_package_script }}', 'fetch', '{{ aur_package.name }}']
+        argv: ["runuser", "--user", "{{ shaffy_target_user }}", "--", "/usr/bin/bash",
+               "{{ aur_package_script }}", "fetch", "{{ aur_package.name }}"]
       register: aur_package_fetch
       changed_when: false
 
@@ -31,15 +31,15 @@
 
     - name: Install the repository packages the recipe needs
       community.general.pacman:
-        name: '{{ aur_package_recipe.depends }}'
+        name: "{{ aur_package_recipe.depends }}"
         state: present
         extra_args: --asdeps
       when: aur_package_recipe.depends | length > 0
 
     - name: Build the package as the target user, {{ aur_package.name }}
       ansible.builtin.command:
-        argv: ['runuser', '--user', '{{ shaffy_target_user }}', '--', '/usr/bin/bash',
-               '{{ aur_package_script }}', 'build', '{{ aur_package.name }}', '{{ aur_package_recipe.commit }}']
+        argv: ["runuser", "--user", "{{ shaffy_target_user }}", "--", "/usr/bin/bash",
+               "{{ aur_package_script }}", "build", "{{ aur_package.name }}", "{{ aur_package_recipe.commit }}"]
       register: aur_package_build
       changed_when: true
 
@@ -52,12 +52,12 @@
         that:
           - aur_package_built.path | dirname == aur_package_out
           - (aur_package_built.path | basename).startswith(aur_package.name + '-')
-        fail_msg: 'The build reported {{ aur_package_built.path }}, not a package in {{ aur_package_out }}.'
+        fail_msg: "The build reported {{ aur_package_built.path }}, not a package in {{ aur_package_out }}."
         quiet: true
 
     - name: Inspect the built package without following links
       ansible.builtin.stat:
-        path: '{{ aur_package_built.path }}'
+        path: "{{ aur_package_built.path }}"
         follow: false
         get_checksum: false
       register: aur_package_source
@@ -67,42 +67,42 @@
         that:
           - aur_package_source.stat.isreg | default(false)
           - aur_package_source.stat.pw_name == shaffy_target_user
-        fail_msg: 'The built {{ aur_package.name }} is not a regular file owned by {{ shaffy_target_user }}.'
+        fail_msg: "The built {{ aur_package.name }} is not a regular file owned by {{ shaffy_target_user }}."
         quiet: true
 
     - name: Keep the package copies in the root-owned operation directory
       ansible.builtin.file:
-        path: '{{ shaffy_op_dir }}/packages'
+        path: "{{ shaffy_op_dir }}/packages"
         state: directory
         owner: root
         group: root
-        mode: '0700'
+        mode: "0700"
 
     - name: Copy the package into the operation directory, {{ aur_package.name }}
       ansible.builtin.copy:
-        src: '{{ aur_package_built.path }}'
-        dest: '{{ shaffy_op_dir }}/packages/{{ aur_package_built.path | basename }}'
+        src: "{{ aur_package_built.path }}"
+        dest: "{{ shaffy_op_dir }}/packages/{{ aur_package_built.path | basename }}"
         remote_src: true
         owner: root
         group: root
-        mode: '0600'
+        mode: "0600"
       register: aur_package_copy
 
     - name: Read the digest of the root copy
       ansible.builtin.stat:
-        path: '{{ aur_package_copy.dest }}'
+        path: "{{ aur_package_copy.dest }}"
         checksum_algorithm: sha256
       register: aur_package_stat
 
     - name: Require the digest the build recorded
       ansible.builtin.assert:
         that: aur_package_stat.stat.checksum == aur_package_built.sha256
-        fail_msg: 'The copy of {{ aur_package.name }} differs from what the build produced.'
+        fail_msg: "The copy of {{ aur_package.name }} differs from what the build produced."
         quiet: true
 
     - name: Read the name and version in the copy
       ansible.builtin.command:
-        argv: ['pacman', '-Qp', '{{ aur_package_copy.dest }}']
+        argv: ["pacman", "-Qp", "{{ aur_package_copy.dest }}"]
       register: aur_package_identity
       changed_when: false
       failed_when: aur_package_identity.rc != 0 or aur_package_identity.stdout.split()[0] != aur_package.name
@@ -112,12 +112,12 @@
         content: "{{ {'name': aur_package.name, 'version': aur_package_identity.stdout.split()[1],
                       'aur_commit': aur_package_recipe.commit, 'sha256': aur_package_built.sha256,
                       'file': aur_package_copy.dest | basename} | to_nice_json }}\n"
-        dest: '{{ shaffy_op_dir }}/packages/{{ aur_package.name }}.json'
+        dest: "{{ shaffy_op_dir }}/packages/{{ aur_package.name }}.json"
         owner: root
         group: root
-        mode: '0600'
+        mode: "0600"
 
     - name: Install the verified copy of {{ aur_package.name }}
       ansible.builtin.command:
-        argv: ['pacman', '-U', '--needed', '--noconfirm', '{{ aur_package_copy.dest }}']
+        argv: ["pacman", "-U", "--needed", "--noconfirm", "{{ aur_package_copy.dest }}"]
       changed_when: true

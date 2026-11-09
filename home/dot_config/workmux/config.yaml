@@ -1,3 +1,4 @@
+---
 # workmux: one git worktree and tmux window per task, opened with `wm add <branch>`.
 # The default panes follow Omarchy's tdl layout: editor upper left (70%), agent
 # upper right (30%), shell across the bottom (15%). Project .workmux.yaml files

@@ -1,3 +1,4 @@
+---
 # Checks this supplement with Shaffy OS's reusable workflow, against its released main:
 # the settings and the home they render, lint, the supplement's own tests and a secret
 # scan (.github/workflows/supplement.yml in kromsam/shaffy-os). It needs no secret; a

@@ -6,27 +6,27 @@ set -euo pipefail
   exit 1
 }
 revision=ba7022df0aee1e91cde62d7f0e940d3bc43a82b0
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/shaffy/build/audio-bridge"
-mkdir -p "$cache"
-source_dir="$cache/yabridge"
-build_dir="$cache/build"
-destination="$HOME/.local/share/yabridge"
-if [[ ! -d "$source_dir/.git" ]]; then
+cache="${XDG_CACHE_HOME:-${HOME}/.cache}/shaffy/build/audio-bridge"
+mkdir -p "${cache}"
+source_dir="${cache}/yabridge"
+build_dir="${cache}/build"
+destination="${HOME}/.local/share/yabridge"
+if [[ ! -d "${source_dir}/.git" ]]; then
   git clone --filter=blob:none --branch new-wine10-embedding --single-branch \
-    https://github.com/robbert-vdh/yabridge.git "$source_dir"
-  git -C "$source_dir" checkout --detach "$revision"
+    https://github.com/robbert-vdh/yabridge.git "${source_dir}"
+  git -C "${source_dir}" checkout --detach "${revision}"
 fi
-[[ $(git -C "$source_dir" rev-parse HEAD) == "$revision" ]]
-[[ -z $(git -C "$source_dir" status --porcelain --untracked-files=no) ]]
-export WINEPREFIX="$cache/build-prefix"
+[[ $(git -C "${source_dir}" rev-parse HEAD) == "${revision}" ]]
+[[ -z $(git -C "${source_dir}" status --porcelain --untracked-files=no) ]]
+export WINEPREFIX="${cache}/build-prefix"
 export WINEDEBUG=-all
-if [[ ! -f "$build_dir/build.ninja" ]]; then
-  meson setup "$build_dir" "$source_dir" --buildtype=release \
-    --cross-file="$source_dir/cross-wine.conf" --wrap-mode=nofallback \
+if [[ ! -f "${build_dir}/build.ninja" ]]; then
+  meson setup "${build_dir}" "${source_dir}" --buildtype=release \
+    --cross-file="${source_dir}/cross-wine.conf" --wrap-mode=nofallback \
     -Dbitbridge=false -Dclap=false -Dvst3=false -Dbuild.cpp_std=c++20
 fi
-ninja -C "$build_dir" -j2
-python3 - "$build_dir" "$destination" "$revision" <<'PY'
+ninja -C "${build_dir}" -j2
+python3 - "${build_dir}" "${destination}" "${revision}" <<'PY'
 import hashlib, json, os, shutil, sys
 from pathlib import Path
 build, destination, revision = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]

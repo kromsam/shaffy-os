@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=../shaffy-os/schema/supplement.schema.json
 # The smallest valid Shaffy OS supplement. Every other setting uses the public
 # defaults in defaults/config.yaml until you override it here. The line above
