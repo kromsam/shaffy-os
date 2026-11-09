@@ -145,13 +145,15 @@ def release_problem(checkout, wanted):
 
 
 def defaults_schema(schema):
-    """Defaults carry schema_version but no supplement_id or minimum_release."""
+    """Defaults carry schema_version but no supplement_id, minimum_release, dotfiles or profiles."""
     result = copy.deepcopy(schema)
     result['required'] = ['schema_version']
     result['properties'].pop('supplement_id')
     result['properties'].pop('minimum_release')
-    # The dotfiles are a folder in one person's supplement, never a public default.
+    # The dotfiles are a folder in one person's supplement, never a public default, and the
+    # public desktop vendors no profile: a supplement chooses them.
     result['properties'].pop('dotfiles')
+    result['properties'].pop('profiles')
     return result
 
 

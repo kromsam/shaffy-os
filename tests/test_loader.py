@@ -369,6 +369,16 @@ class DotfilesTests(LoaderCase):
             load(checkout, without=True, home=self.home)
         self.assertIn("unknown key 'dotfiles'", str(caught.exception))
 
+    def test_the_defaults_may_not_list_profiles(self):
+        checkout = self.tmp / 'checkout'
+        for folder in ('defaults', 'schema'):
+            shutil.copytree(ROOT / folder, checkout / folder)
+        with open(checkout / 'defaults/config.yaml', 'a') as stream:
+            stream.write('profiles: [example/notes]\n')
+        with self.assertRaises(SettingsError) as caught:
+            load(checkout, without=True, home=self.home)
+        self.assertIn("unknown key 'profiles'", str(caught.exception))
+
     def test_a_removed_or_escaping_folder_misses_the_cache(self):
         path = self.dotfiles('dots')
         (path / 'real').mkdir()

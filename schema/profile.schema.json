@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shaffy OS profile",
+  "description": "A profile.yaml: a small public bundle of settings a supplement vendors under profiles/OWNER/NAME/ and lists in config.yaml (docs/PROFILES.md). It adds fragments, files, packages, editor extras, plugins and MCP servers; it never sets a value the machine has only one of.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "description"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Version of this settings format. Shaffy OS refuses versions it does not know.",
+      "type": "integer"
+    },
+    "description": {
+      "description": "What the profile sets up, in one line, for the person who reads the review.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "minimum_release": {
+      "description": "The oldest Shaffy OS release these settings work with, as its tag: vYYYY.MM.DD, or vYYYY.MM.DD.N for a later release that day. A checkout whose newest release tag is older is refused.",
+      "type": "string",
+      "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(\\.[1-9][0-9]*)?$"
+    },
+    "requires": {
+      "description": "Integrations from defaults/integrations.yml that config.yaml must set to managed for this profile to apply; a profile never sets their state.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "ai": {
+      "description": "AI tool integration.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "mcp_servers": {
+          "description": "MCP servers merged into the Claude Code, Claude Desktop and Codex configurations; a name overrides or extends the default of the same name. Set enabled to false to remove that server from every configuration.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/mcp_server"
+          }
+        },
+        "claude_plugins": {
+          "description": "Claude Code plugins installed and enabled beside pstack: each PLUGIN@MARKETPLACE names the GitHub repository (OWNER/REPO) of its marketplace, which may not be pstack's own. Deleting a name leaves that plugin as it is.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9._-]*@[a-z0-9][a-z0-9._-]*$",
+            "not": {
+              "pattern": "@pstack-claude$"
+            }
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+          }
+        }
+      }
+    },
+    "assets": {
+      "description": "Personal files copied into the home, such as fonts, pictures and launchers: each key is a target under ~/, each value a file inside the supplement, or {file, executable, private}.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^~/(?!/)(?!(?:.*/)?\\.\\.?(?:/|$))(?!.*//)[^\\u0000-\\u001f\\u007f\"\\\\]+$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/reference"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file"
+            ],
+            "properties": {
+              "file": {
+                "$ref": "#/$defs/reference"
+              },
+              "executable": {
+                "type": "boolean",
+                "description": "Install with mode 0755."
+              },
+              "private": {
+                "type": "boolean",
+                "description": "Install readable by the user only."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "lazyvim": {
+      "description": "The editor's LazyVim configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "extras": {
+          "description": "LazyVim extras enabled beside the public ones, by module name (for example lazyvim.plugins.extras.lang.ruby). The language tools they declare install through Mason; plugins of their own outside the public lock stay unpinned.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^lazyvim\\.plugins\\.extras(\\.[a-z0-9_-]+)+$"
+          }
+        }
+      }
+    },
+    "overrides": {
+      "description": "Native fragments from the supplement, applied after the public configuration. They are trusted configuration and may run commands.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "niri": {
+          "$ref": "#/$defs/reference",
+          "description": "Included last by ~/.config/niri/config.kdl."
+        },
+        "noctalia": {
+          "$ref": "#/$defs/reference",
+          "description": "Rendered as ~/.config/noctalia/97-supplement.toml."
+        },
+        "fish": {
+          "$ref": "#/$defs/reference",
+          "description": "Sourced at the end of ~/.config/fish/config.fish."
+        },
+        "alacritty": {
+          "$ref": "#/$defs/reference",
+          "description": "Imported last by ~/.config/alacritty/alacritty.toml."
+        },
+        "mise": {
+          "$ref": "#/$defs/reference",
+          "description": "Rendered as ~/.config/mise/conf.d/90-supplement.toml, which mise loads beside config.toml: personal runtimes and their settings."
+        },
+        "keyboard_hwdb": {
+          "$ref": "#/$defs/reference",
+          "description": "System scope: installed as /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb, for keyboard key maps (for example Caps Lock as Super on one keyboard)."
+        }
+      }
+    },
+    "packages": {
+      "description": "Package choices on top of the public groups in defaults/packages/ (docs/SUPPLEMENT.md).",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "extra": {
+          "$ref": "#/$defs/package_list",
+          "description": "Also install these."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "mcp_server": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "enabled": {
+          "description": "Defaults to true. False removes this named MCP entry on home apply; omitting a server from settings leaves any existing entry alone.",
+          "type": "boolean"
+        },
+        "command": {
+          "description": "Program to start; a leading ~/ means the target home directory.",
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "description": "Address of a streamable HTTP server that runs on its own, instead of a command. Claude Desktop's configuration holds commands only, so it leaves such a server out.",
+          "type": "string",
+          "pattern": "^https?://[^\\s]+$"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reference": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000\\n]+$",
+      "description": "A file inside the supplement, relative to its root."
+    },
+    "package_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9@_+][a-z0-9@._+-]*$"
+      }
+    }
+  }
+}
