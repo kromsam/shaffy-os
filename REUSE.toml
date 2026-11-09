@@ -46,10 +46,7 @@ SPDX-License-Identifier = "Apache-2.0"
 
 # LazyVim starter files modified for Shaffy OS; options.lua also takes Omarchy's options.
 [[annotations]]
-path = [
-  "home/dot_config/nvim/lua/config/autocmds.lua",
-  "home/dot_config/nvim/lua/config/lazy.lua",
-]
+path = ["home/dot_config/nvim/lua/config/autocmds.lua", "home/dot_config/nvim/lua/config/lazy.lua"]
 precedence = "override"
 SPDX-FileCopyrightText = ["Folke Lemaitre and LazyVim contributors", "2026 Sam Simons"]
 SPDX-License-Identifier = "Apache-2.0"

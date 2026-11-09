@@ -177,7 +177,7 @@ class HomeApply:
         try:
             shaffy = load(self.checkout, supplement=captured, without=captured is None)['shaffy']
         except (SettingsError, SelectionError) as error:
-            return problems + [f'the captured settings no longer load: {error}']
+            return [*problems, f'the captured settings no longer load: {error}']
         settings = shaffy['settings']
         if settings_digest(settings) != pending['settings_sha256']:
             problems.append(
@@ -187,7 +187,7 @@ class HomeApply:
         try:
             owned = self.ledger.read(self._target())
         except RecordError as error:
-            return problems + [str(error)]
+            return [*problems, str(error)]
         refused, transitions, deferred = ledger.plan(shaffy['integrations'], owned, Path.home(), pending['op'])
         if refused:
             return problems + refused

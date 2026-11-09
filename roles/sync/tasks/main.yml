@@ -1,5 +1,5 @@
 ---
 - name: Install synchronization clients from the configured repositories
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.sync }}"
+    name: "{{ shaffy['packages']['groups']['sync'] }}"
     state: present

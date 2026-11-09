@@ -8,6 +8,7 @@ node = "lts"
 "npm:markdownlint-cli2" = "latest"
 # In a virtual environment of its own, beside the controller.
 "pipx:ansible-lint" = "latest"
+"pipx:yamllint" = "latest"
 ruff = "latest"
 # The history's secret scan and the licence check, which CI also runs (CONTRIBUTING.md).
 gitleaks = "latest"
@@ -15,6 +16,8 @@ gitleaks = "latest"
 shellcheck = "latest"
 shfmt = "latest"
 stylua = "latest"
+taplo = "latest"
+zizmor = "latest"
 
 [settings]
 # As for the desktop's tools: `latest` is the newest release that is at least three days old.

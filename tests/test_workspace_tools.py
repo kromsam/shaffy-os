@@ -19,11 +19,18 @@ merge = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
 class WorkspaceToolsTests(unittest.TestCase):
     def test_multiple_existing_servers_preserve_formatting_without_blank_line_growth(self):
         servers = {'gbrain': {'command': '/gbrain', 'args': []}, 'zotero': {'command': '/zotero', 'args': ['serve']}}
-        original = 'model = "kept"\n\n[mcp_servers.gbrain]\ncommand="/gbrain"\nargs=[]\n\n[mcp_servers.zotero]\ncommand="/zotero"\nargs=["serve"]\n'
+        original = (
+            'model = "kept"\n\n[mcp_servers.gbrain]\ncommand="/gbrain"\nargs=[]\n\n'
+            '[mcp_servers.zotero]\ncommand="/zotero"\nargs=["serve"]\n'
+        )
         self.assertEqual(merge['merge_codex'](original, servers), original)
 
     def test_codex_preserves_unrelated_settings_and_is_idempotent(self):
-        source = '# existing preference\nmodel="kept"\n[mcp_servers.other]\nurl="http://localhost:1234"\n[mcp_servers.zotero]\ncommand="old"\n[mcp_servers.zotero.env]\nOLD="old"\n[projects."/some project"]\ntrust_level="trusted"\n'
+        source = (
+            '# existing preference\nmodel="kept"\n[mcp_servers.other]\nurl="http://localhost:1234"\n'
+            '[mcp_servers.zotero]\ncommand="old"\n[mcp_servers.zotero.env]\nOLD="old"\n'
+            '[projects."/some project"]\ntrust_level="trusted"\n'
+        )
         servers = {
             'zotero': {'command': '/path with spaces/server', 'args': ['serve'], 'env': {'ZOTERO_LOCAL': 'true'}}
         }

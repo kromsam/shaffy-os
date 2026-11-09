@@ -1,0 +1,12 @@
+---
+argument_specs:
+  main:
+    short_description: Install one AUR package when it is missing
+    description:
+      - "The repository keeps no recipes: scripts/build-aur-package.sh clones the AUR's current recipe and builds it as the target user, and root installs only its own copy, after checking the digest and the name."
+      - Updates are yay's (`yay`), not the apply's.
+    options:
+      aur_package:
+        type: dict
+        required: true
+        description: The package, an `aur` entry of a defaults/packages group, whose shape lib/shaffy/packages.py checks; the loop variable.

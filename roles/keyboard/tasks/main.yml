@@ -1,6 +1,4 @@
 ---
-# Keyboard key maps from the supplement (overrides.keyboard_hwdb, a system-scope fragment);
-# without one there is none.
 - name: Create the local hardware database directory
   ansible.builtin.file:
     path: /etc/udev/hwdb.d
@@ -8,24 +6,24 @@
     owner: root
     group: root
     mode: "0755"
-  when: "'keyboard_hwdb' in shaffy.system_overrides"
+  when: "'keyboard_hwdb' in shaffy['system_overrides']"
 
 - name: Install the supplement's keyboard hardware database
   ansible.builtin.copy:
-    content: "{{ shaffy.system_overrides.keyboard_hwdb }}"
+    content: "{{ shaffy['system_overrides']['keyboard_hwdb'] }}"
     dest: /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb
     owner: root
     group: root
     mode: "0644"
   notify: Rebuild keyboard hardware database
-  when: "'keyboard_hwdb' in shaffy.system_overrides"
+  when: "'keyboard_hwdb' in shaffy['system_overrides']"
 
 - name: Clear it when the supplement names none
   ansible.builtin.file:
     path: /etc/udev/hwdb.d/90-shaffy-keyboard.hwdb
     state: absent
   notify: Rebuild keyboard hardware database
-  when: "'keyboard_hwdb' not in shaffy.system_overrides"
+  when: "'keyboard_hwdb' not in shaffy['system_overrides']"
 
 - name: Apply a changed keyboard database
   ansible.builtin.meta: flush_handlers

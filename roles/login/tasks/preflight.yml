@@ -1,104 +1,108 @@
 ---
 # Every login and keyring prerequisite, checked before the first autologin or PAM write.
 # These tasks only read, and only matter when automatic login is requested.
-- name: Read the Niri session definition
+- name: preflight | Read the Niri session definition
   ansible.builtin.stat:
     path: /usr/share/wayland-sessions/niri.desktop
-  register: login_niri_session
-  when: login_autologin
+  register: __login_niri_session
+  when: __login_autologin | bool
 
-- name: Require Niri to be installed
+- name: preflight | Require Niri to be installed
   ansible.builtin.assert:
-    that: login_niri_session.stat.isreg | default(false)
+    that: __login_niri_session['stat']['isreg'] | default(false)
     fail_msg: Niri's session file is missing; install Niri before configuring its automatic login.
-  when: login_autologin
+  when: __login_autologin | bool
 
-- name: Read the target user's account
+- name: preflight | Read the target user's account
   ansible.builtin.getent:
     database: passwd
     key: "{{ shaffy_target_user }}"
     fail_key: false
-  when: login_autologin
+  when: __login_autologin | bool
 
-- name: Require the automatic login's user to exist
+- name: preflight | Require the automatic login's user to exist
   ansible.builtin.assert:
-    that: (ansible_facts.getent_passwd[shaffy_target_user] | default(none)) is not none
+    that: (ansible_facts['getent_passwd'][shaffy_target_user] | default(none)) is not none
     fail_msg: There is no account named {{ shaffy_target_user }} to log in automatically.
-  when: login_autologin
+  when: __login_autologin | bool
 
-- name: Check the installed password handoff modules
+- name: preflight | Check the installed password handoff modules
   ansible.builtin.stat:
     path: "{{ item }}"
   loop:
     - /usr/lib/security/pam_systemd_loadkey.so
     - /usr/lib/security/pam_gnome_keyring.so
-  register: login_keyring_modules
-  when: login_autologin
+  register: __login_keyring_modules
+  when: __login_autologin | bool
 
-- name: Require both supported PAM modules
+- name: preflight | Require both supported PAM modules
   ansible.builtin.assert:
-    that: item.stat.isreg | default(false)
-  loop: "{{ login_keyring_modules.results }}"
-  when: login_autologin
+    that: item['stat']['isreg'] | default(false)
+  loop: "{{ __login_keyring_modules['results'] }}"
+  when: __login_autologin | bool
 
-- name: Read the existing SDDM automatic login PAM stack
+- name: preflight | Read the existing SDDM automatic login PAM stack
   ansible.builtin.slurp:
     src: /etc/pam.d/sddm-autologin
-  register: login_sddm_autologin_pam
-  when: login_autologin
+  register: __login_sddm_autologin_pam
+  when: __login_autologin | bool
 
-- name: Require the existing optional keyring hooks before editing PAM
+- name: preflight | Require the existing optional keyring hooks before editing PAM
   vars:
-    login_autologin_stack: "{{ login_sddm_autologin_pam.content | b64decode }}"
+    __login_autologin_stack: "{{ __login_sddm_autologin_pam['content'] | b64decode }}"
   ansible.builtin.assert:
     that:
-      - "(login_autologin_stack | regex_findall('(?m)^-?auth[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]*$') | length) == 1"
-      - "(login_autologin_stack | regex_findall('(?m)^-?session[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]+auto_start[ \\t]*$') | length) == 1"
-  when: login_autologin
+      - "(__login_autologin_stack | regex_findall('(?m)^-?auth[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]*$') | length) == 1"
+      - "(__login_autologin_stack | regex_findall('(?m)^-?session[ \\t]+optional[ \\t]+pam_gnome_keyring\\.so[ \\t]+auto_start[ \\t]*$') | length) == 1"
+  when: __login_autologin | bool
 
-- name: Read whether the target user has a default keyring
+- name: preflight | Read whether the target user has a default keyring
   ansible.builtin.stat:
     path: "{{ shaffy_target_home }}/.local/share/keyrings/default"
-  register: login_keyring_alias
-  when: login_autologin
+  register: __login_keyring_alias
+  when: __login_autologin | bool
 
-- name: Read which keyring is the default
+- name: preflight | Read which keyring is the default
   ansible.builtin.slurp:
     src: "{{ shaffy_target_home }}/.local/share/keyrings/default"
-  register: login_keyring_default
-  when: login_autologin and login_keyring_alias.stat.isreg | default(false)
+  register: __login_keyring_default
+  when:
+    - __login_autologin | bool
+    - __login_keyring_alias['stat']['isreg'] | default(false)
 
 # Automatic login unlocks only login.keyring; with another default keyring the first
 # login would create an empty login keyring beside it.
-- name: Require the default keyring to be the login keyring
+- name: preflight | Require the default keyring to be the login keyring
   ansible.builtin.assert:
-    that: not (login_keyring_alias.stat.isreg | default(false)) or (login_keyring_default.content | b64decode | trim) == 'login'
+    that: not (__login_keyring_alias['stat']['isreg'] | default(false)) or (__login_keyring_default['content'] | b64decode | trim) == 'login'
     fail_msg: >-
       The default keyring of {{ shaffy_target_user }} is not the login keyring, which automatic login
       unlocks. Rename it to login.keyring by hand first, with the keyring daemon stopped
       (docs/LOGIN-KEYRING.md).
-  when: login_autologin
+  when: __login_autologin | bool
 
 # Automatic login skips the password, so only disk encryption keeps the desktop closed.
-- name: Find the device under the root filesystem
+# ansible_facts['mounts'] could name it; it stays a command until a test covers the switch.
+- name: preflight | Find the device under the root filesystem
   ansible.builtin.command:
     argv: [findmnt, --noheadings, --nofsroot, --output, SOURCE, /]
-  register: login_root_device
+  register: __login_root_device
   changed_when: false
   check_mode: false
-  when: login_autologin
+  when: __login_autologin | bool
 
-- name: Read the device types beneath it
+# No module lists the device types beneath a device.
+- name: preflight | Read the device types beneath it
   ansible.builtin.command:
-    argv: [lsblk, --noheadings, --inverse, --output, TYPE, "{{ login_root_device.stdout | trim }}"]
-  register: login_root_types
+    argv: [lsblk, --noheadings, --inverse, --output, TYPE, "{{ __login_root_device['stdout'] | trim }}"]
+  register: __login_root_types
   changed_when: false
   check_mode: false
-  when: login_autologin
+  when: __login_autologin | bool
 
-- name: Require an encrypted root filesystem for automatic login
+- name: preflight | Require an encrypted root filesystem for automatic login
   ansible.builtin.assert:
-    that: "'crypt' in (login_root_types.stdout_lines | map('trim') | list)"
+    that: "'crypt' in (__login_root_types['stdout_lines'] | map('trim') | list)"
     fail_msg: Automatic login needs / on an encrypted device, since nothing else asks for a password
       before the desktop opens. Encrypt the disk, or leave login.autologin unset.
-  when: login_autologin
+  when: __login_autologin | bool

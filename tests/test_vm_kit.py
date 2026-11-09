@@ -443,14 +443,51 @@ class GuestScriptTests(unittest.TestCase):
 
 
 # The keys cachyos-installer 0.12.4 (the pinned image's) accepts; it rejects any other key.
-INSTALLER_KEYS = set(
-    """menus install_type headless_mode server_mode allow_auto_partition encrypt_swap hostcache
-device fs_name mount_opts partitions subvolumes zfs_passphrase hostname locale xkbmap keymap timezone user_name
-username user_pass user_password user_shell root_pass root_password kernel desktop bootloader post_install
-server_profile net_profiles_path ssh_authorized_keys server_extra_packages server_extra_tcp_ports
-server_extra_udp_ports autologin user_groups hw_clock chwd carry_network os_prober netinstall_groups
-config_version""".split()
-)
+INSTALLER_KEYS = {
+    'menus',
+    'install_type',
+    'headless_mode',
+    'server_mode',
+    'allow_auto_partition',
+    'encrypt_swap',
+    'hostcache',
+    'device',
+    'fs_name',
+    'mount_opts',
+    'partitions',
+    'subvolumes',
+    'zfs_passphrase',
+    'hostname',
+    'locale',
+    'xkbmap',
+    'keymap',
+    'timezone',
+    'user_name',
+    'username',
+    'user_pass',
+    'user_password',
+    'user_shell',
+    'root_pass',
+    'root_password',
+    'kernel',
+    'desktop',
+    'bootloader',
+    'post_install',
+    'server_profile',
+    'net_profiles_path',
+    'ssh_authorized_keys',
+    'server_extra_packages',
+    'server_extra_tcp_ports',
+    'server_extra_udp_ports',
+    'autologin',
+    'user_groups',
+    'hw_clock',
+    'chwd',
+    'carry_network',
+    'os_prober',
+    'netinstall_groups',
+    'config_version',
+}
 
 
 class HeadlessInstallTests(unittest.TestCase):

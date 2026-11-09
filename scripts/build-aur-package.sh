@@ -31,8 +31,8 @@ case ${action} in
     [[ $# == 2 ]] || usage
     rm -rf "${recipe}" "${build}/out"
     mkdir -p "${build}"
-    git clone --quiet --depth 1 "${aur}/${name}.git" "${recipe}" >&2 ||
-      {
+    git clone --quiet --depth 1 "${aur}/${name}.git" "${recipe}" >&2 \
+      || {
         echo "build-aur-package: cannot fetch ${name} from ${aur}" >&2
         exit 1
       }
@@ -43,8 +43,8 @@ case ${action} in
     }
     cd "${recipe}"
     srcinfo=$(makepkg --printsrcinfo)
-    grep -qxF "pkgname = ${name}" <<<"${srcinfo}" ||
-      {
+    grep -qxF "pkgname = ${name}" <<<"${srcinfo}" \
+      || {
         echo "build-aur-package: the ${name} recipe does not build ${name}" >&2
         exit 1
       }
@@ -70,8 +70,8 @@ print(json.dumps({"commit": commit, "depends": needed}))
       echo "build-aur-package: fetch ${name} first" >&2
       exit 1
     }
-    [[ $(git -C "${recipe}" rev-parse HEAD) == "$3" ]] ||
-      {
+    [[ $(git -C "${recipe}" rev-parse HEAD) == "$3" ]] \
+      || {
         echo "build-aur-package: the fetched ${name} recipe is not at $3" >&2
         exit 1
       }

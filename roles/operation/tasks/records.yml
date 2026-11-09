@@ -1,16 +1,15 @@
 ---
-# Root record changes outside a system run (records.yml): abandoning an operation
-# that cannot finish, or moving the root binding with `supplement rebind`.
-- name: Prepare the root steps
+- name: records | Prepare the root steps
   ansible.builtin.import_tasks: prepare.yml
 
-- name: Change the root record
+# The root steps are root_op.py's, run from root's own copy.
+- name: records | Change the root record
   ansible.builtin.command:
-    argv: "{{ ['/usr/bin/python3', '-I', shaffy_root_op_dir + '/root_op.py', shaffy_system.action,
-              '--op', shaffy_system.op, '--uid', shaffy_system.target.uid | string]
-              + (['--mode', shaffy_system.binding.mode] if shaffy_system.action == 'rebind' else [])
-              + (['--path', shaffy_system.binding.path, '--supplement-id', shaffy_system.binding.supplement_id]
-                 if shaffy_system.action == 'rebind' and shaffy_system.binding.mode == 'supplement' else [])
-              + shaffy_root_test_arguments }}"
-  register: shaffy_records
+    argv: "{{ ['/usr/bin/python3', '-I', __operation_root_op_dir + '/root_op.py', shaffy_system['action'],
+              '--op', shaffy_system['op'], '--uid', shaffy_system['target']['uid'] | string]
+              + (['--mode', shaffy_system['binding']['mode']] if shaffy_system['action'] == 'rebind' else [])
+              + (['--path', shaffy_system['binding']['path'], '--supplement-id', shaffy_system['binding']['supplement_id']]
+                 if shaffy_system['action'] == 'rebind' and shaffy_system['binding']['mode'] == 'supplement' else [])
+              + __operation_root_test_arguments }}"
+  register: __operation_records
   changed_when: true

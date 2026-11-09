@@ -106,7 +106,7 @@ class PowerRoleTests(unittest.TestCase):
                         'gather_facts': False,
                         'vars': {
                             'ansible_python_interpreter': '/usr/bin/python3',
-                            'power_hibernate': policy,
+                            '__power_hibernate': policy,
                             'power_config_dir': str(self.config_dir),
                             'power_state_dir': str(self.tmp),
                             'power_test_reload_fails': reload_fails,
@@ -165,7 +165,7 @@ class PowerRoleTests(unittest.TestCase):
     def test_the_charge_limit_task_passes_the_setting_and_reports_the_scripts_change(self):
         fake = self.tmp / 'configure-charge-limit.py'
         fake.write_text("import sys\nprint('args:', *sys.argv[1:])\nprint('changed:', int('--apply' in sys.argv))\n")
-        tasks = [{'ansible.builtin.import_tasks': str(ROLE / 'tasks/charge-limit.yml')}]
+        tasks = [{'ansible.builtin.import_tasks': str(ROLE / 'tasks/charge_limit.yml')}]
         for limit, check, expected in (
             (
                 {'start': 60, 'end': 80},
@@ -180,7 +180,7 @@ class PowerRoleTests(unittest.TestCase):
                     POLICY,
                     tasks=tasks,
                     extra={
-                        'power_charge_limit': limit,
+                        '__power_charge_limit': limit,
                         'power_charge_limit_script': str(fake),
                         'power_hwdb_dir': '/etc/udev/hwdb.d',
                     },
@@ -203,7 +203,7 @@ class PowerRoleTests(unittest.TestCase):
                 play = self.play(
                     POLICY,
                     tasks=tasks,
-                    extra={'power_hibernation': hibernation, 'power_hibernation_script': str(fake)},
+                    extra={'__power_hibernation': hibernation, 'power_hibernation_script': str(fake)},
                     check=check,
                 )
                 self.assertEqual(play.returncode, 0, play.stdout + play.stderr)

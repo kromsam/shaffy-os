@@ -74,8 +74,8 @@ if ((live)) && [[ ! -e ${target}/usr/share/wayland-sessions/niri.desktop ]]; the
 fi
 
 [[ -f ${share}/authorized_keys ]] || exit 0
-IFS=: read -r _ _ uid gid _ home _ < <(grep "^${account}:" "${target}/etc/passwd") ||
-  {
+IFS=: read -r _ _ uid gid _ home _ < <(grep "^${account}:" "${target}/etc/passwd") \
+  || {
     echo "vm-post-install: there is no account ${account}" >&2
     exit 1
   }

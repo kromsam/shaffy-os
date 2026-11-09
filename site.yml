@@ -11,15 +11,15 @@
     # The operation, as JSON in one environment variable, so its values stay literal.
     shaffy_system: "{{ lookup('ansible.builtin.env', 'SHAFFY_SYSTEM', default='{}') | from_json }}"
     # The target identity the wrapper verified before escalating.
-    shaffy_target_user: "{{ shaffy_system.target.user }}"
-    shaffy_target_home: "{{ shaffy_system.target.home }}"
+    shaffy_target_user: "{{ shaffy_system['target']['user'] }}"
+    shaffy_target_home: "{{ shaffy_system['target']['home'] }}"
     # The root-owned operation directory, where root keeps its copies.
-    shaffy_op_dir: "{{ shaffy_system.test.state_dir | default('/var/lib/shaffy') }}/ops/{{ shaffy_system.op }}"
+    shaffy_op_dir: "{{ shaffy_system['test']['state_dir'] | default('/var/lib/shaffy') }}/ops/{{ shaffy_system['op'] }}"
   pre_tasks:
     - name: Require an Arch-based distribution
       ansible.builtin.assert:
         that:
-          - ansible_facts.os_family == 'Archlinux'
+          - ansible_facts['os_family'] == 'Archlinux'
         fail_msg: Shaffy OS is an opinionated desktop setup for CachyOS.
       tags: [always]
     - name: Begin the system operation

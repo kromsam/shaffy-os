@@ -1,29 +1,29 @@
 ---
-# LocalSend: the desktop role installs the app; this role adds a firewall opening only for
-# the network the supplement names (`localsend` settings).
 - name: Add no firewall opening without localsend settings
   ansible.builtin.meta: end_role
-  when: "'localsend' not in shaffy.settings"
+  when: "'localsend' not in shaffy['settings']"
 
+# community.general.ufw sets a state; only the command reads it.
 - name: Require an active firewall
   ansible.builtin.command:
     argv: [ufw, status]
   environment:
     LC_ALL: C
-  register: localsend_firewall
+  register: __localsend_firewall
   changed_when: false
-  failed_when: "localsend_firewall.rc != 0 or 'Status: active' not in localsend_firewall.stdout"
+  failed_when: "__localsend_firewall['rc'] != 0 or 'Status: active' not in __localsend_firewall['stdout']"
   check_mode: false
 
 # Port 53317 carries both the multicast discovery (UDP) and the transfers (TCP).
 # An identical rule with another comment is updated in place.
+# community.general.ufw could add this rule; it stays a command until a test covers the switch.
 - name: Allow LocalSend only from the configured network and interface
   ansible.builtin.command:
-    argv: [ufw, allow, in, "on", "{{ shaffy.settings.localsend.interface }}",
-           from, "{{ shaffy.settings.localsend.subnet }}", to, any, port, "53317", proto, "{{ item }}",
+    argv: [ufw, allow, in, "on", "{{ shaffy['settings']['localsend']['interface'] }}",
+           from, "{{ shaffy['settings']['localsend']['subnet'] }}", to, any, port, "53317", proto, "{{ item }}",
            comment, "shaffy LocalSend"]
   environment:
     LC_ALL: C
   loop: [tcp, udp]
-  register: localsend_rule
-  changed_when: "'Rule added' in localsend_rule.stdout or 'Rule updated' in localsend_rule.stdout"
+  register: __localsend_rule
+  changed_when: "'Rule added' in __localsend_rule['stdout'] or 'Rule updated' in __localsend_rule['stdout']"

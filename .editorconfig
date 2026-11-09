@@ -1,4 +1,5 @@
-# One whitespace convention for editors and shfmt (STYLE.md).
+# One whitespace convention for editors and the formatters (STYLE.md). `shaffy lint` holds
+# the files no formatter reads to the [*] section, and shfmt takes its settings here.
 root = true
 
 [*]
@@ -8,8 +9,10 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
-# shfmt: case branches indented, as the Google Shell Style Guide does.
+# shfmt: case branches indented, and a long pipeline or condition broken before its
+# operator, as the Google Shell Style Guide does.
 switch_case_indent = true
+binary_next_line = true
 
 [*.py]
 indent_size = 4

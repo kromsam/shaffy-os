@@ -1,6 +1,6 @@
----
 # yaml-language-server: $schema=../schema/supplement.schema.json
 # Shaffy OS public defaults. A supplement overrides these; see supplement.example/.
+---
 schema_version: 1
 ai:
   pstack:

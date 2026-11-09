@@ -181,9 +181,9 @@ class DesktopControlsTests(unittest.TestCase):
             ),
             patch.object(desktop, 'choose', return_value='JPEG image'),
             patch.object(desktop, 'notify'),
+            self.assertRaises(subprocess.CalledProcessError),
         ):
-            with self.assertRaises(subprocess.CalledProcessError):
-                desktop.transcode()
+            desktop.transcode()
         self.assertEqual(source.read_bytes(), b'original')
         self.assertFalse((self.root / 'source.converted.jpg').exists())
         self.assertEqual(list(self.root.iterdir()), [source])

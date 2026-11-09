@@ -1,8 +1,7 @@
 ---
-# The Tailnet client, only where the supplement names a Tailnet (`tailnet` settings).
 - name: Leave the Tailnet client alone without tailnet settings
   ansible.builtin.meta: end_role
-  when: "'tailnet' not in shaffy.settings"
+  when: "'tailnet' not in shaffy['settings']"
 
 - name: Enable the Tailscale daemon
   ansible.builtin.systemd_service:
@@ -10,6 +9,7 @@
     enabled: true
     state: started
 
+# No module drives tailscale or reloads NetworkManager's DNS: these tasks use their command lines.
 - name: Let the target user operate the Tailscale client without repeated administrator prompts
   ansible.builtin.command:
     argv: ["tailscale", "set", "--operator={{ shaffy_target_user }}"]
@@ -18,7 +18,7 @@
 - name: Inspect the registered client before changing its DNS preferences
   ansible.builtin.command:
     argv: ["tailscale", "status", "--json"]
-  register: tailnet_status
+  register: __tailnet_status
   no_log: true
   changed_when: false
   check_mode: false
@@ -26,10 +26,10 @@
 - name: Require this machine signed in to the configured Tailnet
   ansible.builtin.assert:
     that:
-      - (tailnet_status.stdout | from_json).BackendState == 'Running'
-      - (tailnet_status.stdout | from_json).Self.HostName == ansible_facts.hostname
-      - shaffy.settings.tailnet.address is not defined
-        or shaffy.settings.tailnet.address in (tailnet_status.stdout | from_json).TailscaleIPs
+      - (__tailnet_status['stdout'] | from_json)['BackendState'] == 'Running'
+      - (__tailnet_status['stdout'] | from_json)['Self']['HostName'] == ansible_facts['hostname']
+      - shaffy['settings']['tailnet']['address'] is not defined
+        or shaffy['settings']['tailnet']['address'] in (__tailnet_status['stdout'] | from_json)['TailscaleIPs']
     fail_msg: Sign this machine in to the Tailnet first (tailscale up with the configured login server),
       then apply again.
     quiet: true
@@ -38,7 +38,7 @@
   ansible.builtin.stat:
     path: /etc/resolv.conf
     follow: false
-  register: tailnet_resolver
+  register: __tailnet_resolver
 
 - name: Keep a private rollback directory
   ansible.builtin.file:
@@ -57,7 +57,7 @@
     owner: root
     group: root
     mode: "0600"
-  when: tailnet_resolver.stat.isreg | default(false)
+  when: __tailnet_resolver['stat']['isreg'] | default(false)
 
 - name: Keep the existing system resolver enabled
   ansible.builtin.systemd_service:
@@ -71,26 +71,26 @@
     dest: /etc/resolv.conf
     state: link
     force: true
-  register: tailnet_dns_link
+  register: __tailnet_dns_link
 
 # These two now rather than in handlers: an apply stopped before the handlers would leave the
 # change unloaded.
 - name: Reload DNS integration without disconnecting Wi-Fi
   ansible.builtin.command:
     argv: ["nmcli", "general", "reload", "dns-full"]
-  when: tailnet_dns_link.changed  # noqa: no-handler
+  when: __tailnet_dns_link['changed']  # noqa: no-handler
   changed_when: true
 
 - name: Refresh the Tailscale resolver detection after correcting the integration
   ansible.builtin.systemd_service:
     name: tailscaled.service
     state: restarted
-  when: tailnet_dns_link.changed  # noqa: no-handler
+  when: __tailnet_dns_link['changed']  # noqa: no-handler
 
 - name: Read only the required client preferences privately
   ansible.builtin.command:
     argv: ["tailscale", "debug", "prefs"]
-  register: tailnet_prefs
+  register: __tailnet_prefs
   no_log: true
   changed_when: false
   check_mode: false
@@ -104,17 +104,17 @@
     owner: root
     group: root
     mode: "0644"
-  register: tailnet_local_networks
+  register: __tailnet_local_networks
 
 - name: Keep directly connected networks direct, now and at every boot
   ansible.builtin.systemd_service:
     name: shaffy-tailnet-local-networks.service
     enabled: true
-    state: "{{ 'restarted' if tailnet_local_networks.changed else 'started' }}"
-    daemon_reload: "{{ tailnet_local_networks.changed }}"
+    state: "{{ 'restarted' if __tailnet_local_networks['changed'] else 'started' }}"
+    daemon_reload: "{{ __tailnet_local_networks['changed'] }}"
 
 - name: Restore accepted subnet routes and private-network name resolution
   ansible.builtin.command:
     argv: ["tailscale", "set", "--accept-dns=true", "--accept-routes=true"]
-  when: not ((tailnet_prefs.stdout | from_json).CorpDNS and (tailnet_prefs.stdout | from_json).RouteAll)
+  when: not ((__tailnet_prefs['stdout'] | from_json)['CorpDNS'] and (__tailnet_prefs['stdout'] | from_json)['RouteAll'])
   changed_when: true

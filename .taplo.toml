@@ -1,0 +1,3 @@
+# TOML's format (STYLE.md): taplo, which the desktop's LazyVim formats TOML with.
+[formatting]
+column_width = 120

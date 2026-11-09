@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Install the writing packages and select the Tabbed LibreOffice interface
+    options: {}

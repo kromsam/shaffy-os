@@ -38,11 +38,18 @@ class LintTests(unittest.TestCase):
             '.github/workflows/ci.yml': 'on: push\n',
             'README.md': '# Readme\n',
             'vendored.lua': 'x = 1\n',
+            'home/modify_settings.json': '#!/bin/sh\ncat\n',
+            'home/dot_config/niri/config.kdl': 'input {\n}\n',
+            'home/app.desktop': '[Desktop Entry]\n',
+            '.yamllint': 'extends: default\n',
+            'defaults/config.yaml': 'a: 1\n',
+            'supplement.example/.github/workflows/shaffy.yml': 'on: push\n',
             'REUSE.toml': 'version = 1\n[[annotations]]\npath = "**"\n[[annotations]]\npath = ["vendored.lua"]\n',
         }
         for path, text in files.items():
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             (self.root / path).write_text(text)
+        (self.root / 'watermark.png').write_bytes(b'\x89PNG\r\n\x1a\n\0\0')
         self.calls = []
 
     def lint(self, paths, fix=False, results=None, missing=()):
@@ -62,7 +69,7 @@ class LintTests(unittest.TestCase):
         )
         return status, lines
 
-    def test_each_file_goes_to_its_language_and_templates_to_none(self):
+    def test_each_file_goes_to_its_language_and_the_rest_to_text(self):
         kinds = {
             path: lint.language(path, self.root)
             for path in (
@@ -79,6 +86,13 @@ class LintTests(unittest.TestCase):
                 '.github/workflows/ci.yml',
                 'README.md',
                 'REUSE.toml',
+                'home/modify_settings.json',
+                'home/dot_config/niri/config.kdl',
+                'home/app.desktop',
+                '.yamllint',
+                'defaults/config.yaml',
+                'supplement.example/.github/workflows/shaffy.yml',
+                'watermark.png',
             )
         }
         self.assertEqual(
@@ -90,13 +104,20 @@ class LintTests(unittest.TestCase):
                 'bin/glue': 'shell',
                 'scripts/run.sh': 'shell',
                 'home/launcher': 'shell',
-                'home/config.toml.tmpl': None,
-                'home/.chezmoitemplates/skill.md': None,
+                'home/config.toml.tmpl': 'text',
+                'home/.chezmoitemplates/skill.md': 'text',
                 'roles/x/tasks/main.yml': 'ansible',
                 'site.yml': 'ansible',
                 '.github/workflows/ci.yml': 'workflow',
                 'README.md': 'markdown',
-                'REUSE.toml': None,
+                'REUSE.toml': 'toml',
+                'home/modify_settings.json': 'shell',
+                'home/dot_config/niri/config.kdl': 'text',
+                'home/app.desktop': 'text',
+                '.yamllint': 'yaml',
+                'defaults/config.yaml': 'yaml',
+                'supplement.example/.github/workflows/shaffy.yml': 'workflow',
+                'watermark.png': None,
             },
         )
 
@@ -140,8 +161,12 @@ class LintTests(unittest.TestCase):
         self.assertEqual((self.root / 'bin/glue').read_text(), '#!/bin/bash\ntrue\n')
 
     def test_every_tool_gets_this_checkouts_configuration(self):
-        # shfmt's flags are .editorconfig's [*] section: two spaces, indented case branches.
-        self.assertEqual(lint.options('shfmt'), ['--indent', '2', '--case-indent'])
+        # shfmt's flags are .editorconfig's [*] section: two spaces, indented case branches,
+        # operators first on a continued line.
+        self.assertEqual(lint.options('shfmt'), ['--indent', '2', '--case-indent', '--binary-next-line'])
+        self.assertEqual(lint.options('yamllint'), ['--config-file', str(ROOT / '.yamllint')])
+        self.assertEqual(lint.options('shellcheck'), ['--rcfile', str(ROOT / '.shellcheckrc')])
+        self.assertEqual(lint.options('taplo'), ['--config', str(ROOT / '.taplo.toml')])
         self.assertEqual(lint.options('stylua'), ['--config-path', str(ROOT / 'stylua.toml')])
         self.assertEqual(lint.options('markdownlint-cli2'), ['--config', str(ROOT / '.markdownlint-cli2.yaml')])
 
@@ -163,7 +188,43 @@ class LintTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_nothing_lintable_is_clean(self):
-        self.assertEqual(self.lint(['vendored.lua', 'home/config.toml.tmpl']), (0, ['Nothing to lint.']))
+        self.assertEqual(self.lint(['vendored.lua', 'watermark.png']), (0, ['Nothing to lint.']))
+
+    def test_whitespace_follows_editorconfig_and_fix_mends_what_it_safely_can(self):
+        (self.root / 'home/app.desktop').write_bytes(b'[Desktop Entry]\r\nName=x \n\tExec=x')
+        status, lines = self.lint(['home/app.desktop'])
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            lines,
+            [
+                'whitespace: 1 file(s), problems remain',
+                '  home/app.desktop: CR line ends; .editorconfig asks for LF',
+                '  home/app.desktop: no final newline',
+                '  home/app.desktop:2: trailing whitespace',
+                '  home/app.desktop:3: indented with a tab',
+            ],
+        )
+        status, lines = self.lint(['home/app.desktop'], fix=True)
+        self.assertEqual(lines[1:], ['  home/app.desktop:3: indented with a tab'])
+        self.assertEqual((self.root / 'home/app.desktop').read_bytes(), b'[Desktop Entry]\nName=x\n\tExec=x\n')
+
+    def test_json_must_parse_and_keep_to_editorconfig(self):
+        (self.root / 'settings.json').write_text('{"a": 1,}\n')
+        status, lines = self.lint(['settings.json'])
+        self.assertEqual(status, 1)
+        self.assertEqual(lines[0], 'whitespace: 1 file(s) clean')
+        self.assertEqual(lines[1], 'json: 1 file(s), problems remain')
+        self.assertTrue(lines[2].startswith('  settings.json: Illegal trailing comma'), lines[2])
+        (self.root / 'settings.json').write_text('{\n  // JSONC\n  "url": "http://x/*y*/", /* z */ "b": 2\n}\n')
+        self.assertEqual(self.lint(['settings.json'])[0], 0)
+
+    def test_a_workflow_is_yaml_too_and_each_tool_runs_once_over_all_its_files(self):
+        status, _ = self.lint(['defaults/config.yaml', '.github/workflows/ci.yml'])
+        self.assertEqual(status, 0)
+        yamllint = [call for call in self.calls if call[0] == 'yamllint']
+        self.assertEqual(len(yamllint), 1)
+        self.assertEqual(yamllint[0][-2:], ['defaults/config.yaml', '.github/workflows/ci.yml'])
+        self.assertEqual([call[0] for call in self.calls], ['yamllint', 'actionlint', 'zizmor'])
 
     def test_every_tool_is_a_declared_development_tool(self):
         declared = tomllib.loads((ROOT / 'mise.dev.toml').read_text())['tools']
@@ -216,7 +277,7 @@ class HookTests(unittest.TestCase):
         (self.root / 'supplement').mkdir()
         (self.root / 'supplement/x.py').write_text('X = 1\n')
         (self.root / 'owners.py').write_text('UNFINISHED = 1\n')  # dirty before the session starts
-        (self.root / 'notes.txt').write_text('x\n')
+        (self.root / 'photo.png').write_bytes(b'\x89PNG\0')
         self.seen = []
 
     def fake(self, status, rewrite=None):
@@ -257,7 +318,7 @@ class HookTests(unittest.TestCase):
 
     def test_an_edit_outside_the_checkout_ignored_or_of_another_kind_is_left_alone(self):
         self.start()
-        for path in ('/etc/hosts', self.root / 'notes.txt', self.root / 'supplement/x.py'):
+        for path in ('/etc/hosts', self.root / 'photo.png', self.root / 'supplement/x.py'):
             self.assertEqual(self.hook(self.edit(path)), {})
         self.assertEqual(self.seen, [])
 
@@ -300,7 +361,7 @@ class HookTests(unittest.TestCase):
 
     def test_without_a_start_every_changed_file_is_checked_and_none_written(self):
         reply = self.hook({'hook_event_name': 'PostToolUse', 'tool_input': {}})
-        self.assertEqual(self.seen, [(['owners.py'], False)])
+        self.assertEqual(self.seen, [(['.gitignore', 'owners.py'], False)])
         self.assertIn('problems remain', reply['hookSpecificOutput']['additionalContext'])
 
     def test_a_missing_tool_does_not_hold_the_agent_back(self):

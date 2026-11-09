@@ -597,8 +597,18 @@ class ChezmoiAgreementTests(unittest.TestCase):
 
         def chezmoi(*arguments):
             return subprocess.run(
-                ['chezmoi', '--config', str(config), '--config-format', 'json', '--source', str(source)]
-                + ['--destination', str(home), *arguments],
+                [
+                    'chezmoi',
+                    '--config',
+                    str(config),
+                    '--config-format',
+                    'json',
+                    '--source',
+                    str(source),
+                    '--destination',
+                    str(home),
+                    *arguments,
+                ],
                 capture_output=True,
                 text=True,
                 env={'HOME': str(home), 'PATH': os.environ['PATH']},

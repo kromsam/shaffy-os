@@ -1,9 +1,8 @@
 {
-  "comment": "Oldest supported versions; the test fails when an installed tool is older. The CI container is pinned by digest.",
+  "comment": "Oldest supported versions, chezmoi's in home/.chezmoiversion; the test fails when an installed tool is older. The CI container is pinned by digest.",
   "minimum": {
     "python": "3.14",
     "ansible-core": "2.21.4",
-    "chezmoi": "2.72.2",
     "git": "2.55.0",
     "niri": "26.04",
     "noctalia": "5.1.0",

@@ -2,7 +2,7 @@
 # Direct hibernation avoids relying on a later wake-up from suspend.
 [UPower]
 UsePercentageForPolicy=true
-PercentageLow={{ power_hibernate.low_percent }}
-PercentageCritical={{ power_hibernate.critical_percent }}
-PercentageAction={{ power_hibernate.action_percent }}
+PercentageLow={{ __power_hibernate['low_percent'] }}
+PercentageCritical={{ __power_hibernate['critical_percent'] }}
+PercentageAction={{ __power_hibernate['action_percent'] }}
 CriticalPowerAction=Hibernate

@@ -128,6 +128,7 @@ field and what applies without it.
 
 ```yaml
 # yaml-language-server: $schema=../shaffy-os/schema/supplement.schema.json
+---
 schema_version: 1
 supplement_id: jdoe-laptop
 identity:                  # Git's user.name and user.email

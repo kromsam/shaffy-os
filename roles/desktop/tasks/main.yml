@@ -1,13 +1,13 @@
 ---
 - name: Install the desktop packages from the current synchronized databases
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.desktop }}"
+    name: "{{ shaffy['packages']['groups']['desktop'] }}"
     state: present
 
 - name: Check that systemd runs this system
   ansible.builtin.stat:
     path: /run/systemd/system
-  register: desktop_systemd
+  register: __desktop_systemd
 
 # fwupd's own timer, which its package leaves off; outdated reads the metadata it keeps.
 - name: Refresh the firmware metadata daily
@@ -15,4 +15,4 @@
     name: fwupd-refresh.timer
     enabled: true
     state: started
-  when: desktop_systemd.stat.exists
+  when: __desktop_systemd['stat']['exists']

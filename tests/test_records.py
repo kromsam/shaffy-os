@@ -53,10 +53,12 @@ class RecordsTests(unittest.TestCase):
         self.assertIn('op-1', self.records.torn[0])
 
     def test_second_holder_of_the_lock_fails_at_once(self):
-        with self.records.lock():
-            with self.assertRaisesRegex(LockedError, 'another Shaffy OS operation'):
-                with Records(self.dir).lock():
-                    pass
+        with (
+            self.records.lock(),
+            self.assertRaisesRegex(LockedError, 'another Shaffy OS operation'),
+            Records(self.dir).lock(),
+        ):
+            pass
         with Records(self.dir).lock():
             pass  # released after the first holder left
 

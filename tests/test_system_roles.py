@@ -27,14 +27,14 @@ class SettingsGatedRoleTests(unittest.TestCase):
     def test_every_role_reading_the_settings_depends_on_the_settings_role(self):
         for role in sorted(p.name for p in (ROOT / 'roles').iterdir() if (p / 'tasks').is_dir()):
             text = ''.join(p.read_text() for p in (ROOT / 'roles' / role).rglob('*.yml'))
-            if 'shaffy.' not in text or role in ('settings', 'operation'):
+            if "shaffy['" not in text or role in ('settings', 'operation'):
                 continue
             with self.subTest(role=role):
                 meta = yaml.safe_load((ROOT / 'roles' / role / 'meta/main.yml').read_text())
                 self.assertIn({'role': 'settings'}, meta['dependencies'])
 
     def test_the_tailnet_role_does_nothing_without_tailnet_settings(self):
-        self.assertTrue(ends_role_when(tasks('tailnet')[0], "'tailnet' not in shaffy.settings"))
+        self.assertTrue(ends_role_when(tasks('tailnet')[0], "'tailnet' not in shaffy['settings']"))
 
     def test_directly_connected_networks_stay_direct_before_accepted_subnet_routes(self):
         unit = (ROOT / 'roles/tailnet/files/shaffy-tailnet-local-networks.service').read_text()
@@ -55,27 +55,29 @@ class SettingsGatedRoleTests(unittest.TestCase):
 
     def test_kde_connect_opens_no_port_without_its_settings(self):
         steps = tasks('kde_connect')
-        gate = next(i for i, task in enumerate(steps) if ends_role_when(task, "'kde_connect' not in shaffy.settings"))
+        gate = next(
+            i for i, task in enumerate(steps) if ends_role_when(task, "'kde_connect' not in shaffy['settings']")
+        )
         self.assertFalse(any('ufw' in str(task) for task in steps[:gate]))
 
     def test_localsend_opens_no_port_without_its_settings(self):
         steps = tasks('localsend')
-        self.assertTrue(ends_role_when(steps[0], "'localsend' not in shaffy.settings"))
+        self.assertTrue(ends_role_when(steps[0], "'localsend' not in shaffy['settings']"))
         self.assertTrue(any('53317' in str(task) for task in steps[1:]))
 
     def test_the_keyboard_role_installs_only_a_supplement_fragment(self):
         text = (ROOT / 'roles/keyboard/tasks/main.yml').read_text()
-        self.assertIn('shaffy.system_overrides.keyboard_hwdb', text)
+        self.assertIn("shaffy['system_overrides']['keyboard_hwdb']", text)
         self.assertFalse(list((ROOT / 'roles/keyboard').glob('files/*')))
         self.assertNotIn('inspect-keyboard-map', text)
 
     def test_automatic_login_is_opt_in(self):
         steps = tasks('login')
-        gate = next(i for i, task in enumerate(steps) if ends_role_when(task, 'not login_autologin'))
+        gate = next(i for i, task in enumerate(steps) if ends_role_when(task, 'not __login_autologin | bool'))
         before = steps[:gate]
         self.assertFalse([t['name'] for t in before if 'ansible.builtin.template' in t or 'ansible.builtin.copy' in t])
         vars_ = yaml.safe_load((ROOT / 'roles/login/vars/main.yml').read_text())
-        self.assertIn('default(false)', vars_['login_autologin'])
+        self.assertIn('default(false)', vars_['__login_autologin'])
 
 
 class DockerEngineTests(unittest.TestCase):
@@ -175,7 +177,7 @@ class DockerDataOrderTests(unittest.TestCase):
         # An apply that stopped between the two would leave the engine to make an ordinary directory.
         steps = tasks('workflows')
         subvolume = next(
-            i for i, task in enumerate(steps) if task.get('ansible.builtin.import_tasks') == 'docker-data.yml'
+            i for i, task in enumerate(steps) if task.get('ansible.builtin.import_tasks') == 'docker_data.yml'
         )
         launcher = next(
             i
@@ -187,7 +189,7 @@ class DockerDataOrderTests(unittest.TestCase):
     def test_the_subvolume_is_created_as_the_user_whose_engine_writes_to_it(self):
         # The run below cannot switch users without root, so it drops this; a subvolume owned by
         # root would stop the rootless engine at every login.
-        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker-data.yml').read_text())
+        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker_data.yml').read_text())
         create = next(step for step in steps if 'ansible.builtin.command' in step)
         self.assertEqual((create['become'], create['become_user']), (True, '{{ shaffy_target_user }}'))
 
@@ -202,11 +204,11 @@ class DockerDataSubvolumeTests(unittest.TestCase):
         self.home.mkdir()
         self.data = self.home / '.local/share/docker'
         # The test already runs as the target user, so the switch to that user would only ask for sudo.
-        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker-data.yml').read_text())
+        steps = yaml.safe_load((ROOT / 'roles/workflows/tasks/docker_data.yml').read_text())
         for step in steps:
             step.pop('become', None)
             step.pop('become_user', None)
-        (self.tmp / 'docker-data.yml').write_text(yaml.safe_dump(steps))
+        (self.tmp / 'docker_data.yml').write_text(yaml.safe_dump(steps))
 
     def play(self):
         play = self.tmp / 'play.yml'
@@ -221,7 +223,7 @@ class DockerDataSubvolumeTests(unittest.TestCase):
                             'ansible_python_interpreter': '/usr/bin/python3',
                             'shaffy_target_home': str(self.home),
                         },
-                        'tasks': [{'ansible.builtin.import_tasks': str(self.tmp / 'docker-data.yml')}],
+                        'tasks': [{'ansible.builtin.import_tasks': str(self.tmp / 'docker_data.yml')}],
                     }
                 ]
             )

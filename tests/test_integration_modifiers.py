@@ -78,8 +78,17 @@ def render_zettlr(existing, zotero):
         for text in (existing, None):
             target.write_text(rendered[-1] if text is None else text)
             result = subprocess.run(
-                ['chezmoi', '--config', str(root / 'chezmoi.toml'), '--source', str(checkout / 'home')]
-                + ['--destination', str(home), 'cat', str(target)],
+                [
+                    'chezmoi',
+                    '--config',
+                    str(root / 'chezmoi.toml'),
+                    '--source',
+                    str(checkout / 'home'),
+                    '--destination',
+                    str(home),
+                    'cat',
+                    str(target),
+                ],
                 capture_output=True,
                 text=True,
                 cwd=root,

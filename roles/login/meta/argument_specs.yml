@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Log in automatically after disk unlock, when the supplement asks for it
+    options: {}

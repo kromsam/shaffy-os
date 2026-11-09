@@ -85,6 +85,7 @@ explanatory comments, it reads:
 
 ```yaml
 # yaml-language-server: $schema=../shaffy-os/schema/supplement.schema.json
+---
 schema_version: 1
 supplement_id: my-desktop
 ```
@@ -111,7 +112,8 @@ supplement_id: my-desktop
 The file is read as YAML 1.2 core: only `true` and `false` are booleans, so
 `no` and `yes` stay strings, an unquoted `0600` is the number 600, and there
 are no timestamps. Quote values that only look like numbers. A duplicate key is
-an error.
+an error. `./bin/shaffy lint --supplement` asks for `no` and `yes` in quotes,
+so that no reader takes them for booleans.
 
 ### Absent, false and empty
 
@@ -678,7 +680,7 @@ Edit the supplement ([the rule](../AGENTS.md#the-rule)), then review and apply:
 
 ```sh
 ./bin/shaffy check                        # validate the settings and a sandboxed render
-./bin/shaffy lint --supplement [--fix]    # its scripts, tests and documents (STYLE.md)
+./bin/shaffy lint --supplement [--fix]    # its settings, fragments, scripts and documents (STYLE.md)
 ./bin/shaffy diff                         # what the home apply would change
 ./bin/shaffy apply --home
 ./bin/shaffy apply --system --tags ROLE   # for a setting a system role applies

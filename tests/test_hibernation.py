@@ -311,7 +311,7 @@ class HibernationTests(unittest.TestCase):
         dropin = self.read(DROPIN)
         self.assertTrue(dropin.startswith('# Managed by Shaffy OS (the power role)'))
         self.assertIn(f'KERNEL_CMDLINE[default]+="{" ".join(OURS)}"', dropin)
-        self.assertEqual(self.resume_in_entries(), {kernel: OURS for kernel in KERNELS.values()})
+        self.assertEqual(self.resume_in_entries(), dict.fromkeys(KERNELS.values(), OURS))
         self.assertIn('quiet rw rootflags=subvol=/@/.snapshots/1/snapshot\n', self.read('boot/limine.conf'))
         self.assertEqual(self.record(), {'creating': False, 'filesystem': UUID, 'regenerate': False, 'resume': OURS,
                                          'swap_gib': 1})  # fmt: skip
@@ -332,12 +332,12 @@ class HibernationTests(unittest.TestCase):
         default = '/etc/default/limine'
         installed = f'ESP_PATH="/boot"\nKERNEL_CMDLINE[default]="{BASE}"\nBOOT_ORDER="*, *lts"\n'
         self.machine.host(default).write_text(installed)
-        changed, notes = self.converge(1, apply=False)
+        _changed, notes = self.converge(1, apply=False)
         self.assertIn('would change KERNEL_CMDLINE[default]= to += in /etc/default/limine', notes)
         self.assertEqual(self.read(default.lstrip('/')), installed)
         self.converge(1)
         self.assertEqual(self.read(default.lstrip('/')), installed.replace('[default]="', '[default]+="'))
-        self.assertEqual(self.resume_in_entries(), {kernel: OURS for kernel in KERNELS.values()})
+        self.assertEqual(self.resume_in_entries(), dict.fromkeys(KERNELS.values(), OURS))
         copies = list(self.state.glob('hibernation-copies/*/etc/default/limine'))
         self.assertEqual([copy.read_text() for copy in copies], [installed])
         self.assertEqual(self.converge(1)[0], False)
@@ -443,7 +443,7 @@ class HibernationTests(unittest.TestCase):
         self.assertEqual(machine.host('/swap/swapfile').stat().st_ino, inode)
         self.assertEqual(self.record()['filesystem'], UUID)
         self.assertEqual(self.read('etc/fstab'), FSTAB + '\n' + BLOCK)
-        self.assertEqual(self.resume_in_entries(), {kernel: OURS for kernel in KERNELS.values()})
+        self.assertEqual(self.resume_in_entries(), dict.fromkeys(KERNELS.values(), OURS))
         self.assertEqual(notes, [])  # no reboot is needed: this boot already resumes from the file
 
     def test_a_swap_file_of_another_size_is_refused(self):
@@ -465,7 +465,7 @@ class HibernationTests(unittest.TestCase):
         self.assertTrue(self.converge(1)[0])
         self.assertIn(('limine-mkinitcpio',), self.machine.calls)
         self.assertFalse(self.record()['regenerate'])
-        self.assertEqual(self.resume_in_entries(), {kernel: OURS for kernel in KERNELS.values()})
+        self.assertEqual(self.resume_in_entries(), dict.fromkeys(KERNELS.values(), OURS))
         self.machine.calls.clear()
         self.assertFalse(self.converge(1)[0])
         self.assertEqual(self.machine.writes(), [])
@@ -504,7 +504,7 @@ class HibernationTests(unittest.TestCase):
             self.converge(1)
         self.assertTrue(self.record()['creating'])
         self.machine.partial = False
-        changed, notes = self.converge(1)
+        changed, _notes = self.converge(1)
         self.assertTrue(changed)
         self.assertEqual(self.machine.host('/swap/swapfile').stat().st_size, GIB)
         self.assertFalse(self.record()['creating'])
@@ -575,16 +575,19 @@ class HibernationTests(unittest.TestCase):
         self.converge(None)
         self.machine.reboot()
         self.assertNotIn('/swap', self.machine.mounts)
-        changed, notes = self.converge(1, apply=False)
+        _changed, notes = self.converge(1, apply=False)
         self.assertIn('would mount the existing subvolume @swap at /swap and adopt its swap file', notes)
         self.machine.calls.clear()
         self.assertTrue(self.converge(1)[0])
         self.assertFalse([c for c in self.machine.calls if 'mkswapfile' in c])
-        self.assertEqual(self.resume_in_entries(), {kernel: OURS for kernel in KERNELS.values()})
+        self.assertEqual(self.resume_in_entries(), dict.fromkeys(KERNELS.values(), OURS))
         self.assertEqual(self.read('etc/fstab'), FSTAB + '\n' + BLOCK)
 
     def test_an_os_entry_without_a_machine_id_is_found_by_its_title(self):
-        conf = '/+CachyOS\n  //linux-cachyos\n  protocol: linux\n  kernel_cmdline: rw quiet\n/Other\n  //x\n  protocol: linux\n'
+        conf = (
+            '/+CachyOS\n  //linux-cachyos\n  protocol: linux\n  kernel_cmdline: rw quiet\n'
+            '/Other\n  //x\n  protocol: linux\n'
+        )
         self.assertEqual(SCRIPT['kernel_entries'](conf, MACHINE_ID, ['CachyOS']), [('linux-cachyos', ['rw', 'quiet'])])
 
 

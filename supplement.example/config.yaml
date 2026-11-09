@@ -1,9 +1,9 @@
----
 # yaml-language-server: $schema=../shaffy-os/schema/supplement.schema.json
 # The smallest valid Shaffy OS supplement. Every other setting uses the public
 # defaults in defaults/config.yaml until you override it here. The line above
 # lets an editor check this file once it is copied beside a checkout named
 # shaffy-os, as the README describes.
+---
 schema_version: 1
 supplement_id: my-desktop
 # Your own chezmoi source, a folder in this supplement, applied after Shaffy OS's home:

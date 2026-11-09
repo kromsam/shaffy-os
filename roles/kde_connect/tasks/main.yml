@@ -1,33 +1,33 @@
 ---
-# KDE Connect: the phone file browsing packages everywhere; a firewall opening only for
-# the network the supplement names (`kde_connect` settings).
 - name: Install phone file browsing and file chooser support
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.kde_connect }}"
+    name: "{{ shaffy['packages']['groups']['kde_connect'] }}"
     state: present
 
 - name: Add no firewall opening without kde_connect settings
   ansible.builtin.meta: end_role
-  when: "'kde_connect' not in shaffy.settings"
+  when: "'kde_connect' not in shaffy['settings']"
 
+# community.general.ufw sets a state; only the command reads it.
 - name: Require an active firewall
   ansible.builtin.command:
     argv: [ufw, status]
   environment:
     LC_ALL: C
-  register: kde_connect_firewall
+  register: __kde_connect_firewall
   changed_when: false
-  failed_when: "kde_connect_firewall.rc != 0 or 'Status: active' not in kde_connect_firewall.stdout"
+  failed_when: "__kde_connect_firewall['rc'] != 0 or 'Status: active' not in __kde_connect_firewall['stdout']"
   check_mode: false
 
 # An identical rule with another comment is updated in place.
+# community.general.ufw could add this rule; it stays a command until a test covers the switch.
 - name: Allow KDE Connect only from the configured network and interface
   ansible.builtin.command:
-    argv: [ufw, allow, in, "on", "{{ shaffy.settings.kde_connect.interface }}",
-           from, "{{ shaffy.settings.kde_connect.subnet }}", to, any, port, "1714:1764", proto, "{{ item }}",
+    argv: [ufw, allow, in, "on", "{{ shaffy['settings']['kde_connect']['interface'] }}",
+           from, "{{ shaffy['settings']['kde_connect']['subnet'] }}", to, any, port, "1714:1764", proto, "{{ item }}",
            comment, "shaffy KDE Connect"]
   environment:
     LC_ALL: C
   loop: [tcp, udp]
-  register: kde_connect_rule
-  changed_when: "'Rule added' in kde_connect_rule.stdout or 'Rule updated' in kde_connect_rule.stdout"
+  register: __kde_connect_rule
+  changed_when: "'Rule added' in __kde_connect_rule['stdout'] or 'Rule updated' in __kde_connect_rule['stdout']"

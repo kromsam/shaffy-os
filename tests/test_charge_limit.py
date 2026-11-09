@@ -100,7 +100,7 @@ class ChargeLimitTests(unittest.TestCase):
 
     def test_a_battery_without_support_is_named_not_failed(self):
         self.upower.batteries[BAT]['supported'] = False
-        changed, notes = self.converge((75, 80))
+        _changed, notes = self.converge((75, 80))
         self.assertEqual(notes, ['no battery here supports a charge limit'])
         self.assertFalse(any('EnableChargeThreshold' in call for call in self.upower.calls))
 

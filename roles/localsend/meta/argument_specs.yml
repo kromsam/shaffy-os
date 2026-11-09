@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    short_description: Open the firewall to LocalSend
+    description:
+      - The desktop role installs the app; this role adds a firewall opening only for the network the supplement names (`localsend` settings).
+    options: {}

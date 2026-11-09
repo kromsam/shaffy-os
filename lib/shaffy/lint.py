@@ -1,12 +1,13 @@
 """`./bin/shaffy lint`: one formatter and linter per language, over the checkout (STYLE.md).
 
 The tools come from the checkout's development tools (mise.dev.toml, found through `mise
-env` with MISE_ENV=dev in the checkout), except fish_indent, which comes with fish. It lints the
-files Git tracks or would track. Templates (`*.tmpl`, and all of
-`home/.chezmoitemplates/`) are left out: no formatter reads their template syntax, and
-the sandboxed render checks what they produce. So are the files REUSE.toml attributes to
-another project, which keep their upstream's form. Without --fix nothing is written;
-with it the formatters and the linters' safe fixes rewrite the files first. Each tool's
+env` with MISE_ENV=dev in the checkout), except fish_indent, which comes with fish. It lints
+the files Git tracks or would track. Templates (`*.tmpl`, and all of
+`home/.chezmoitemplates/`) get no formatter, which would not read their template syntax: the
+sandboxed render checks what they produce. They, and every other text file no formatter
+reads, are held to .editorconfig's [*] section by lint itself, which also parses JSON. The files REUSE.toml
+attributes to another project are left out, and keep their upstream's form. Without --fix
+nothing is written; with it the formatters and the linters' safe fixes rewrite the files first. Each tool's
 output is cut to a bounded number of lines, and the exit status says whether anything
 remains. Beside the tools, it holds every script to the system interpreter (STYLE.md),
 and --fix rewrites an `env` shebang.
@@ -30,6 +31,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -42,7 +44,7 @@ INSTALL = 'mise trust mise.dev.toml and MISE_ENV=dev mise install, in the checko
 
 @dataclass(frozen=True)
 class Step:
-    language: str
+    languages: tuple
     tool: str
     check: tuple
     # Arguments that rewrite the files, run first with --fix; None: the tool only checks.
@@ -54,43 +56,60 @@ class Step:
 
 
 STEPS = (
-    Step('python', 'ruff', ('check',), fix=('check', '--fix')),
-    Step('python', 'ruff', ('format', '--check'), fix=('format',)),
-    Step('shell', 'shfmt', ('--diff',), fix=('--write',)),
-    Step('shell', 'shellcheck', ()),
-    Step('fish', 'fish_indent', ('--check',), fix=('--write',), system=True),
-    Step('lua', 'stylua', ('--check',), fix=()),
-    Step('markdown', 'markdownlint-cli2', (), fix=('--fix',)),
-    Step('ansible', 'ansible-lint', (), project=True),
-    Step('workflow', 'actionlint', ()),
+    Step(('python',), 'ruff', ('check',), fix=('check', '--fix')),
+    Step(('python',), 'ruff', ('format', '--check'), fix=('format',)),
+    Step(('shell',), 'shfmt', ('--diff',), fix=('--write',)),
+    Step(('shell',), 'shellcheck', ()),
+    Step(('fish',), 'fish_indent', ('--check',), fix=('--write',), system=True),
+    Step(('lua',), 'stylua', ('--check',), fix=()),
+    Step(('markdown',), 'markdownlint-cli2', (), fix=('--fix',)),
+    # ansible-lint runs yamllint on the playbooks itself, with the same .yamllint.
+    Step(('ansible',), 'ansible-lint', (), project=True),
+    Step(('yaml', 'workflow'), 'yamllint', ('--strict', '--format', 'parsable')),
+    Step(('workflow',), 'actionlint', ()),
+    Step(('workflow',), 'zizmor', ('--offline', '--no-progress')),
+    Step(('toml',), 'taplo', ('fmt', '--check'), fix=('fmt',)),
 )
+
+NAMED = {
+    '.py': 'python',
+    '.sh': 'shell',
+    '.fish': 'fish',
+    '.lua': 'lua',
+    '.md': 'markdown',
+    '.yml': 'yaml',
+    '.yaml': 'yaml',
+    '.toml': 'toml',
+    '.json': 'json',
+}
 
 
 def language(path, root=ROOT):
-    """The language a file is linted as, or None."""
+    """The language a file is linted as: 'text' when no formatter reads it, None for a binary."""
     target = root / path
-    if (
-        path.endswith('.tmpl')
-        or path.startswith('home/.chezmoitemplates/')
-        or target.is_symlink()
-        or not target.is_file()
-    ):
+    if target.is_symlink() or not target.is_file():
         return None
+    with open(target, 'rb') as file:
+        head = file.read(8192)
+    if b'\0' in head:
+        return None
+    if path.endswith('.tmpl') or path.startswith('home/.chezmoitemplates/'):
+        return 'text'
     suffix = Path(path).suffix
     if path in ('site.yml', 'records.yml') or (path.startswith('roles/') and suffix == '.yml'):
         return 'ansible'
-    if path.startswith('.github/workflows/') and suffix == '.yml':
+    if '/.github/workflows/' in '/' + path and suffix in ('.yml', '.yaml'):
         return 'workflow'
-    named = {'.py': 'python', '.sh': 'shell', '.fish': 'fish', '.lua': 'lua', '.md': 'markdown'}
-    if suffix in named:
-        return named[suffix]
-    with open(target, 'rb') as file:
-        first = file.readline(64)
+    # Before the suffix: chezmoi's modify_ scripts keep their target's name, such as
+    # modify_settings.json.
+    first = head.partition(b'\n')[0]
     if first.startswith((b'#!/usr/bin/python3', b'#!/usr/bin/env python3')):
         return 'python'
     if first.startswith((b'#!/bin/bash', b'#!/bin/sh', b'#!/usr/bin/env bash', b'#!/usr/bin/env sh')):
         return 'shell'
-    return None
+    if Path(path).name in ('.yamllint', '.ansible-lint'):
+        return 'yaml'
+    return NAMED.get(suffix, 'text')
 
 
 # The system interpreter for each `env` shebang (STYLE.md): its Python has the packages
@@ -100,6 +119,64 @@ INTERPRETERS = {
     '#!/usr/bin/env bash': '#!/bin/bash',
     '#!/usr/bin/env sh': '#!/bin/sh',
 }
+
+
+def editorconfig():
+    """.editorconfig's [*] section: the settings every file shares."""
+    section, settings = None, {}
+    for line in (ROOT / '.editorconfig').read_text().splitlines():
+        line = line.strip()
+        if line.startswith('['):
+            section = line
+        elif section == '[*]' and '=' in line and not line.startswith('#'):
+            key, value = (part.strip() for part in line.split('=', 1))
+            settings[key] = value
+    return settings
+
+
+def whitespace(root, paths, fix=False):
+    """The files that break .editorconfig's [*] section; --fix mends line ends, trailing spaces
+    and a missing final newline, and reports the rest."""
+    rules, found = editorconfig(), []
+    for path in paths:
+        try:
+            text = (root / path).read_bytes().decode(rules.get('charset', 'utf-8'))
+        except UnicodeDecodeError:
+            found.append(f'{path}: not {rules.get("charset", "utf-8")}')
+            continue
+        mended = text.replace('\r\n', '\n') if rules.get('end_of_line') == 'lf' else text
+        if rules.get('trim_trailing_whitespace') == 'true':
+            mended = re.sub(r'[ \t]+$', '', mended, flags=re.MULTILINE)
+        if rules.get('insert_final_newline') == 'true' and mended and not mended.endswith('\n'):
+            mended += '\n'
+        if fix and mended != text:
+            (root / path).write_bytes(mended.encode(rules.get('charset', 'utf-8')))
+            text = mended
+        if rules.get('end_of_line') == 'lf' and '\r' in text:
+            found.append(f'{path}: CR line ends; .editorconfig asks for LF')
+        if rules.get('insert_final_newline') == 'true' and text and not text.endswith('\n'):
+            found.append(f'{path}: no final newline')
+        for number, line in enumerate(text.split('\n'), 1):
+            if rules.get('trim_trailing_whitespace') == 'true' and line.rstrip('\r') != line.rstrip('\r').rstrip(' \t'):
+                found.append(f'{path}:{number}: trailing whitespace')
+            if rules.get('indent_style') == 'space' and line.startswith('\t'):
+                found.append(f'{path}:{number}: indented with a tab')
+    return found
+
+
+# A JSON string, kept, or a JSONC comment, dropped.
+JSONC = re.compile(r'("(?:\\.|[^"\\])*")|//[^\n]*|/\*.*?\*/', re.DOTALL)
+
+
+def parses(root, paths, fix=False):
+    """The JSON files that do not parse, comments allowed as JSONC allows them."""
+    found = []
+    for path in paths:
+        try:
+            json.loads(JSONC.sub(lambda match: match.group(1) or '', (root / path).read_text()))
+        except (UnicodeDecodeError, ValueError) as error:
+            found.append(f'{path}: {error}')
+    return found
 
 
 def interpreters(root, paths, fix=False):
@@ -115,6 +192,15 @@ def interpreters(root, paths, fix=False):
     return found
 
 
+# The checks shaffy lint makes itself, before the tools: the same in a supplement, which
+# needs no configuration of its own.
+CHECKS = (
+    ('interpreter', ('python', 'shell'), interpreters),
+    ('whitespace', ('text', 'json'), whitespace),
+    ('json', ('json',), parses),
+)
+
+
 def options(tool):
     """This checkout's configuration for a tool, given explicitly so a supplement uses it too."""
     if tool == 'ruff':
@@ -123,18 +209,20 @@ def options(tool):
         return ['--config-path', str(ROOT / 'stylua.toml')]
     if tool == 'markdownlint-cli2':
         return ['--config', str(ROOT / '.markdownlint-cli2.yaml')]
+    if tool == 'shellcheck':
+        return ['--rcfile', str(ROOT / '.shellcheckrc')]
+    if tool == 'yamllint':
+        return ['--config-file', str(ROOT / '.yamllint')]
+    if tool == 'zizmor':
+        return ['--config', str(ROOT / '.github/zizmor.yml')]
+    if tool == 'taplo':
+        return ['--config', str(ROOT / '.taplo.toml')]
     if tool == 'shfmt':
         # As flags from .editorconfig's [*] section; with flags, shfmt reads no .editorconfig.
-        section, settings = None, {}
-        for line in (ROOT / '.editorconfig').read_text().splitlines():
-            line = line.strip()
-            if line.startswith('['):
-                section = line
-            elif section == '[*]' and '=' in line and not line.startswith('#'):
-                key, value = (part.strip() for part in line.split('=', 1))
-                settings[key] = value
+        settings = editorconfig()
         flags = ['--indent', settings.get('indent_size', '0')]
-        return flags + (['--case-indent'] if settings.get('switch_case_indent') == 'true' else [])
+        flags += ['--case-indent'] if settings.get('switch_case_indent') == 'true' else []
+        return flags + (['--binary-next-line'] if settings.get('binary_next_line') == 'true' else [])
     return []
 
 
@@ -199,7 +287,7 @@ def _bounded(text):
     lines = text.rstrip().splitlines()
     if len(lines) <= LINES:
         return lines
-    return lines[:LINES] + [f'… {len(lines) - LINES} more lines; run the tool on these files to see them all']
+    return [*lines[:LINES], f'… {len(lines) - LINES} more lines; run the tool on these files to see them all']
 
 
 def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_available=available, require=True):
@@ -213,26 +301,25 @@ def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_availabl
         out('Nothing to lint.')
         return 0
     failed = False
-    scripts = by_language.get('python', []) + by_language.get('shell', [])
-    wrong = interpreters(root, scripts, fix)
-    if scripts:
-        out(
-            f'interpreter: {len(scripts)} file(s), problems remain'
-            if wrong
-            else f'interpreter: {len(scripts)} file(s) clean'
-        )
-        for line in wrong:
+    for label, kinds, check in CHECKS:
+        files = [p for kind in kinds for p in by_language.get(kind, [])]
+        if not files:
+            continue
+        wrong = check(root, files, fix)
+        out(f'{label}: {len(files)} file(s), problems remain' if wrong else f'{label}: {len(files)} file(s) clean')
+        for line in _bounded('\n'.join(wrong)) if wrong else []:
             out(f'  {line}')
-        failed = bool(wrong)
+        failed = failed or bool(wrong)
     # Every fix first, then every check, so what is reported is the files as they end up.
-    steps = [step for step in STEPS if by_language.get(step.language)]
+    targets = {step: [p for kind in step.languages for p in by_language.get(kind, [])] for step in STEPS}
+    steps = [step for step in STEPS if targets[step]]
     present = {step: is_available(step, root) for step in steps}
     for step in steps:
         if fix and step.fix is not None and present[step]:
-            arguments = _command(step, step.fix, by_language[step.language])
+            arguments = _command(step, step.fix, targets[step])
             call(arguments, cwd=root, env=_environment(), capture_output=True, text=True, check=False)
     for step in steps:
-        files = by_language[step.language]
+        files = targets[step]
         label = f'{step.tool} {step.check[0]}' if step.check and not step.check[0].startswith('-') else step.tool
         if not present[step]:
             if require:

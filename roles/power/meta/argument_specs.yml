@@ -1,0 +1,20 @@
+---
+argument_specs:
+  main:
+    short_description: Converge hibernation, the low-battery policy and the charge limit
+    options:
+      power_config_dir:
+        type: path
+        description: UPower's drop-in directory.
+      power_state_dir:
+        type: path
+        description: Where the role keeps its state.
+      power_hwdb_dir:
+        type: path
+        description: The local hardware database directory.
+      power_charge_limit_script:
+        type: path
+        description: Root's copy of scripts/configure-charge-limit.py in the operation directory.
+      power_hibernation_script:
+        type: path
+        description: Root's copy of scripts/configure-hibernation.py in the operation directory.

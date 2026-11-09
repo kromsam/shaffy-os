@@ -1,14 +1,14 @@
 ---
 - name: Install the workflow packages through the configured repository priority
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.workflows }}"
+    name: "{{ shaffy['packages']['groups']['workflows'] }}"
     state: present
 - name: Give Docker's data a subvolume before the rootless engine can first start
-  ansible.builtin.import_tasks: docker-data.yml
+  ansible.builtin.import_tasks: docker_data.yml
 - name: Install the rootless Docker launcher that comes from the AUR
   ansible.builtin.include_role:
     name: aur_package
-  loop: "{{ shaffy.packages.aur.workflows }}"
+  loop: "{{ shaffy['packages']['aur']['workflows'] }}"
   loop_control:
     loop_var: aur_package
 # Docker runs rootless, as the target user's own service, which the home enables. The system

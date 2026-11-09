@@ -1,0 +1,7 @@
+---
+__operation_root_state: "{{ shaffy_system['test']['state_dir'] | default('/var/lib/shaffy') }}"
+__operation_root_op_dir: "{{ __operation_root_state }}/ops/{{ shaffy_system['op'] }}"
+# Only a container test passes `test`; root_op.py refuses it elsewhere.
+__operation_root_test_arguments: "{{ (['--test-prerequisites', shaffy_system['test']['prerequisites'],
+  '--state-dir', shaffy_system['test']['state_dir']] if shaffy_system['test'] is defined else [])
+  + (['--test-fault', shaffy_system['test']['fault']] if shaffy_system['test']['fault'] | default('') else []) }}"

@@ -215,8 +215,8 @@ def check(args):
             print('  ' + problem.replace('\n', '\n    '), file=sys.stderr)
         return 1
     print(
-        f'Rendered {result["files"]} files for a synthetic user; Niri, Noctalia, Fish, tmux '
-        'and every TOML, YAML and JSON file validate, and a second apply changes nothing.'
+        f'Rendered {result["files"]} files for a synthetic user; Niri, Noctalia, Fish, tmux, the desktop '
+        'entries and every TOML, YAML and JSON file validate, and a second apply changes nothing.'
     )
     if not args.no_home:
         _system_report()
@@ -700,7 +700,7 @@ def _dotfiles_status(drift):
             lines += [f'  The next apply refuses: {problem}' for problem in refused]
             found = dotfiles.run('status') if dotfiles else None
     except (SelectionError, SettingsError, CaptureError) as error:
-        return lines + [f'  The dotfiles cannot be previewed: {error}'], [], False
+        return [*lines, f'  The dotfiles cannot be previewed: {error}'], [], False
     if found is None:
         return lines, [], False
     if found.returncode:
@@ -813,7 +813,7 @@ def diff(args):
         for line in _integration_report(supplement=args.supplement, without=args.without_supplement):
             print(line, file=sys.stderr)
         print(
-            f'Previewing {selection["mode"] == "supplement" and selection["path"] or "the public defaults"}'
+            f'Previewing {(selection["mode"] == "supplement" and selection["path"]) or "the public defaults"}'
             f' from capture {op}.',
             file=sys.stderr,
         )

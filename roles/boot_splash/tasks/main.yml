@@ -1,12 +1,11 @@
 ---
-# The Plymouth theme desktop.boot_splash names: Shaffy OS's own by default, false for none.
 - name: Leave the boot splash alone when the supplement sets false
   ansible.builtin.meta: end_role
-  when: shaffy.settings.desktop.boot_splash is not string
+  when: shaffy['settings']['desktop']['boot_splash'] is not string
 
 - name: Install the CachyOS theme the shaffy-os splash takes its spinner and password prompt from
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.boot_splash }}"
+    name: "{{ shaffy['packages']['groups']['boot_splash'] }}"
     state: present
 
 # scripts/configure-boot-splash.py installs shaffy-os when it is the theme, selects the theme in
@@ -19,11 +18,11 @@
       - "{{ boot_splash_script }}"
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
       - --theme
-      - "{{ shaffy.settings.desktop.boot_splash }}"
+      - "{{ shaffy['settings']['desktop']['boot_splash'] }}"
       - --state-dir
       - "{{ boot_splash_state_dir }}"
       - --source
       - "{{ role_path }}/files/shaffy-os"
   check_mode: false
-  register: boot_splash_result
-  changed_when: "'changed: 1' in boot_splash_result.stdout"
+  register: __boot_splash_result
+  changed_when: "'changed: 1' in __boot_splash_result['stdout']"

@@ -130,7 +130,7 @@ def _bwrap(root, checkout, supplement, argv, found=None):
         command += ['--ro-bind', supplement, '/tmp/supplement']
     if found:
         command += ['--setenv', 'SHAFFY_RELEASE', found]
-    return command + ['--'] + argv
+    return [*command, '--', *argv]
 
 
 def _container():

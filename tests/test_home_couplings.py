@@ -21,7 +21,10 @@ merge = runpy.run_path(str(REPO / 'scripts/merge-ai-config.py'))
 class ClaudeMergeTests(unittest.TestCase):
     def test_a_current_desktop_file_is_returned_byte_for_byte(self):
         # Claude Desktop formats its own file; a merge with nothing to change must not reformat it.
-        text = '{\n    "mcpServers": {\n        "zotero": {\n            "command": "z",\n            "args": []\n        }\n    }\n}'
+        text = (
+            '{\n    "mcpServers": {\n        "zotero": {\n'
+            '            "command": "z",\n            "args": []\n        }\n    }\n}'
+        )
         self.assertEqual(merge['merge_claude'](text, {'zotero': {'command': 'z', 'args': []}}, typed=False), text)
 
     def test_an_address_reaches_claude_code_and_codex_but_not_claude_desktop(self):

@@ -1,0 +1,31 @@
+---
+argument_specs:
+  begin:
+    short_description: Begin a system operation
+    description:
+      - lib/shaffy/root_op.py, copied into the root-owned operation directory and run from there, copies and verifies the capture, takes the pre snapshots and sets root `pending`.
+      - Its bookkeeping is not reported as a change, so a converged system shows none.
+    options:
+      shaffy_system:
+        type: dict
+        required: true
+        description: The operation ./bin/shaffy passes.
+  finish:
+    short_description: Finish a system operation
+    description:
+      - Post snapshots paired with the pre ones, the phase and the completion recorded, root `pending` cleared.
+      - A failed play never gets here, so the operation stays unfinished for ./bin/shaffy apply --resume or --abandon.
+    options:
+      shaffy_system:
+        type: dict
+        required: true
+        description: The operation ./bin/shaffy passes.
+  records:
+    short_description: Change the root records outside a system run
+    description:
+      - "Run by records.yml: abandoning an operation that cannot finish, or moving the root binding with `supplement rebind`."
+    options:
+      shaffy_system:
+        type: dict
+        required: true
+        description: The operation ./bin/shaffy passes.

@@ -1,4 +1,4 @@
 ---
-power_hibernate: "{{ shaffy.settings.power.low_battery_hibernate | default({}) }}"
-power_charge_limit: "{{ shaffy.settings.power.charge_limit | default({}) }}"
-power_hibernation: "{{ shaffy.settings.power.hibernation | default({}) }}"
+__power_hibernate: "{{ shaffy['settings']['power']['low_battery_hibernate'] | default({}) }}"
+__power_charge_limit: "{{ shaffy['settings']['power']['charge_limit'] | default({}) }}"
+__power_hibernation: "{{ shaffy['settings']['power']['hibernation'] | default({}) }}"

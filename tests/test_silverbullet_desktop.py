@@ -62,14 +62,16 @@ class SilverBulletDesktopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / 'SilverBullet.AppImage.partial'
             urlopen = INSTALLER['urllib'].request.urlopen
-            with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(b'tampered!')):
-                with self.assertRaisesRegex(SystemExit, 'does not match'):
-                    INSTALLER['download'](
-                        'https://release.silverbullet.md/x.AppImage',
-                        destination,
-                        len(PAYLOAD),
-                        hashlib.sha512(PAYLOAD).digest(),
-                    )
+            with (
+                patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(b'tampered!')),
+                self.assertRaisesRegex(SystemExit, 'does not match'),
+            ):
+                INSTALLER['download'](
+                    'https://release.silverbullet.md/x.AppImage',
+                    destination,
+                    len(PAYLOAD),
+                    hashlib.sha512(PAYLOAD).digest(),
+                )
             self.assertFalse(destination.exists())
             with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(PAYLOAD)) as fetched:
                 INSTALLER['download'](

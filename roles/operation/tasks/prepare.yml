@@ -1,32 +1,32 @@
 ---
-- name: Require the operation the wrapper passes
+- name: prepare | Require the operation the wrapper passes
   ansible.builtin.assert:
     that:
-      - shaffy_system.op is defined
-      - shaffy_system.op is match('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')
-      - shaffy_system.target.uid is defined
-      - shaffy_system.checkout is defined
+      - shaffy_system['op'] is defined
+      - shaffy_system['op'] is match('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')
+      - shaffy_system['target']['uid'] is defined
+      - shaffy_system['checkout'] is defined
     fail_msg: Run through ./bin/shaffy, which passes the operation in SHAFFY_SYSTEM.
     quiet: true
 
-- name: Create the root-owned operation directory
+- name: prepare | Create the root-owned operation directory
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ item['path'] }}"
     state: directory
     owner: root
     group: root
-    mode: "{{ item.mode }}"
+    mode: "{{ item['mode'] }}"
   loop:
-    - {path: "{{ shaffy_root_state }}", mode: "0755"}
-    - {path: "{{ shaffy_root_state }}/ops", mode: "0700"}
-    - {path: "{{ shaffy_root_op_dir }}", mode: "0700"}
+    - {path: "{{ __operation_root_state }}", mode: "0755"}
+    - {path: "{{ __operation_root_state }}/ops", mode: "0700"}
+    - {path: "{{ __operation_root_op_dir }}", mode: "0700"}
   changed_when: false
 
 # Root runs these from its own copies, never from the checkout, which the target user can change.
-- name: Copy the root steps and the roles' root scripts into the operation directory
+- name: prepare | Copy the root steps and the roles' root scripts into the operation directory
   ansible.builtin.copy:
-    src: "{{ shaffy_system.checkout }}/{{ item }}"
-    dest: "{{ shaffy_root_op_dir }}/{{ item | basename }}"
+    src: "{{ shaffy_system['checkout'] }}/{{ item }}"
+    dest: "{{ __operation_root_op_dir }}/{{ item | basename }}"
     owner: root
     group: root
     mode: "0600"

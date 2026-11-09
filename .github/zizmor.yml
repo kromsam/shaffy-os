@@ -1,0 +1,10 @@
+---
+# zizmor's audit of the GitHub workflows (STYLE.md), a supplement's too: every action is
+# pinned to a commit, except Shaffy OS's own reusable workflow, which a supplement calls
+# at its released main on purpose (supplement.example/.github/workflows/shaffy.yml).
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "kromsam/shaffy-os/*": ref-pin
+        "*": hash-pin

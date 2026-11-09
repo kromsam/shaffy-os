@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Make the chosen browser and LibreOffice the desktop's default applications
+    options: {}

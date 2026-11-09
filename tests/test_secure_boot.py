@@ -366,9 +366,12 @@ class GuardTests(SecureBootCase):
 
     def test_main_runs_as_root_only_and_takes_microsoft_with_enroll_only(self):
         main = SCRIPT['main']
-        with mock.patch('os.geteuid', return_value=1000), contextlib.redirect_stderr(io.StringIO()) as err:
-            with self.assertRaises(SystemExit):
-                main(['--check'])
+        with (
+            mock.patch('os.geteuid', return_value=1000),
+            contextlib.redirect_stderr(io.StringIO()) as err,
+            self.assertRaises(SystemExit),
+        ):
+            main(['--check'])
         self.assertIn('run it as root', err.getvalue())
         with contextlib.redirect_stderr(io.StringIO()) as err, self.assertRaises(SystemExit):
             main(['--prepare', '--no-microsoft'])

@@ -1,9 +1,17 @@
 ---
-# ansible-lint for site.yml, records.yml and roles/ (STYLE.md). The shared profile, plus the
-# fully qualified module names the playbooks already use.
-profile: shared
+# ansible-lint for site.yml, records.yml and roles/ (STYLE.md): the strictest profile, as the
+# Red Hat CoP asks, and the opt-in rules for its other practices.
+profile: production
 enable_list:
   - fqcn
+  # A task in a file other than main.yml names its file: `preflight | Require ...`.
+  - name[prefix]
+  # Every role states its purpose and arguments in meta/argument_specs.yml.
+  - role-argument-spec
+  - no-log-password
+  - no-same-owner
+  - empty-string-compare
+  - no-prompting
 # The pinned collections are installed by the bootstrap; ansible-lint never installs any.
 offline: true
 exclude_paths:

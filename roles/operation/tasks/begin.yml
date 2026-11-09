@@ -1,20 +1,17 @@
 ---
-# The first root tasks of a system operation: lib/shaffy/root_op.py,
-# copied into the root-owned operation directory and run from there, copies and
-# verifies the capture, takes the pre snapshots and sets root `pending`. Its
-# bookkeeping is not reported as a change, so a converged system shows none.
-- name: Prepare the root steps
+- name: begin | Prepare the root steps
   ansible.builtin.import_tasks: prepare.yml
 
-- name: Copy and verify the capture, take the pre snapshots and the system lock
+# The root steps are root_op.py's, run from root's own copy.
+- name: begin | Copy and verify the capture, take the pre snapshots and the system lock
   ansible.builtin.command:
-    argv: "{{ ['/usr/bin/python3', '-I', shaffy_root_op_dir + '/root_op.py', 'begin', '--op', shaffy_system.op,
-              '--uid', shaffy_system.target.uid | string, '--user', shaffy_system.target.user,
-              '--home', shaffy_system.target.home, '--capture', shaffy_system.capture,
-              '--manifest-sha256', shaffy_system.manifest_sha256] + shaffy_root_test_arguments }}"
-  register: shaffy_begin
+    argv: "{{ ['/usr/bin/python3', '-I', __operation_root_op_dir + '/root_op.py', 'begin', '--op', shaffy_system['op'],
+              '--uid', shaffy_system['target']['uid'] | string, '--user', shaffy_system['target']['user'],
+              '--home', shaffy_system['target']['home'], '--capture', shaffy_system['capture'],
+              '--manifest-sha256', shaffy_system['manifest_sha256']] + __operation_root_test_arguments }}"
+  register: __operation_begin
   changed_when: false
 
-- name: Read the settings from the verified root copy from now on
+- name: begin | Read the settings from the verified root copy from now on
   ansible.builtin.set_fact:
-    shaffy_settings_file: "{{ (shaffy_begin.stdout | from_json).settings_file }}"
+    shaffy_settings_file: "{{ (__operation_begin['stdout'] | from_json)['settings_file'] }}"

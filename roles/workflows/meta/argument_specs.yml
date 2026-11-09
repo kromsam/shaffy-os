@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Install the workflow packages and prepare the rootless Docker engine
+    options: {}

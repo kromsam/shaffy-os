@@ -13,6 +13,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORD = json.loads((ROOT / 'tests/tool-versions.json').read_text())
+# chezmoi's own record of its minimum, which it enforces before reading the home.
+MINIMUM = RECORD['minimum'] | {'chezmoi': (ROOT / 'home/.chezmoiversion').read_text().strip()}
 COMMANDS = {
     'ansible-core': ['ansible', '--version'],
     'chezmoi': ['chezmoi', '--version'],
@@ -29,7 +31,7 @@ def version_tuple(text):
 
 class ToolVersionTests(unittest.TestCase):
     def test_python_is_new_enough(self):
-        self.assertGreaterEqual(sys.version_info[:2], version_tuple(RECORD['minimum']['python'])[:2])
+        self.assertGreaterEqual(sys.version_info[:2], version_tuple(MINIMUM['python'])[:2])
 
     def test_installed_tools_are_new_enough(self):
         for tool, command in COMMANDS.items():
@@ -39,7 +41,7 @@ class ToolVersionTests(unittest.TestCase):
                 output = subprocess.run(command, capture_output=True, text=True, check=False).stdout
                 found = re.search(r'(\d+\.\d+(?:\.\d+)?)', output)
                 self.assertIsNotNone(found, f'no version in {output!r}')
-                self.assertGreaterEqual(version_tuple(found.group(1)), version_tuple(RECORD['minimum'][tool]))
+                self.assertGreaterEqual(version_tuple(found.group(1)), version_tuple(MINIMUM[tool]))
 
     def test_ruff_targets_the_system_python(self):
         # CI upgrades its packages first, so this fails as soon as CachyOS ships a newer Python;

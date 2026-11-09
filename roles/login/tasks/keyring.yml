@@ -1,13 +1,14 @@
 ---
 # The checks run first, in preflight.yml. The operation's snapper pair is the rollback.
-- name: Pass the cached startup password to the existing optional keyring module
+# community.general.pamd could edit this line; it stays lineinfile until a test covers the switch.
+- name: keyring | Pass the cached startup password to the existing optional keyring module
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sddm-autologin
     regexp: ^-?auth\s+\S+\s+pam_systemd_loadkey\.so(?:\s.*)?$
     line: "-auth       optional    pam_systemd_loadkey.so"
     insertbefore: ^-?auth\s+optional\s+pam_gnome_keyring\.so
 
-- name: Create the SDDM service override directory
+- name: keyring | Create the SDDM service override directory
   ansible.builtin.file:
     path: /etc/systemd/system/sddm.service.d
     state: directory
@@ -15,17 +16,17 @@
     group: root
     mode: "0755"
 
-- name: Let SDDM inherit the startup password cache
+- name: keyring | Let SDDM inherit the startup password cache
   ansible.builtin.copy:
     src: shaffy-keyring.conf
     dest: /etc/systemd/system/sddm.service.d/20-shaffy-keyring.conf
     owner: root
     group: root
     mode: "0644"
-  register: login_keyring_override
+  register: __login_keyring_override
 
 # Now rather than in a handler: an apply stopped before the handlers would leave the change unloaded.
-- name: Load the next-boot configuration without restarting the desktop
+- name: keyring | Load the next-boot configuration without restarting the desktop
   ansible.builtin.systemd_service:
     daemon_reload: true
-  when: login_keyring_override.changed  # noqa: no-handler
+  when: __login_keyring_override['changed']  # noqa: no-handler

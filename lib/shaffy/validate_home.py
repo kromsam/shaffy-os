@@ -65,7 +65,7 @@ def validate_applied(home):
 
 
 def validate_home(home, checkout, foreign=frozenset()):
-    """A rendered home: the desktop, Alacritty, Fish, tmux and every TOML, JSON and YAML file.
+    """A rendered home: the desktop, Alacritty, Fish, tmux, desktop entries and every TOML, JSON and YAML file.
 
     The programs' own checks see the whole home, as the programs read the dotfiles' drop-ins too.
     The generic parse skips FOREIGN, the dotfiles' targets: they may be JSONC, say, or YAML that
@@ -82,6 +82,12 @@ def validate_home(home, checkout, foreign=frozenset()):
         code, output = _run(['/usr/bin/python3', str(checkout / 'scripts/validate-tmux-config.py'), str(tmux)])
         if code:
             problems.append('tmux: ' + _tail(output))
+    if shutil.which('desktop-file-validate'):
+        for entry in sorted(home.rglob('*.desktop')):
+            if not SKIP_DIRS & set(entry.relative_to(home).parts):
+                code, output = _run(['desktop-file-validate', str(entry)])
+                if code:
+                    problems.append(f'desktop entry: {entry.relative_to(home)}: {_tail(output, 3)}')
     for path in sorted(home.rglob('*')):
         relative = path.relative_to(home)
         if SKIP_DIRS & set(relative.parts) or not path.is_file() or path.is_symlink() or str(relative) in foreign:

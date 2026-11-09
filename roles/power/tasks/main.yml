@@ -5,10 +5,10 @@
 
 - name: Check hibernation support before changing the battery policy
   ansible.builtin.import_tasks: preflight.yml
-  when: power_hibernate | length > 0
+  when: __power_hibernate | length > 0
 
 - name: Converge the critical-battery override
   ansible.builtin.import_tasks: configure.yml
 
 - name: Converge the battery charge limit
-  ansible.builtin.import_tasks: charge-limit.yml
+  ansible.builtin.import_tasks: charge_limit.yml

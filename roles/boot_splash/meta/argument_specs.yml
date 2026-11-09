@@ -1,0 +1,13 @@
+---
+argument_specs:
+  main:
+    short_description: Install and select the boot splash
+    description:
+      - "The Plymouth theme desktop.boot_splash names: Shaffy OS's own by default, false for none."
+    options:
+      boot_splash_state_dir:
+        type: path
+        description: Where the role keeps its state.
+      boot_splash_script:
+        type: path
+        description: Root's copy of scripts/configure-boot-splash.py in the operation directory.

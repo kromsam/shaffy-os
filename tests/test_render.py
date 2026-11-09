@@ -606,6 +606,12 @@ class DotfilesRenderTests(unittest.TestCase):
         problems = self.problems(lambda tree: (tree / 'dot_config/fish/conf.d/50-example.fish').write_text('if\n'))
         self.assertIn('fish: .config/fish/conf.d/50-example.fish', problems)
 
+    def test_a_broken_desktop_entry_fails_though_the_file_is_the_dotfiles(self):
+        def broken(tree):
+            (tree / 'dot_config/example-dotfiles/broken.desktop').write_text('[Desktop Entry]\nName=Broken\n')
+
+        self.assertIn('desktop entry: .config/example-dotfiles/broken.desktop', self.problems(broken))
+
     def test_a_broken_alacritty_import_fails_though_the_file_is_the_dotfiles(self):
         def broken(tree):
             (tree / 'dot_config/alacritty').mkdir()
@@ -724,17 +730,17 @@ class DirectModeTests(unittest.TestCase):
         with (
             mock.patch.dict(os.environ, {'SHAFFY_RENDER_DIRECT': '1'}),
             mock.patch.object(sandbox, '_container', return_value=False),
+            self.assertRaisesRegex(RenderError, 'only inside a disposable container'),
         ):
-            with self.assertRaisesRegex(RenderError, 'only inside a disposable container'):
-                render(ROOT, without=True)
+            render(ROOT, without=True)
 
     def test_direct_mode_is_refused_for_a_real_apply(self):
         with (
             mock.patch.dict(os.environ, {'SHAFFY_RENDER_DIRECT': '1'}),
             mock.patch.object(sandbox, '_container', return_value=True),
+            self.assertRaisesRegex(RenderError, 'preflight of a real apply'),
         ):
-            with self.assertRaisesRegex(RenderError, 'preflight of a real apply'):
-                render(ROOT, without=True, allow_direct=False)
+            render(ROOT, without=True, allow_direct=False)
 
     def test_direct_mode_is_refused_where_the_account_home_is_bound(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -746,9 +752,9 @@ class DirectModeTests(unittest.TestCase):
                 mock.patch.dict(os.environ, {'SHAFFY_RENDER_DIRECT': '1'}),
                 mock.patch.object(sandbox, '_container', return_value=True),
                 mock.patch.object(sandbox.pwd, 'getpwuid', return_value=entry),
+                self.assertRaisesRegex(RenderError, 'shares a real home'),
             ):
-                with self.assertRaisesRegex(RenderError, 'shares a real home'):
-                    render(ROOT, without=True)
+                render(ROOT, without=True)
 
 
 @unittest.skipIf(REASON, f'render sandbox unavailable: {REASON}')
@@ -759,9 +765,9 @@ class RenderFailureTests(unittest.TestCase):
         with (
             mock.patch.object(sandbox, 'release', return_value=None),
             mock.patch.object(sandbox.subprocess, 'run', side_effect=timeout),
+            self.assertRaisesRegex(RenderError, 'did not finish within 1 seconds'),
         ):
-            with self.assertRaisesRegex(RenderError, 'did not finish within 1 seconds'):
-                render(ROOT, without=True, timeout=1)
+            render(ROOT, without=True, timeout=1)
 
 
 if __name__ == '__main__':

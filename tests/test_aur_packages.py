@@ -32,7 +32,7 @@ class RoleTests(unittest.TestCase):
                 task for task in tasks if task.get('ansible.builtin.include_role', {}).get('name') == 'aur_package'
             ]
             self.assertEqual(len(installs), 1)
-            self.assertEqual(installs[0]['loop'], '{{ shaffy.packages.aur.' + role + ' }}')
+            self.assertEqual(installs[0]['loop'], "{{ shaffy['packages']['aur']['" + role + "'] }}")
             self.assertEqual(installs[0]['loop_control']['loop_var'], 'aur_package')
             self.assertNotIn('aur_package', installs[0].get('vars', {}))
 
@@ -79,11 +79,11 @@ class BuildTests(unittest.TestCase):
             '-c',
             'commit.gpgsign=false',
         ]
-        subprocess.run(git[:3] + ['init', '-q'], check=True)
-        subprocess.run(git + ['add', 'PKGBUILD'], check=True)
-        subprocess.run(git + ['commit', '-q', '-m', 'probe'], check=True)
+        subprocess.run([*git[:3], 'init', '-q'], check=True)
+        subprocess.run([*git, 'add', 'PKGBUILD'], check=True)
+        subprocess.run([*git, 'commit', '-q', '-m', 'probe'], check=True)
         self.commit = subprocess.run(
-            git[:3] + ['rev-parse', 'HEAD'], capture_output=True, text=True, check=True
+            [*git[:3], 'rev-parse', 'HEAD'], capture_output=True, text=True, check=True
         ).stdout.strip()
         self.checkout = tmp / 'checkout'
         (self.checkout / 'scripts').mkdir(parents=True)

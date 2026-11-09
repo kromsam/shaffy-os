@@ -4,40 +4,40 @@
 Usage: test-windows-vst2.py [DIRECTORY] (default ~/.vst/yabridge, searched recursively).
 """
 
-import ctypes as C
+import ctypes
 import json
 import math
 from pathlib import Path
 
-IP = C.c_ssize_t
-CALLBACK = C.CFUNCTYPE(IP, C.c_void_p, C.c_int32, C.c_int32, IP, C.c_void_p, C.c_float)
+IP = ctypes.c_ssize_t
+CALLBACK = ctypes.CFUNCTYPE(IP, ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32, IP, ctypes.c_void_p, ctypes.c_float)
 
 
-class Effect(C.Structure):
+class Effect(ctypes.Structure):
     _fields_ = [
-        ('magic', C.c_int32),
-        ('dispatcher', C.c_void_p),
-        ('process', C.c_void_p),
-        ('setParameter', C.c_void_p),
-        ('getParameter', C.c_void_p),
-        ('numPrograms', C.c_int32),
-        ('numParams', C.c_int32),
-        ('numInputs', C.c_int32),
-        ('numOutputs', C.c_int32),
-        ('flags', C.c_int32),
+        ('magic', ctypes.c_int32),
+        ('dispatcher', ctypes.c_void_p),
+        ('process', ctypes.c_void_p),
+        ('setParameter', ctypes.c_void_p),
+        ('getParameter', ctypes.c_void_p),
+        ('numPrograms', ctypes.c_int32),
+        ('numParams', ctypes.c_int32),
+        ('numInputs', ctypes.c_int32),
+        ('numOutputs', ctypes.c_int32),
+        ('flags', ctypes.c_int32),
         ('resvd1', IP),
         ('resvd2', IP),
-        ('initialDelay', C.c_int32),
-        ('realQualities', C.c_int32),
-        ('offQualities', C.c_int32),
-        ('ioRatio', C.c_float),
-        ('object', C.c_void_p),
-        ('user', C.c_void_p),
-        ('uniqueID', C.c_int32),
-        ('version', C.c_int32),
-        ('processReplacing', C.c_void_p),
-        ('processDoubleReplacing', C.c_void_p),
-        ('future', C.c_char * 56),
+        ('initialDelay', ctypes.c_int32),
+        ('realQualities', ctypes.c_int32),
+        ('offQualities', ctypes.c_int32),
+        ('ioRatio', ctypes.c_float),
+        ('object', ctypes.c_void_p),
+        ('user', ctypes.c_void_p),
+        ('uniqueID', ctypes.c_int32),
+        ('version', ctypes.c_int32),
+        ('processReplacing', ctypes.c_void_p),
+        ('processDoubleReplacing', ctypes.c_void_p),
+        ('future', ctypes.c_char * 56),
     ]
 
 
@@ -52,7 +52,7 @@ def host(effect, opcode, index, value, ptr, opt):
     if opcode == 23:
         return 2
     if opcode in (32, 33) and ptr:
-        C.memmove(ptr, b'Shaffy plugin verification\0', 27)
+        ctypes.memmove(ptr, b'Shaffy plugin verification\0', 27)
         return 1
     if opcode == 34:
         return 1
@@ -60,39 +60,43 @@ def host(effect, opcode, index, value, ptr, opt):
 
 
 def verify(path):
-    library = C.CDLL(str(path))
+    library = ctypes.CDLL(str(path))
     entry = library.VSTPluginMain
     entry.argtypes = [CALLBACK]
-    entry.restype = C.POINTER(Effect)
+    entry.restype = ctypes.POINTER(Effect)
     pointer = entry(host)
     assert pointer and pointer.contents.magic == 0x56737450, 'Invalid VST2 instance'
     effect = pointer.contents
     dispatch = CALLBACK(effect.dispatcher)
     dispatch(pointer, 0, 0, 0, None, 0)
-    name = C.create_string_buffer(128)
+    name = ctypes.create_string_buffer(128)
     dispatch(pointer, 45, 0, 0, name, 0)
     dispatch(pointer, 10, 0, 0, None, 48000)
     dispatch(pointer, 11, 0, 256, None, 0)
     parameter_ok = None
     if effect.numParams:
-        get = C.CFUNCTYPE(C.c_float, C.c_void_p, C.c_int32)(effect.getParameter)
-        set_ = C.CFUNCTYPE(None, C.c_void_p, C.c_int32, C.c_float)(effect.setParameter)
+        get = ctypes.CFUNCTYPE(ctypes.c_float, ctypes.c_void_p, ctypes.c_int32)(effect.getParameter)
+        set_ = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_int32, ctypes.c_float)(effect.setParameter)
         before = get(pointer, 0)
         set_(pointer, 0, before)
         parameter_ok = abs(get(pointer, 0) - before) < 1e-5
         assert parameter_ok, 'Parameter round trip failed'
     frames = 256
     inputs = [
-        (C.c_float * frames)(*[0.05 * math.sin(i * 0.04) for i in range(frames)]) for _ in range(effect.numInputs)
+        (ctypes.c_float * frames)(*[0.05 * math.sin(i * 0.04) for i in range(frames)]) for _ in range(effect.numInputs)
     ]
-    outputs = [(C.c_float * frames)() for _ in range(effect.numOutputs)]
-    input_ptrs = (C.POINTER(C.c_float) * len(inputs))(*inputs)
-    output_ptrs = (C.POINTER(C.c_float) * len(outputs))(*outputs)
+    outputs = [(ctypes.c_float * frames)() for _ in range(effect.numOutputs)]
+    input_ptrs = (ctypes.POINTER(ctypes.c_float) * len(inputs))(*inputs)
+    output_ptrs = (ctypes.POINTER(ctypes.c_float) * len(outputs))(*outputs)
     dispatch(pointer, 12, 0, 1, None, 0)
     dispatch(pointer, 71, 0, 0, None, 0)
     assert effect.processReplacing, 'Missing processReplacing callback'
-    process = C.CFUNCTYPE(
-        None, C.c_void_p, C.POINTER(C.POINTER(C.c_float)), C.POINTER(C.POINTER(C.c_float)), C.c_int32
+    process = ctypes.CFUNCTYPE(
+        None,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_float)),
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_float)),
+        ctypes.c_int32,
     )(effect.processReplacing)
     peak = 0.0
     # ReaFIR buffers a full FFT window before producing its first output block.

@@ -1,0 +1,11 @@
+# ShellCheck's optional checks (STYLE.md), the Google Shell Style Guide's among them:
+# "${var}" with braces, and a default branch in every case.
+enable=add-default-case
+enable=avoid-negated-conditions
+enable=avoid-nullary-conditions
+enable=check-unassigned-uppercase
+enable=deprecate-which
+enable=quote-safe-variables
+enable=require-double-brackets
+enable=require-variable-braces
+enable=useless-use-of-cat

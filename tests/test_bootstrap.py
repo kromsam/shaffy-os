@@ -213,7 +213,7 @@ class SettingsRouteTests(unittest.TestCase):
             result = self.play(
                 settings,
                 '    - ansible.builtin.set_fact:\n'
-                '        copied: "{{ shaffy.settings.identity.name }}"\n'
+                "        copied: \"{{ shaffy['settings']['identity']['name'] }}\"\n"
                 '    - ansible.builtin.debug:\n        msg: "{{ copied }}"\n',
             )
             self.assertEqual(result.returncode, 0, result.stdout[-1500:])
@@ -224,7 +224,8 @@ class SettingsRouteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / 'play.yml').write_text(
                 '- hosts: localhost\n  connection: local\n  gather_facts: false\n  vars:\n'
-                "    shaffy_system: \"{{ lookup('ansible.builtin.env', 'SHAFFY_SYSTEM', default='{}') | from_json }}\"\n"
+                "    shaffy_system: \"{{ lookup('ansible.builtin.env', 'SHAFFY_SYSTEM', default='{}')"
+                ' | from_json }}"\n'
                 '  tasks:\n    - ansible.builtin.debug:\n        msg: "capture={{ shaffy_system.capture }}"\n'
             )
             command, env = bootstrap.ansible_command(

@@ -27,12 +27,13 @@ jobs:
     steps:
       - name: Install the test toolset
         run: >-
-          pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
+          pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema python-jinja
           chezmoi niri noctalia fish tmux base-devel wayland libxkbcommon
-          mise uv gitleaks reuse xdg-user-dirs
+          mise uv gitleaks reuse xdg-user-dirs desktop-file-utils
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # gitleaks scans every commit
+          persist-credentials: false
       # Each step starts in the workspace, and runuser without -l keeps that directory.
       - name: Install the declared Ansible controller and collections
         run: |
@@ -74,6 +75,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Exercise system applies and recovery in a disposable CachyOS container
         env:
           SHAFFY_CONTAINER_TESTS: "1"

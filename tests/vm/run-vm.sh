@@ -214,8 +214,8 @@ host_problems() {
   fi
   if ! command -v git >/dev/null; then
     problem "git is missing; the share holds a Git bundle of the checkout"
-  elif [[ ${COMMAND} == share || ! -f ${SHARE}/SHARE-INFO ]] &&
-    ! git -C "${ROOT}" cat-file -e HEAD:tests/vm/guest-validate.sh 2>/dev/null; then
+  elif [[ ${COMMAND} == share || ! -f ${SHARE}/SHARE-INFO ]] \
+    && ! git -C "${ROOT}" cat-file -e HEAD:tests/vm/guest-validate.sh 2>/dev/null; then
     problem "HEAD has no tests/vm/guest-validate.sh; the share is built from commits only, so commit the kit first"
   fi
   ((${#problems[@]} == 0)) || printf '%s\n' "${problems[@]}"
@@ -264,8 +264,8 @@ build_share() {
   fi
   local source
   for source in "${sources[@]}"; do
-    git -C "${ROOT}" cat-file -e "${head}:${source}" 2>/dev/null ||
-      die "commit ${head} has no ${source}; the share is built from commits only, so commit the kit first"
+    git -C "${ROOT}" cat-file -e "${head}:${source}" 2>/dev/null \
+      || die "commit ${head} has no ${source}; the share is built from commits only, so commit the kit first"
   done
   mkdir -p -m 0700 "${VM_DIR}"
   mkdir -p "${SHARE}"

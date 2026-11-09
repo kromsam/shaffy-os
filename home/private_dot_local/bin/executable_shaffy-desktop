@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Small Niri/Noctalia adapters. No user text is evaluated by a shell."""
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import fcntl
 import json
 import os
@@ -382,8 +382,6 @@ if __name__ == '__main__':
         # Do not put captured text, clipboard data or ffmpeg stderr into notifications.
         message = f'Desktop action failed ({type(exc).__name__}).'
         print(message, file=sys.stderr)
-        try:
+        with suppress(Exception):
             notify(message)
-        except Exception:
-            pass
         sys.exit(1)

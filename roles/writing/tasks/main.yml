@@ -1,9 +1,10 @@
 ---
 - name: Install the writing packages from the current synchronized databases
   community.general.pacman:
-    name: "{{ shaffy.packages.groups.writing }}"
+    name: "{{ shaffy['packages']['groups']['writing'] }}"
     state: present
 
+# The repository's script: no module edits a LibreOffice profile.
 - name: Select the Tabbed LibreOffice interface in the target user's profile
   become: true
   become_user: "{{ shaffy_target_user }}"
@@ -17,11 +18,12 @@
       - "{{ playbook_dir }}/scripts/configure-libreoffice.py"
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
   check_mode: false
-  register: writing_libreoffice_layout
+  register: __writing_libreoffice_layout
   changed_when: >-
-    'configuration_changed: 1' in writing_libreoffice_layout.stdout or
-    (ansible_check_mode and 'LibreOffice layout needs attention' in writing_libreoffice_layout.stderr)
-  failed_when: >-
-    writing_libreoffice_layout.rc != 0 and not
-    (ansible_check_mode and writing_libreoffice_layout.rc == 1 and
-    'LibreOffice layout needs attention' in writing_libreoffice_layout.stderr)
+    'configuration_changed: 1' in __writing_libreoffice_layout['stdout'] or
+    (ansible_check_mode and 'LibreOffice layout needs attention' in __writing_libreoffice_layout['stderr'])
+  failed_when:
+    - __writing_libreoffice_layout['rc'] != 0
+    - >-
+      not (ansible_check_mode and __writing_libreoffice_layout['rc'] == 1 and
+      'LibreOffice layout needs attention' in __writing_libreoffice_layout['stderr'])

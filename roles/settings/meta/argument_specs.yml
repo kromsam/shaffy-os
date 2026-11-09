@@ -1,0 +1,10 @@
+---
+argument_specs:
+  main:
+    short_description: Set the operation's settings for the play
+    description:
+      - Every role that reads `shaffy` depends on this role, which runs once per play.
+    options:
+      shaffy_settings_file:
+        type: str
+        description: The verified root copy of the settings, which the operation role sets.

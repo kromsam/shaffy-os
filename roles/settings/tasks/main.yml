@@ -16,12 +16,12 @@
 - name: Read the operation's settings
   ansible.builtin.slurp:
     src: "{{ shaffy_settings_file }}"
-  register: shaffy_settings_raw
+  register: __settings_raw
   no_log: true  # the settings hold private values; -v must not print them
   tags: [always]
 
 - name: Set the settings for the play
   ansible.builtin.set_fact:
-    shaffy: "{{ (shaffy_settings_raw.content | b64decode | from_json).shaffy }}"
+    shaffy: "{{ (__settings_raw['content'] | b64decode | from_json)['shaffy'] }}"
   no_log: true
   tags: [always]

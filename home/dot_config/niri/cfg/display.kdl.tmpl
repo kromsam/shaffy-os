@@ -2,9 +2,9 @@
 // Managed by Shaffy OS from the desktop.displays setting; empty means Niri
 // configures outputs itself. Positions use logical (scaled) pixels.
 {{- range (dig "desktop" "displays" (list) $s.shaffy.settings) }}
-output "{{ .name }}" {
+output {{ .name | quote }} {
 {{- if hasKey . "mode" }}
-    mode "{{ .mode }}"
+    mode {{ .mode | quote }}
 {{- end }}
 {{- if hasKey . "scale" }}
     scale {{ .scale }}

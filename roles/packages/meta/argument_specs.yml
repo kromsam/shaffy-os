@@ -1,0 +1,8 @@
+---
+argument_specs:
+  main:
+    short_description: Install and remove the packages the settings list
+    description:
+      - "Packages outside the role groups: the supplement's extras, and the public retirements and supplement removals."
+      - Removal uses `pacman -R`, keeping dependencies and private profiles, and happens only because a package is listed.
+    options: {}

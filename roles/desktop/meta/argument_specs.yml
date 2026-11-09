@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Install the desktop packages and refresh the firmware metadata daily
+    options: {}

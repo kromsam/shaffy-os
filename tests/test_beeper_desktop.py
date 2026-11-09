@@ -67,9 +67,11 @@ class BeeperDesktopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / 'Beeper.AppImage.partial'
             url = 'https://beeper-desktop.download.beeper.com/builds/x.AppImage'
-            with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(b'tampered!')):
-                with self.assertRaisesRegex(SystemExit, 'does not match'):
-                    INSTALLER['download'](url, destination, len(PAYLOAD), hashlib.sha512(PAYLOAD).digest())
+            with (
+                patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(b'tampered!')),
+                self.assertRaisesRegex(SystemExit, 'does not match'),
+            ):
+                INSTALLER['download'](url, destination, len(PAYLOAD), hashlib.sha512(PAYLOAD).digest())
             self.assertFalse(destination.exists())
             with patch.object(INSTALLER['urllib'].request, 'urlopen', return_value=Response(PAYLOAD)) as fetched:
                 INSTALLER['download'](url, destination, len(PAYLOAD), hashlib.sha512(PAYLOAD).digest())

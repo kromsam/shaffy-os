@@ -160,7 +160,7 @@ class FakeSnapper:
         users = self.users.read_text().split() if self.users.exists() else []
         if user in users:
             return None
-        self.users.write_text(' '.join(users + [user]) + '\n')
+        self.users.write_text(' '.join([*users, user]) + '\n')
         return 'configured' if users else 'created'
 
     def snapshot(self, config, kind, description, pre=None):

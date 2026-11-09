@@ -1,0 +1,29 @@
+---
+# YAML's lint rules for every YAML file (STYLE.md). ansible-lint reads this file too, so
+# the comment, brace and octal settings it requires stay as they are.
+extends: default
+rules:
+  # Lines may be any length, as in the Markdown: long Jinja expressions and prose wrap
+  # where they read best.
+  line-length: disable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  # YAML 1.2's booleans only. Keys are left alone: a workflow's `on` is a key.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  # A quoted string takes double quotes, and Jinja inside it single ones (Red Hat CoP).
+  quoted-strings:
+    quote-type: double
+    required: false
+    allow-quoted-quotes: true
+  # A list is indented under its key (Red Hat CoP).
+  indentation:
+    spaces: 2
+    indent-sequences: true

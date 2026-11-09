@@ -1,4 +1,5 @@
 ---
+# No module rebuilds the udev hardware database or triggers udev.
 - name: Rebuild keyboard hardware database
   ansible.builtin.command: systemd-hwdb update
   changed_when: true

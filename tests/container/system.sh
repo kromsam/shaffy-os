@@ -103,8 +103,8 @@ run ./bin/shaffy apply --abandon >/dev/null 2>&1
 abandoned=$?
 set -e
 echo "RESULT failing apply=${failed} resume=${resumed} abandon=${abandoned} $(state)"
-grep -q 'pacman groups' <<<"$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1 || true)" &&
-  echo "RESULT group-refusal named" || echo "RESULT group-refusal missing"
+grep -q 'pacman groups' <<<"$(run ./bin/shaffy apply --system --tags packages,home_backup,desktop 2>&1 || true)" \
+  && echo "RESULT group-refusal named" || echo "RESULT group-refusal missing"
 run ./bin/shaffy apply --abandon >/dev/null 2>&1 || true
 cp /home/tester/config.yaml.good /home/tester/supplement/config.yaml
 set +e

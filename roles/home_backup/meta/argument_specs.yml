@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    short_description: Install the home backup client
+    description:
+      - The client only; its schedules and repository belong to the home (restic-home).
+    options: {}

@@ -77,7 +77,10 @@ def tree(root, boundary):
 
 
 def _files(source, shaffy, dotfiles):
-    """What a capture copies from the supplement SOURCE, under the paths config.yaml names; with DOTFILES, their files."""
+    """What a capture copies from the supplement SOURCE, under the paths config.yaml names.
+
+    With DOTFILES, the dotfiles' files too.
+    """
     reference = shaffy['dotfiles'] if dotfiles else None
     dotfiles = [f'{reference}/{name}' for name in tree(source / reference, source)] if reference else []
     return list(dict.fromkeys(['config.yaml', *shaffy['reference_paths'], *dotfiles]))

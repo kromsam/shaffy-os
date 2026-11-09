@@ -1,0 +1,5 @@
+---
+argument_specs:
+  main:
+    short_description: Install the desktop applications, from the repositories and the AUR
+    options: {}

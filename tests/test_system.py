@@ -108,7 +108,7 @@ class RootStepTests(unittest.TestCase):
         (self.supplement / 'dotfiles/dot_outside').symlink_to(self.tmp / 'outside.txt')
         selection = {'mode': 'supplement', 'path': str(self.supplement), 'source': 'binding'}
         broken = capture(ROOT, selection, self.tmp / 'user-state', 'op-2', load)
-        code, result, err = self.run_step('begin', op='op-2', capture_dir=broken['directory'])
+        code, _result, err = self.run_step('begin', op='op-2', capture_dir=broken['directory'])
         self.assertEqual(code, 0, err)
         copied = self.state / 'ops/op-2/capture/supplement'
         self.assertEqual([path for path in copied.rglob('*') if 'dotfiles' in path.parts and path.is_file()], [])
@@ -506,9 +506,11 @@ class WrapperTests(unittest.TestCase):
         self.records.write(self.user)
         config = supplement / 'config.yaml'
         config.write_text(config.read_text().replace('supplement_id: synthetic-desktop', 'supplement_id: renamed'))
-        with mock.patch.object(self.system.bootstrap, 'problems', return_value=[]):
-            with self.assertRaisesRegex(self.system.ApplyError, 'rebind --path .* --new-id'):
-                self.system.SystemApply(ROOT, out=lambda _: None).start('op-10')
+        with (
+            mock.patch.object(self.system.bootstrap, 'problems', return_value=[]),
+            self.assertRaisesRegex(self.system.ApplyError, 'rebind --path .* --new-id'),
+        ):
+            self.system.SystemApply(ROOT, out=lambda _: None).start('op-10')
         self.assertIsNone(self.records.read()['pending'])
         self.assertFalse(list((Path(self.temporary.name) / 'home/.local/state/shaffy/runs').glob('*')))
 
@@ -534,9 +536,11 @@ class WrapperTests(unittest.TestCase):
             self.system.SystemApply(ROOT, out=lambda _: None).start('op-10')
 
     def test_the_test_adapter_is_refused_outside_a_container(self):
-        with mock.patch.object(self.system, '_in_container', return_value=False):
-            with self.assertRaisesRegex(self.system.ApplyError, 'outside a container'):
-                self.system.SystemApply(ROOT)
+        with (
+            mock.patch.object(self.system, '_in_container', return_value=False),
+            self.assertRaisesRegex(self.system.ApplyError, 'outside a container'),
+        ):
+            self.system.SystemApply(ROOT)
 
 
 if __name__ == '__main__':

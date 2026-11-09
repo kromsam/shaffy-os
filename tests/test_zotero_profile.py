@@ -13,7 +13,10 @@ sys.path.insert(0, str(ROOT / 'lib'))
 from shaffy.ledger import adoptable
 
 SCRIPT = ROOT / 'scripts/move-zotero-profile.py'
-INI = '[Profile0]\nName=default\nIsRelative=1\nPath=abcd1234.default\nDefault=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n\n'
+INI = (
+    '[Profile0]\nName=default\nIsRelative=1\nPath=abcd1234.default\nDefault=1\n\n'
+    '[General]\nStartWithLastProfile=1\nVersion=2\n\n'
+)
 MANAGED = (ROOT / 'home/private_dot_zotero/private_zotero/profiles.ini').read_text()
 
 

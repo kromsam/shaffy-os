@@ -1,1 +1,1 @@
-{{ .example.greeting }}
+{{ .example.greeting -}}

@@ -48,9 +48,11 @@ class CaptureTests(_Case):
             Path(source).write_text(Path(source).read_text() + '# edited meanwhile\n')
             return result
 
-        with mock.patch.object(capture_module.shutil, 'copyfile', copy_then_edit):
-            with self.assertRaisesRegex(CaptureError, 'changed while it was captured'):
-                capture(ROOT, self.selection, self.tmp / 'state', 'op-2', load)
+        with (
+            mock.patch.object(capture_module.shutil, 'copyfile', copy_then_edit),
+            self.assertRaisesRegex(CaptureError, 'changed while it was captured'),
+        ):
+            capture(ROOT, self.selection, self.tmp / 'state', 'op-2', load)
         # No copy of the private settings is left behind without a record.
         self.assertFalse((self.tmp / 'state/runs/op-2').exists())
 
@@ -256,9 +258,11 @@ class MarkerTests(_Case):
         manifest = capture(ROOT, self.selection, self.tmp / 'state', 'op-6', load)
         with self.marker('preview', 'op-6', manifest['directory'], 'diff'):
             self.assertEqual(resolve(home=self.tmp)['source'], 'capture')
-        with self.marker('preview', 'op-6', manifest['directory'], 'apply'):
-            with self.assertRaisesRegex(SelectionError, 'never applied'):
-                resolve(home=self.tmp)
+        with (
+            self.marker('preview', 'op-6', manifest['directory'], 'apply'),
+            self.assertRaisesRegex(SelectionError, 'never applied'),
+        ):
+            resolve(home=self.tmp)
 
 
 @unittest.skipUnless(shutil.which('chezmoi'), 'needs chezmoi')

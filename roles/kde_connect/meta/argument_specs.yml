@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    short_description: Install phone file browsing and open the firewall to KDE Connect
+    description:
+      - The phone file browsing packages everywhere; a firewall opening only for the network the supplement names (`kde_connect` settings).
+    options: {}

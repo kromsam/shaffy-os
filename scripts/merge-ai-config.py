@@ -30,7 +30,10 @@ def merge_tables(text, namespace, entries):
         # Remove only this server's explicit table and nested tables. Preserve all
         # other settings/comments; refuse unfamiliar inline forms rather than
         # rewriting the app's whole configuration.
-        pattern = rf'(?m)^[ \t]*\[[ \t]*{namespace}\.(?:{escaped}|"{escaped}"|\'{escaped}\')(?:\.[^\]\n]+)?[ \t]*\][^\n]*(?:\n|$)'
+        pattern = (
+            rf'(?m)^[ \t]*\[[ \t]*{namespace}\.(?:{escaped}|"{escaped}"|\'{escaped}\')'
+            r'(?:\.[^\]\n]+)?[ \t]*\][^\n]*(?:\n|$)'
+        )
         while match := re.search(pattern, result):
             # Stop at the next table header line itself. A pattern starting with
             # \s* would also swallow the blank lines before that header, leaving

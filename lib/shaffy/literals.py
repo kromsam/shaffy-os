@@ -14,6 +14,7 @@ Licence notices are exempt, because they may name the copyright holder: lines wi
 SPDX-FileCopyrightText, and the copyright line of a LICENSE file.
 """
 
+import contextlib
 from dataclasses import dataclass
 import fnmatch
 import ipaddress
@@ -89,7 +90,7 @@ def _private_ip(line, previous=''):
             or any(address in n for n in DOCUMENTATION)
         ):
             found.append(candidate)
-    found += [m for m in re.findall(r'(?i)\bf[cd][0-9a-f]{2}:[0-9a-f:]+', line)]
+    found += list(re.findall(r'(?i)\bf[cd][0-9a-f]{2}:[0-9a-f:]+', line))
     return found
 
 
@@ -170,10 +171,8 @@ def environment_rules(root):
     for name in sorted(a for a in accounts if len(a) >= 3 and a.lower() not in GENERIC_ACCOUNTS):
         rules.append(('account', _word(name)))
     hosts = {socket.gethostname().split('.')[0]}
-    try:
+    with contextlib.suppress(OSError):
         hosts.add(Path('/etc/hostname').read_text().strip().split('.')[0])
-    except OSError:
-        pass
     for host in sorted(
         h for h in hosts if len(h) >= 3 and h.lower() not in GENERIC_HOSTS and not re.fullmatch(r'[0-9a-f]{12,64}', h)
     ):

@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    short_description: Install the supplement's keyboard key maps
+    description:
+      - From overrides.keyboard_hwdb, a system-scope fragment; without one there is none.
+    options: {}

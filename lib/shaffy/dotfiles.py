@@ -422,8 +422,19 @@ def _target_paths(home, sources):
         config = Path(work) / 'chezmoi.json'
         config.write_text(json.dumps({'persistentState': str(Path(work) / 'state.boltdb')}))
         listed = subprocess.run(
-            ['chezmoi', '--config', str(config), '--config-format', 'json', '--source', str(home)]
-            + ['--destination', work, 'target-path', *map(str, sources)],
+            [
+                'chezmoi',
+                '--config',
+                str(config),
+                '--config-format',
+                'json',
+                '--source',
+                str(home),
+                '--destination',
+                work,
+                'target-path',
+                *map(str, sources),
+            ],
             capture_output=True,
             text=True,
             check=True,

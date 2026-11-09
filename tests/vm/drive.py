@@ -387,7 +387,8 @@ def main(argv=None):
             return 0
         QMP(vm_dir / 'qmp.sock').execute('system_powerdown')
         print(
-            'drive: the guest does not answer on SSH, so its power button was pressed; in a Niri session that suspends it'
+            'drive: the guest does not answer on SSH, so its power button was pressed;'
+            ' in a Niri session that suspends it'
         )
         return 0
     return 2

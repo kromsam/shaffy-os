@@ -429,7 +429,9 @@ class PackageTests(LoaderCase):
             for entry in yaml.safe_load((ROOT / 'site.yml').read_text())[0]['roles']
         }
         for name in groups:  # each group is installed by the role of the same name, which site.yml runs
-            self.assertIn(f'shaffy.packages.groups.{name}', (ROOT / f'roles/{name}/tasks/main.yml').read_text())
+            self.assertIn(
+                f"shaffy['packages']['groups']['{name}']", (ROOT / f'roles/{name}/tasks/main.yml').read_text()
+            )
             self.assertEqual(site.get(name), [name], f'site.yml does not run the {name} role under its tag')
         self.assertEqual(site.get('packages'), ['packages'])
         for name in retired:  # a retired package is installed by no group
@@ -663,21 +665,25 @@ class IntegrationTests(LoaderCase):
             ('integrations: {}\n', 'integrations'),
             ('integrations:\n  backup: managed\n', 'integrations.backup: managing it needs the backup settings'),
             (
-                'backup: {host: x, tags: [a], repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-rsa AAA"}}}\n',
+                'backup: {host: x, tags: [a],'
+                ' repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-rsa AAA"}}}\n',
                 'backup.repository.sftp.host_key',
             ),
             (
-                'backup: {host: x, tags: [a], repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
+                'backup: {host: x, tags: [a],'
+                ' repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
                 ' excludes: [/etc]}\n',
                 'backup.excludes',
             ),
             (
-                'backup: {host: x, tags: [a], repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
+                'backup: {host: x, tags: [a],'
+                ' repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
                 ' excludes: ["~/.local/state/"]}\n',
                 "where each backup's verification marker is written",
             ),
             (
-                'backup: {host: x, tags: [a], repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
+                'backup: {host: x, tags: [a],'
+                ' repository: {sftp: {host: h, user: u, path: p, host_key: "ssh-ed25519 AAA"}},'
                 ' excludes: ["~/.local"]}\n',
                 'verification marker',
             ),

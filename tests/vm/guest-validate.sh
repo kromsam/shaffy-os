@@ -127,6 +127,7 @@ ask() { # ask QUESTION: 0 for yes, 1 for no, 2 for skip
       y | Y | yes) return 0 ;;
       n | N | no) return 1 ;;
       s | S | skip) return 2 ;;
+      *) ;;
     esac
   done
   return 2
@@ -392,6 +393,7 @@ py_report() { # py_report NAME CHECK ARGS...: run a Python check and record its 
       PASS) pass "${text}" ;;
       FAIL) fail "${text}" ;;
       NOTE) note "${text}" ;;
+      *) ;;
     esac
   done < <(python3 -c "${PYTHON}" "$@" 2>>"${LAST}" | tee -a "${LAST}")
 }
@@ -412,8 +414,8 @@ require_checkout() {
 require_no_unfinished() { # a failed apply leaves its operation unfinished; every later apply refuses
   local line
   line=$(shaffy status --no-drift 2>&1 | grep '^Unfinished operation: ')
-  [[ -z ${line} || ${line} == 'Unfinished operation: none' ]] ||
-    die "operation ${line#Unfinished operation: } is unfinished. In ${CHECKOUT}, read ./bin/shaffy status," \
+  [[ -z ${line} || ${line} == 'Unfinished operation: none' ]] \
+    || die "operation ${line#Unfinished operation: } is unfinished. In ${CHECKOUT}, read ./bin/shaffy status," \
       "then run ./bin/shaffy apply --resume (or --abandon), and run this stage again"
 }
 

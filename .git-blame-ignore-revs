@@ -2,3 +2,5 @@
 # (GitHub reads this file by itself).
 # Format the sources with ruff, shfmt, StyLua and markdownlint
 b1052accea48439a543bcd3f35b9a481c6554b67
+# Restyle the YAML and the shell scripts to the new conventions
+de5b7ed617403c91cd20f546746591b5650ccc30

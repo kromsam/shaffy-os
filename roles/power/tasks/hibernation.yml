@@ -1,12 +1,12 @@
 ---
 # scripts/configure-hibernation.py makes the swap file and the resume drop-in and regenerates the
 # Limine entries; without the setting it removes only what it made, keeping the swap file.
-- name: Prepare disk swap and resume for hibernation
+- name: hibernation | Prepare disk swap and resume for hibernation
   ansible.builtin.command:
     argv: >-
       {{ ['/usr/bin/python3', '-I', power_hibernation_script, ansible_check_mode | ternary('--check', '--apply'),
           '--state-dir', power_state_dir]
-         + (['--swap-gib', power_hibernation.swap_gib | int | string] if power_hibernation else []) }}
+         + (['--swap-gib', __power_hibernation['swap_gib'] | int | string] if __power_hibernation else []) }}
   check_mode: false
-  register: power_hibernation_result
-  changed_when: "'changed: 1' in power_hibernation_result.stdout"
+  register: __power_hibernation_result
+  changed_when: "'changed: 1' in __power_hibernation_result['stdout']"

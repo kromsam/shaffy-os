@@ -29,7 +29,7 @@ SENSITIVE = (
 OPT_IN = {
     'scripts/configure-hibernation.py': {'mkswap', 'btrfs subvolume', 'sbctl'},
     'scripts/configure-boot-splash.py': {'sbctl'},
-    'roles/workflows/tasks/docker-data.yml': {'btrfs subvolume'},
+    'roles/workflows/tasks/docker_data.yml': {'btrfs subvolume'},
 }
 # What those scripts may ask sbctl after a rebuild: whether it has keys, and whether the loader is signed.
 SBCTL_READS = {'status', 'verify'}

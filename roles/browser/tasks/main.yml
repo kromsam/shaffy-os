@@ -1,4 +1,5 @@
 ---
+# The repository's scripts: no module sets the desktop's default applications.
 - name: Manage selected browser associations in the target user's desktop profile
   become: true
   become_user: "{{ shaffy_target_user }}"
@@ -11,16 +12,17 @@
       - /usr/bin/bash
       - "{{ playbook_dir }}/scripts/configure-web-browser.sh"
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
-      - "{{ shaffy.settings.desktop.browser }}"
+      - "{{ shaffy['settings']['desktop']['browser'] }}"
   check_mode: false
-  register: browser_result
+  register: __browser_result
   changed_when: >-
-    'configuration_changed: 1' in browser_result.stdout or
-    (ansible_check_mode and 'Browser defaults need attention' in browser_result.stderr)
-  failed_when: >-
-    browser_result.rc != 0 and not
-    (ansible_check_mode and browser_result.rc == 1 and
-    'Browser defaults need attention' in browser_result.stderr)
+    'configuration_changed: 1' in __browser_result['stdout'] or
+    (ansible_check_mode and 'Browser defaults need attention' in __browser_result['stderr'])
+  failed_when:
+    - __browser_result['rc'] != 0
+    - >-
+      not (ansible_check_mode and __browser_result['rc'] == 1 and
+      'Browser defaults need attention' in __browser_result['stderr'])
 
 - name: Keep Office documents, CSV and TSV opening in LibreOffice instead of ChatGPT
   become: true
@@ -35,11 +37,12 @@
       - "{{ playbook_dir }}/scripts/configure-office-apps.sh"
       - "{{ ansible_check_mode | ternary('--check', '--apply') }}"
   check_mode: false
-  register: browser_office_result
+  register: __browser_office_result
   changed_when: >-
-    'configuration_changed: 1' in browser_office_result.stdout or
-    (ansible_check_mode and 'Office defaults need attention' in browser_office_result.stderr)
-  failed_when: >-
-    browser_office_result.rc != 0 and not
-    (ansible_check_mode and browser_office_result.rc == 1 and
-    'Office defaults need attention' in browser_office_result.stderr)
+    'configuration_changed: 1' in __browser_office_result['stdout'] or
+    (ansible_check_mode and 'Office defaults need attention' in __browser_office_result['stderr'])
+  failed_when:
+    - __browser_office_result['rc'] != 0
+    - >-
+      not (ansible_check_mode and __browser_office_result['rc'] == 1 and
+      'Office defaults need attention' in __browser_office_result['stderr'])

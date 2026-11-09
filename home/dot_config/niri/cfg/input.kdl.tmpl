@@ -11,12 +11,12 @@ input {
             // From the desktop.keyboard setting; empty means Niri follows localectl.
             // Super+Alt+K switches the globally active layout.
 {{- with (dig "desktop" "keyboard" dict (includeTemplate "shaffy.json" . | fromJson).shaffy.settings) }}
-            layout "{{ .layouts }}"
+            layout {{ .layouts | quote }}
 {{- if hasKey . "variants" }}
-            variant "{{ .variants }}"
+            variant {{ .variants | quote }}
 {{- end }}
 {{- if hasKey . "options" }}
-            options "{{ .options }}"
+            options {{ .options | quote }}
 {{- end }}
 {{- end }}
         }

@@ -244,7 +244,10 @@ class SecureBoot:
         return sorted(p for p in self.path(folder).glob(name) if p.is_file())
 
     def limine_settings(self):
-        """KEY=value settings as the entry tool reads them; ENABLE_ENROLL_LIMINE_CONFIG only from /etc/default/limine."""
+        """KEY=value settings as the entry tool reads them.
+
+        ENABLE_ENROLL_LIMINE_CONFIG only from /etc/default/limine.
+        """
         values = {}
         for pattern in LIMINE_CONFIG:
             if pattern == DEFAULTS:

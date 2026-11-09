@@ -3,6 +3,7 @@ literals in the public tree, no unreferenced script or document, Markdown links 
 resolve and role files that name their role. `./bin/shaffy lint` holds scripts to the
 system interpreter."""
 
+import contextlib
 from pathlib import Path
 import re
 import shutil
@@ -122,7 +123,7 @@ class PublicLiteralTests(unittest.TestCase):
 
     def test_every_allowlist_entry_is_needed_and_explained(self):
         for entry in self.allow:
-            rule, glob, text, reason = entry
+            rule, _glob, _text, reason = entry
             self.assertNotIn(rule, ('account', 'host', 'machine-id', 'git-identity'), entry)
             self.assertTrue(reason.strip(), entry)
             self.assertTrue(any(literals.allowed(h, [entry]) for h in self.static), f'unused entry: {entry}')
@@ -159,10 +160,8 @@ def tracked_text():
     for path in git('ls-files', '-z').stdout.split('\0'):
         target = ROOT / path
         if path and target.is_file() and not target.is_symlink():
-            try:
+            with contextlib.suppress(UnicodeDecodeError):
                 files[path] = target.read_text()
-            except UnicodeDecodeError:
-                pass
     return files
 
 
