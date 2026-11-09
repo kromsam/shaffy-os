@@ -20,6 +20,7 @@ each tool that no linter can check.
 | YAML | yamllint | `.yamllint`: a `---` start, double quotes when quoted, lists indented under their key |
 | GitHub workflows | actionlint, zizmor and yamllint | |
 | TOML | taplo | `.taplo.toml`: 120 columns |
+| OpenTofu | `tofu fmt` | `infra/github`: the format `tofu fmt` writes |
 | JSON | `shaffy lint` itself | it parses, and keeps to `.editorconfig` |
 | Every other text file | `shaffy lint` itself | `.editorconfig`'s `[*]`: UTF-8, LF, a final newline, no trailing spaces, no tab indentation; `--fix` mends all but the tabs |
 

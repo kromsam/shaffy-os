@@ -9,6 +9,8 @@ node = "lts"
 # In a virtual environment of its own, beside the controller.
 "pipx:ansible-lint" = "latest"
 "pipx:yamllint" = "latest"
+# infra/github pins the same version (versions.tf); `tofu` is the binary of the opentofu package.
+opentofu = "1.12.6"
 ruff = "latest"
 # The history's secret scan and the licence check, which CI also runs (CONTRIBUTING.md).
 gitleaks = "latest"

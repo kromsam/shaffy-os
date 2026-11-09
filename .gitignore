@@ -11,3 +11,6 @@ __pycache__/
 
 # Galaxy collections installed from requirements.yml.
 /collections/
+
+# OpenTofu providers fetched by init.
+/infra/*/.terraform/

@@ -25,6 +25,37 @@ A release merges `dev` into `main` once its self-test and CI pass:
    notes say what changes for an installation, and what a supplement must
    change with it.
 
+## GitHub settings
+
+`infra/github` holds the repository's GitHub settings as OpenTofu code: the
+repository itself, vulnerability alerts, Dependabot security updates, the
+Actions and workflow permissions, and three rulesets. One protects `main` and
+`dev` from deletion and force pushes. One requires the `selftest` and `system`
+jobs on `main`. One keeps the release tags (`v*`) from deletion and update.
+There are no bypass actors and no pull request rule, because a release
+fast-forwards `main` to a tested `dev` commit and the maintainer pushes to `dev`
+directly. Labels, releases, tags and secrets are not managed.
+
+Private vulnerability reporting is enabled on the repository by hand. The
+provider (6.13.0) has no resource for it, so the code does not hold it.
+
+The state is encrypted, and so are saved plans. Create the Proton Pass item
+`OpenTofu state` in the vault `Shaffy OS` once, with a random passphrase of at
+least 16 characters in its password field. The runner reads it, takes the token
+from `gh auth token --user kromsam`, and keeps the state in
+`~/.local/state/shaffy-os-infra/github.tfstate`, outside every checkout:
+
+```sh
+scripts/github-settings.sh init
+scripts/github-settings.sh plan
+scripts/github-settings.sh apply
+```
+
+Plan and apply are the maintainer's. The runner refuses under an agent. The
+first plan reports the existing settings as imports. OpenTofu pins the same
+version in `infra/github/versions.tf` and `mise.dev.toml`, and the provider in
+`versions.tf` and `.terraform.lock.hcl`.
+
 ## Pins and transitions
 
 This repository pins what it cannot take as `latest`: the Ansible collections,

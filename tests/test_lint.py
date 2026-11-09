@@ -230,9 +230,8 @@ class LintTests(unittest.TestCase):
         declared = tomllib.loads((ROOT / 'mise.dev.toml').read_text())['tools']
         for step in lint.STEPS:
             if not step.system:
-                self.assertTrue(
-                    any(name == step.tool or name.endswith(':' + step.tool) for name in declared), step.tool
-                )
+                package = step.package or step.tool
+                self.assertTrue(any(name == package or name.endswith(':' + package) for name in declared), step.tool)
 
 
 class SupplementTests(unittest.TestCase):

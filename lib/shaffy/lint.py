@@ -53,6 +53,8 @@ class Step:
     project: bool = False
     # Comes with the system rather than mise.dev.toml.
     system: bool = False
+    # The key in mise.dev.toml, where it is not the tool's own name (the opentofu package ships tofu).
+    package: str = None
 
 
 STEPS = (
@@ -69,6 +71,7 @@ STEPS = (
     Step(('workflow',), 'actionlint', ()),
     Step(('workflow',), 'zizmor', ('--offline', '--no-progress')),
     Step(('toml',), 'taplo', ('fmt', '--check'), fix=('fmt',)),
+    Step(('opentofu',), 'tofu', ('fmt', '-check', '-diff'), fix=('fmt',), package='opentofu'),
 )
 
 NAMED = {
@@ -80,6 +83,7 @@ NAMED = {
     '.yml': 'yaml',
     '.yaml': 'yaml',
     '.toml': 'toml',
+    '.tf': 'opentofu',
     '.json': 'json',
 }
 
