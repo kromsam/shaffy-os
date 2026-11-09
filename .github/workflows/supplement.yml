@@ -13,9 +13,6 @@ on:
         type: string
         default: main
     secrets:
-      SHAFFY_OS_TOKEN:
-        description: Optional; a read-only token for kromsam/shaffy-os, used instead of the run's own token
-        required: false
       SUBMODULES_TOKEN:
         description: >-
           Optional; a read-only token for the supplement and its submodules, such as a dotfiles folder kept
@@ -49,8 +46,6 @@ jobs:
           ref: ${{ inputs.shaffy-ref }}
           path: shaffy-os
           fetch-depth: 0 # the release tags, which a supplement's minimum_release is checked against
-          # The run's own token unless the caller passes SHAFFY_OS_TOKEN.
-          token: ${{ secrets.SHAFFY_OS_TOKEN || github.token }}
           persist-credentials: false
       # runuser without -l keeps the step's directory.
       - name: Install the development tools (mise.dev.toml)
