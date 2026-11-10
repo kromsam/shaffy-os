@@ -5,6 +5,7 @@ Every repository is a copy of profile.example/ in a temporary folder, committed 
 would; the supplement whose private values the scan adds is synthetic.
 """
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -16,7 +17,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
-from shaffy import authoring
+from shaffy import authoring, lint
 
 GIT_ENV = {
     'GIT_CONFIG_GLOBAL': os.devnull,
@@ -62,6 +63,18 @@ class RepositoryCase(unittest.TestCase):
     def step(self, report, name):
         return next(step for step in report.steps if step.name == name)
 
+    def conflicting(self):
+        """Two more profiles that give one asset target different files."""
+        for name, text in (('one', 'one\n'), ('two', 'two\n')):
+            folder = self.repository / name
+            folder.mkdir()
+            (folder / 'profile.yaml').write_text(
+                f'---\nschema_version: 1\ndescription: Synthetic {name}.\n'
+                'assets:\n  "~/.local/share/example-profile/shared.txt": shared.txt\n'
+            )
+            (folder / 'shared.txt').write_text(text)
+        self.commit()
+
 
 class ScaffoldTests(RepositoryCase):
     def test_the_author_scaffold_passes_profile_check(self):
@@ -88,15 +101,7 @@ class ScaffoldTests(RepositoryCase):
         self.assertEqual(git_status(self.repository), '')  # the check changed nothing
 
     def test_each_profile_renders_alone_and_two_that_conflict_together_are_a_note(self):
-        for name, text in (('one', 'one\n'), ('two', 'two\n')):
-            folder = self.repository / name
-            folder.mkdir()
-            (folder / 'profile.yaml').write_text(
-                f'---\nschema_version: 1\ndescription: Synthetic {name}.\n'
-                'assets:\n  "~/.local/share/example-profile/shared.txt": shared.txt\n'
-            )
-            (folder / 'shared.txt').write_text(text)
-        self.commit()
+        self.conflicting()
         report = self.check()
         self.assertEqual(report.names, ('example', 'one', 'two'))
         render = self.step(report, 'Render')
@@ -140,7 +145,28 @@ class RefusalTests(RepositoryCase):
         (self.repository / 'example/example.fish').write_text('set -g example_profile 1\n')
         problems = self.step(self.check(), 'Files').problems
         self.assertEqual(
-            problems, ('example/example.fish: not tracked by Git; vendoring reads a commit, so add and commit it',)
+            problems, ('example/example.fish: not in the last commit; vendoring reads a commit, so add and commit it',)
+        )
+
+    def test_what_vendoring_refuses_or_cannot_read_from_the_last_commit_is_named(self):
+        (self.repository / 'example/.gitignore').write_text('*.tmp\n')
+        (self.repository / 'example/a\u202eb.txt').write_text('reversed\n')
+        os.symlink('example', self.repository / 'linked')  # a profile folder that is a link
+        self.commit()
+        manifest = self.repository / 'example/profile.yaml'
+        manifest.write_text(manifest.read_text() + 'overrides:\n  fish: example.fish\n')
+        (self.repository / 'example/example.fish').write_text('set -g example_profile 1\n')
+        git(self.repository, 'add', '-A')  # staged, but in no commit
+        problems = self.step(self.check(), 'Files').problems
+        self.assertEqual(
+            problems,
+            (
+                "example/: '.gitignore' is not a name a profile may hold, so vendoring refuses the profile",
+                "example/: 'a\\u202eb.txt' holds a control or format character, which no name may, so vendoring "
+                'refuses the profile',
+                'example/example.fish: not in the last commit; vendoring reads a commit, so add and commit it',
+                'linked/: a link; a profile is a folder of plain files, which vendoring copies',
+            ),
         )
 
     def test_personal_values_are_named_by_place_and_rule_never_by_value(self):
@@ -169,6 +195,23 @@ class RefusalTests(RepositoryCase):
             ('example/README.md:6: settings field identity.name', 'example/README.md:8: denylist.txt line 2'),
         )
 
+    def test_literals_allow_is_scanned_for_the_supplements_private_values(self):
+        allow = self.repository / 'literals.allow'
+        allow.write_text(allow.read_text() + '# Not example-secret-word, which only the denylist names.\n')
+        self.commit()
+        number = len(allow.read_text().splitlines())
+        self.assertEqual(
+            self.step(self.check(), 'Personal values').problems, (f'literals.allow:{number}: denylist.txt line 2',)
+        )
+
+    def test_an_origin_with_a_token_reaches_no_message(self):
+        token = 'synthetic-token-' + 'x' * 12
+        git(self.repository, 'remote', 'add', 'origin', f'https://someone:{token}@example.test/alice/profiles')
+        self.conflicting()
+        text = '\n'.join(self.check().lines())
+        self.assertIn('tell its author: https://example.invalid/this-repository', text)
+        self.assertNotIn(token, text)
+
     def test_an_invalid_profile_is_refused_with_the_reason_and_the_way_to_shaffy(self):
         manifest = self.repository / 'example/profile.yaml'
         manifest.write_text(manifest.read_text() + 'desktop:\n  browser: example.desktop\n')
@@ -188,6 +231,35 @@ class RefusalTests(RepositoryCase):
         report = self.check()
         self.assertEqual([step.name for step in report.steps], ['Repository'])
         self.assertIn('git init', report.steps[0].problems[0])
+
+
+@unittest.skipUnless(
+    all(lint.available(step) for step in lint.STEPS if step.tool in ('ansible-lint', 'markdownlint-cli2')),
+    'needs ansible-lint and markdownlint-cli2 from mise.dev.toml',
+)
+class CodeTests(RepositoryCase):
+    def test_the_check_runs_no_code_the_repository_brings(self):
+        markers = self.repository.parent / 'markers'
+        markers.mkdir()
+        # A playbook makes ansible-lint lint the folder as a project, with its configuration's rulesdir.
+        (self.repository / 'site.yml').write_text('---\n- name: Synthetic\n  hosts: localhost\n  tasks: []\n')
+        (self.repository / '.ansible-lint').write_text('---\nrulesdir:\n  - rules\n')
+        (self.repository / 'rules').mkdir()
+        (self.repository / 'rules/planted.py').write_text(
+            f'from pathlib import Path\n\nPath({str(markers / "ansible-lint")!r}).touch()\n'
+        )
+        # markdownlint-cli2 runs a configuration module it finds beside a file it lints.
+        (self.repository / 'example/.markdownlint-cli2.cjs').write_text(
+            f'require("node:fs").writeFileSync({json.dumps(str(markers / "markdownlint-cli2"))}, "");\n'
+            'module.exports = {};\n'
+        )
+        readme = self.repository / 'example/README.md'
+        readme.write_text(readme.read_text() + '\n#Not a heading\n')  # a problem only markdownlint-cli2 finds
+        self.commit()
+        problems = self.step(self.check(), 'Lint').problems
+        self.assertEqual(sorted(path.name for path in markers.iterdir()), [])
+        self.assertTrue(any('example/README.md' in line and 'MD018' in line for line in problems), problems)
+        self.assertEqual(git_status(self.repository), '')
 
 
 def git_status(directory):

@@ -318,21 +318,33 @@ Check the repository before you publish it, and after every change:
 ./bin/shaffy profile check ~/Projects/my-profiles
 ```
 
-The check reads the repository and changes nothing in it:
+The check reads the repository and changes nothing in it. It runs none of the
+repository's files: it lints a copy of them and renders in the sandbox. Git
+reads the repository's own `.git/config`, as every Git command does, so check
+a repository you cloned or made, not a folder that came with its `.git` from
+someone else.
 
 1. Each profile loads as a vendored copy would: the schema, the keys a profile
    may not set with their reasons, references inside the folder, refused
    targets, keyboard maps and `minimum_release`.
-2. Every file a profile names is tracked by Git, since vendoring reads a
-   commit, and no profile holds a link, a submodule or more than the limits.
-3. The licence is there.
+2. Every file a profile names is in the last commit, since vendoring reads a
+   commit. No profile is or holds a link or a submodule, holds a name that
+   vendoring refuses, or exceeds the limits.
+3. The licence is in the last commit.
 4. No file holds a personal value. The scan uses the self-test's rules, this
    machine's identity, and the bound supplement's denylist and identifying
-   settings (`--supplement PATH` names another supplement). It prints the file, the line and the
-   rule, never the value. `literals.allow` passes a synthetic value one of the
-   general rules matches.
-5. Every file passes [STYLE.md](../STYLE.md)'s tools, with this checkout's
-   configuration.
+   settings (`--supplement PATH` names another supplement). It prints the
+   file, the line and the rule, never the value. `literals.allow` passes a
+   synthetic value that one of the general rules matches, and the scan reads
+   `literals.allow` itself for your machine's and your supplement's values.
+   The scan reads the files as they are, not the history. A value that an
+   earlier commit holds becomes public when you push it, so rewrite that
+   history before you publish.
+5. The files that vendoring reads pass [STYLE.md](../STYLE.md)'s tools, each
+   with this checkout's configuration. The tools lint a copy of those files in
+   a temporary folder, without links and without names that start with a dot,
+   which a tool would read as its own configuration. ansible-lint does not run,
+   since it imports the plugins of the folder it lints.
 6. Each profile renders alone, then all of them together in folder order, in a
    temporary supplement with the integrations they require managed. The render
    runs in the sandbox, validates Niri, Noctalia and Fish, and checks that a

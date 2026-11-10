@@ -300,11 +300,17 @@ def _bounded(text):
     return [*lines[:LINES], f'… {len(lines) - LINES} more lines; run the tool on these files to see them all']
 
 
-def run(paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_available=available, require=True):
-    """Lint the paths; returns 0 when every tool is clean (and installed, if required)."""
+def run(
+    paths, fix=False, root=ROOT, out=print, call=subprocess.run, is_available=available, require=True, foreign=False
+):
+    """Lint the paths; returns 0 when every tool is clean (and installed, if required). FOREIGN:
+    ROOT holds another author's files, so no tool lints it as a project. Ansible files are linted
+    as YAML there, since ansible-lint reads the configuration and imports the plugins of the folder
+    it runs in."""
     by_language, upstream = {}, third_party(root)
     for path in paths:
         kind = None if path in upstream else language(path, root)
+        kind = 'yaml' if foreign and kind == 'ansible' else kind
         if kind:
             by_language.setdefault(kind, []).append(path)
     if not by_language:

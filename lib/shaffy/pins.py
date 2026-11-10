@@ -59,6 +59,22 @@ def printable(text):
     return ''.join(character for character in text if unicodedata.category(character) not in ('Cc', 'Cf'))
 
 
+def name_problem(raw):
+    """Why no profile may hold a file at RAW, its path inside the profile's folder as Git records
+    it, in bytes; '' when one may. Vendoring and profile check share it. The reason shows the name
+    only once it is known to print safely, and never a name a checkout could not write safely:
+    '..', or one Git reads, such as .git or .gitattributes."""
+    try:
+        name = raw.decode()
+    except UnicodeDecodeError:
+        return 'a file name is not UTF-8'
+    if printable(name) != name:
+        return f'{name!r} holds a control or format character, which no name may'
+    if any(part in ('', '.', '..') or part.lower().startswith('.git') for part in name.split('/')):
+        return f'{name!r} is not a name a profile may hold'
+    return ''
+
+
 class Upstream:
     """The reads from outside the checkout, in one place so the tests can replace them.
 
@@ -127,12 +143,11 @@ class Upstream:
     def tree(self, url, commit, folder, limits):
         """{path: bytes} of every file under FOLDER at COMMIT, paths relative to FOLDER.
 
-        Raises ValueError for a missing folder, a link, a submodule, a name with a control or
-        format character, a name no checkout could write safely ('..', or one Git reads, such as
-        .git or .gitattributes), or more files than LIMITS (files, bytes) allows, all before a
-        blob is fetched; then for more bytes than LIMITS allows, before a blob is read. Only the
-        folder's blobs are fetched, in one pack that may hold the byte limit and a MiB of git's
-        framing: a fetch of more stops before the bytes land.
+        Raises ValueError for a missing folder, a link, a submodule, a name name_problem refuses,
+        or more files than LIMITS (files, bytes) allows, all before a blob is fetched; then for
+        more bytes than LIMITS allows, before a blob is read. Only the folder's blobs are fetched,
+        in one pack that may hold the byte limit and a MiB of git's framing: a fetch of more stops
+        before the bytes land.
         """
         repository = self._repository(url, commit, history=False)
         listing = _git(repository, 'ls-tree', '-r', '-z', '--full-tree', commit, '--', f'{folder}/')
@@ -141,17 +156,14 @@ class Upstream:
         for record in listing.stdout.split(b'\0')[:-1]:
             info, _, raw = record.partition(b'\t')
             mode, kind, blob = info.decode().split()
-            try:
-                name = raw.decode().removeprefix(f'{folder}/')
-            except UnicodeDecodeError:
-                raise ValueError(f'{where}: a file name is not UTF-8') from None
-            if printable(name) != name:  # before any message shows the name as it is
-                raise ValueError(f'{where}: {name!r} holds a control or format character, which no name may')
+            raw = raw.removeprefix(f'{folder}/'.encode())
+            problem = name_problem(raw)
+            if problem:
+                raise ValueError(f'{where}: {problem}')
+            name = raw.decode()
             if mode == '120000' or kind == 'commit':
                 what = 'a link' if kind == 'blob' else 'a submodule'
                 raise ValueError(f'{where}: {name} is {what}, and a profile holds plain files only')
-            if any(part in ('', '.', '..') or part.lower().startswith('.git') for part in name.split('/')):
-                raise ValueError(f'{where}: {name!r} is not a name a profile may hold')
             entries.append((name, blob))
         if not entries:
             raise ValueError(f'{where}: no such folder')

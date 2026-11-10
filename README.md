@@ -389,7 +389,7 @@ as ordinary files and settings; remove what you no longer want by hand:
 | `./bin/shaffy profile update [ID...] [--ref REF]` | Takes a newer commit of vendored profiles, and shows the author's commits and what runs code. |
 | `./bin/shaffy profile remove ID...` | Deletes vendored profiles that `config.yaml` no longer lists, and names what stays on the machine. |
 | `./bin/shaffy profile propose ID [--to shaffy] [--key KEY]` | Drafts your edits of a vendored profile as a patch for its author, or, with `--to shaffy`, an issue for a need profiles cannot express. Sends nothing. |
-| `./bin/shaffy profile check [PATH]` | Checks a profile repository of your own before you publish it: each profile loads and renders, its files are tracked, the licence, personal values and the lint. Changes nothing. |
+| `./bin/shaffy profile check [PATH]` | Checks a profile repository before you publish it: each profile loads and renders, its files are in the last commit, the licence, personal values and the lint of a copy of what vendoring reads. Runs none of the repository's files and changes nothing. |
 | `./bin/shaffy lint [--fix] [--changed] [--supplement [PATH]] [PATH...]` | Runs one formatter and linter per language, as [STYLE.md](STYLE.md) says; `--fix` lets the formatters rewrite the files and `--supplement` lints the bound supplement, or the one named, by the same rules, without its vendored `profiles/`. Needs the development tools of `mise.dev.toml`. |
 | `./bin/shaffy selftest [--skip-host] [-j N] [-v]` | Runs the test suite in parallel, one worker per CPU; `--skip-host` leaves out tests bound to this machine, as CI does, and `-j 1` runs plain unittest in order. |
 

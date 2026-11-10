@@ -1133,7 +1133,9 @@ def main(argv):
     )
     drafting.add_argument('--key', help='with --to shaffy, the setting a profile was refused, as its error named it')
     checking = verbs.add_parser(
-        'check', help='check a profile repository of your own before you publish it; changes nothing'
+        'check',
+        help='check a profile repository before you publish it; lints a copy of what vendoring reads, '
+        'runs none of its files and changes nothing',
     )
     checking.add_argument('path', nargs='?', default='.', metavar='PATH', help='the repository (default: here)')
     for verb in (vendoring, renewing, dropping, drafting, checking):
