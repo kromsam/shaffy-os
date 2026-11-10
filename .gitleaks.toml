@@ -1,0 +1,10 @@
+# The secret scan's configuration (CI: .github/workflows/selftest.yml; locally: gitleaks git .).
+# Every default rule applies; each allowlist below names one false positive and is as narrow as it can be.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "A profile fragment's file name in a test, such as 80-profile-02-bob-keys.toml, is no key"
+paths = ['''^tests/''']
+regexTarget = "line"
+regexes = ['''\d\d-profile-\d\d-[a-z0-9-]+\.toml''']
