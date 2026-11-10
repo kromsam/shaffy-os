@@ -299,6 +299,23 @@ class RoutineTests(unittest.TestCase):
             self.assertEqual(cli.main(['update', '--skip-packages']), 1)
         self.assertIn('operation op-1 is unfinished', err.getvalue())
 
+    def test_update_runs_only_in_the_bound_checkout(self):
+        from shaffy import cli
+
+        ran = []
+        for bound, code in (('/elsewhere/shaffy-os', 1), (str(cli.ROOT), 0)):
+            with (
+                mock.patch('shaffy.records.Records.read', return_value={'pending': None, 'checkout': {'path': bound}}),
+                mock.patch.object(cli.os, 'geteuid', return_value=1000),
+                mock.patch.object(updates, 'run', side_effect=lambda steps, bound=bound: ran.append(bound) or 0),
+                mock.patch('sys.stdout', new_callable=io.StringIO),
+                mock.patch('sys.stderr', new_callable=io.StringIO) as err,
+            ):
+                self.assertEqual(cli.main(['update', '--skip-packages']), code)
+            if code:
+                self.assertIn(bound, err.getvalue())
+        self.assertEqual(ran, [str(cli.ROOT)])
+
 
 class RefreshScriptTests(unittest.TestCase):
     def setUp(self):

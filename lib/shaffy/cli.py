@@ -832,14 +832,18 @@ def update(args):
         return _fail(
             f'operation {record["pending"]["op"]} is unfinished; resume or abandon it first (./bin/shaffy status)'
         )
+    if record and Path(record['checkout']['path']) != ROOT:
+        # The user installs check that the home was rendered from this checkout.
+        return _fail(
+            f'this installation applies from {record["checkout"]["path"]}; run the update there, '
+            'so that its pins are the ones the applies use'
+        )
     steps = [step for step in updates.steps(ROOT, Path.home()) if not (args.skip_packages and step.packages)]
     if not args.skip_packages and not sys.stdin.isatty():
         return _fail(
             'the package upgrades ask for confirmation and the sudo password in a terminal; '
             'run it in one, or pass --skip-packages'
         )
-    if record and Path(record['checkout']['path']) != ROOT:
-        print(f'Updating with the pins of {ROOT}, not the bound checkout {record["checkout"]["path"]}.')
     code = updates.run(steps)
     if code == 0:
         print(

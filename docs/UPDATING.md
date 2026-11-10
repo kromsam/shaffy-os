@@ -55,10 +55,9 @@ one and run it again. A step with nothing to do is skipped.
    to the lock; it never moves the lock.
 
 `update` refuses to start while an operation is unfinished
-(`./bin/shaffy status`), and it uses the pins of the checkout it runs in.
-Configuration does not change; a release still reaches the machine through an
-apply. Run it from the bound checkout, so that the pins match what the applies
-use.
+(`./bin/shaffy status`), and in any checkout but the bound one, so that its
+pins are the ones the applies use. Configuration does not change; a release
+still reaches the machine through an apply.
 
 ### What it leaves alone
 
