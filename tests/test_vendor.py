@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import random
 import subprocess
 import sys
 import tempfile
@@ -205,6 +206,27 @@ class UpstreamTests(GitCase):
         self.assertEqual(tree, {'profile.yaml': b'two\n'})
         self.assertEqual([line.split(' ', 1)[1] for line in subjects], ['Change notes'])
         self.assertLess(fetched, 2**20)
+
+    def test_a_fetch_past_the_limits_stops_before_its_bytes_land(self):
+        (self.repository.work / 'notes').mkdir()
+        (self.repository.work / 'notes/large.bin').write_bytes(random.Random(0).randbytes(8 * 2**20))  # incompressible
+        commit = self.repository.commit('Add notes with a large file', {'notes/profile.yaml': 'one\n'})
+        # A host that filters sends a folder's files in a fetch of their own; one that does not, in the clone.
+        for host, filters in (('filters', 'true'), ('does not filter', 'false')):
+            git('-C', self.repository.served, 'config', 'uploadpack.allowFilter', filters)
+            temporary = self.directory / f'tmp-{filters}'
+            temporary.mkdir()
+            with (
+                self.subTest(host),
+                pins.Upstream() as upstream,
+                mock.patch.object(tempfile, 'tempdir', str(temporary)),
+                mock.patch.object(pins, 'REPOSITORY_BYTES', 2**20, create=True),
+            ):
+                with self.assertRaises(ValueError) as caught:
+                    upstream.tree(self.repository.url, commit, 'notes', (200, 2**20))
+                written = sum(path.stat().st_size for path in temporary.rglob('*') if path.is_file())
+                self.assertLess(written, 3 * 2**20)
+                self.assertIn('no file it writes may exceed', str(caught.exception))
 
     def test_a_malformed_object_is_refused(self):
         self.repository.commit('Add notes', {'notes/profile.yaml': 'one\n'})

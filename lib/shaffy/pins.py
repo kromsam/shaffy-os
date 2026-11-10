@@ -19,7 +19,9 @@ import json
 import os
 from pathlib import Path
 import re
+import resource
 import shutil
+import signal
 import subprocess
 import tempfile
 import unicodedata
@@ -30,6 +32,10 @@ MINIMUM_AGE = datetime.timedelta(days=3)
 LOCK_AGE = datetime.timedelta(days=30)
 GALAXY = 'https://galaxy.ansible.com/api/v3/plugin/ansible/content/published/collections/index'
 STABLE = re.compile(r'[0-9]+(?:\.[0-9]+)*')
+# The most bytes a file of a profile repository's clone may hold: its commits and trees, or every
+# file of the commit where the host does not filter. git stops at a write past it, before more
+# lands in the temporary folder, which is memory on CachyOS (/tmp is a tmpfs).
+REPOSITORY_BYTES = 64 * 2**20
 
 
 @dataclass
@@ -125,7 +131,8 @@ class Upstream:
         format character, a name no checkout could write safely ('..', or one Git reads, such as
         .git or .gitattributes), or more files than LIMITS (files, bytes) allows, all before a
         blob is fetched; then for more bytes than LIMITS allows, before a blob is read. Only the
-        folder's blobs are fetched.
+        folder's blobs are fetched, in one pack that may hold the byte limit and a MiB of git's
+        framing: a fetch of more stops before the bytes land.
         """
         repository = self._repository(url, commit, history=False)
         listing = _git(repository, 'ls-tree', '-r', '-z', '--full-tree', commit, '--', f'{folder}/')
@@ -155,9 +162,8 @@ class Upstream:
         found = _git(repository, 'cat-file', '--batch-check', stdin=blobs).stdout.splitlines()
         missing = b''.join(line.split()[0] + b'\n' for line in found if line.endswith(b' missing'))
         if missing:  # a host that filters sent none of the blobs
-            _git(
-                repository, 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--stdin', 'origin', stdin=missing
-            )
+            fetch = ('fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--stdin', 'origin')
+            _git(repository, *fetch, stdin=missing, most=most_bytes + 2**20)
             found = _git(repository, 'cat-file', '--batch-check', stdin=blobs).stdout.splitlines()
         sizes = [int(line.split()[2]) for line in found]
         if sum(sizes) > most_bytes:
@@ -196,18 +202,21 @@ class Upstream:
         hosts do) sends commits and trees only; tree() fetches the blobs of one folder. When the
         host refuses a commit by its hash (some do unless a branch or tag names it): a clone of
         every branch, which must then hold COMMIT, or ValueError naming the source and the commit.
-        Every object git receives is checked (transfer.fsckObjects).
+        Every object git receives is checked (transfer.fsckObjects), and kept in a pack
+        (fetch.unpackLimit), whose file git stops writing past REPOSITORY_BYTES.
         """
         held = self._fetched.get(url)
         if held and (held[1] or not history) and _holds(held[0], commit):
             return held[0]
         repository = self._new()
         clone = ('clone', '--quiet', '--bare', '--filter=blob:none', '--config', 'transfer.fsckObjects=true')
+        clone += ('--config', 'fetch.unpackLimit=1')  # every later fetch one pack too, bounded as a whole
         depth = () if history else ('--depth', '1')
-        cloned = _git(None, *clone, *depth, f'--revision={commit}', '--', url, repository, check=False, timeout=600)
+        revision = (*depth, f'--revision={commit}')
+        cloned = _git(None, *clone, *revision, '--', url, repository, check=False, timeout=600, most=REPOSITORY_BYTES)
         if cloned.returncode or not _holds(repository, commit):
             shutil.rmtree(repository, ignore_errors=True)
-            _git(None, *clone, '--', url, repository, timeout=600)
+            _git(None, *clone, '--', url, repository, timeout=600, most=REPOSITORY_BYTES)
             if not _holds(repository, commit):
                 raise ValueError(f'{url}: no branch or tag holds the commit {commit}')
             history = True
@@ -221,10 +230,16 @@ class Upstream:
         return Path(self._scratch.name) / str(len(list(Path(self._scratch.name).iterdir())))
 
 
-def _git(repository, *arguments, stdin=None, check=True, timeout=60):
-    """git on REPOSITORY, never asking for a password: a profile's repository is public. A failure
-    raises ValueError with git's own reason."""
+def _git(repository, *arguments, stdin=None, check=True, timeout=60, most=None):
+    """git on REPOSITORY, never asking for a password: a profile's repository is public. With MOST,
+    no file git or a process it starts writes may grow past MOST bytes: the write fails, and so
+    does git. A failure raises ValueError with git's own reason."""
     command = ['git', *(['--git-dir', str(repository)] if repository else []), *map(str, arguments)]
+
+    def bound():
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)  # the write fails, rather than killing git with a core dump
+        resource.setrlimit(resource.RLIMIT_FSIZE, (most, most))
+
     try:
         result = subprocess.run(
             command,
@@ -233,13 +248,15 @@ def _git(repository, *arguments, stdin=None, check=True, timeout=60):
             # Every fetch is one the code asks for: a missing object is never fetched on demand.
             env=dict(os.environ, GIT_TERMINAL_PROMPT='0', GIT_NO_LAZY_FETCH='1'),
             timeout=timeout,
+            preexec_fn=bound if most else None,
             check=False,
         )
     except subprocess.TimeoutExpired:
         raise ValueError(f'git {arguments[0]} took longer than {timeout} seconds') from None
     if check and result.returncode:
         reason = printable(result.stderr.decode(errors='replace').strip().replace('\n', ' ')) or result.returncode
-        raise ValueError(f'git {arguments[0]} failed: {reason}')
+        limit = f'; no file it writes may exceed {most} bytes' if most else ''
+        raise ValueError(f'git {arguments[0]} failed: {reason}{limit}')
     return result
 
 
