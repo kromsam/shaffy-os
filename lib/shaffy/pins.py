@@ -6,6 +6,9 @@ three days old where the upstream records a date, as Galaxy does; git tags and t
 image's tag carry none. yabridge is a reviewed source: it is reported, and its revision
 changes by hand. ruff's target follows the system Python. Tools mise installs follow
 `latest` and have no pin here.
+
+Upstream is every read from outside the checkout, so the tests can replace it; the profile
+commands (lib/shaffy/vendor.py) read a profile's repository through it too.
 """
 
 from collections.abc import Callable
@@ -19,6 +22,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 import urllib.request
 
 MINIMUM_AGE = datetime.timedelta(days=3)
@@ -43,11 +47,35 @@ class Pin:
         return not self.error and self.latest is not None and self.latest != self.current
 
 
+def printable(text):
+    """TEXT without control and format characters, so text an upstream author wrote, such as a
+    commit subject, cannot drive the terminal or reorder what it shows."""
+    return ''.join(character for character in text if unicodedata.category(character) not in ('Cc', 'Cf'))
+
+
 class Upstream:
-    """The reads from outside the checkout, in one place so the tests can replace them."""
+    """The reads from outside the checkout, in one place so the tests can replace them.
+
+    A profile's repository is fetched once per command into a private temporary bare repository,
+    which close() deletes; use the instance as a context manager.
+    """
 
     def __init__(self, now=None):
         self.now = now or datetime.datetime.now(datetime.UTC)
+        self._scratch = None
+        self._fetched = {}  # url -> (bare repository, whether it holds the history)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exception):
+        self.close()
+
+    def close(self):
+        if self._scratch is not None:
+            self._scratch.cleanup()
+            self._scratch = None
+            self._fetched.clear()
 
     def read(self, url):
         request = urllib.request.Request(url, headers={'User-Agent': 'shaffy-os-pins'})
@@ -60,7 +88,12 @@ class Upstream:
     def refs(self, url, *patterns):
         """{ref: commit} from `git ls-remote`, with annotated tags peeled."""
         result = subprocess.run(
-            ['git', 'ls-remote', url, *patterns], capture_output=True, text=True, timeout=60, check=True
+            ['git', 'ls-remote', url, *patterns],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, GIT_TERMINAL_PROMPT='0'),  # a public repository; a wrong name fails, never prompts
+            timeout=60,
+            check=True,
         )
         refs = {}
         for line in result.stdout.splitlines():
@@ -84,6 +117,124 @@ class Upstream:
     def old_enough(self, stamp):
         when = datetime.datetime.fromisoformat(stamp.replace('Z', '+00:00'))
         return self.now - when >= MINIMUM_AGE
+
+    def tree(self, url, commit, folder, limits):
+        """{path: bytes} of every file under FOLDER at COMMIT, paths relative to FOLDER.
+
+        Raises ValueError for a missing folder, a link, a submodule, a name no checkout could
+        write safely ('..', '.git'), or more files or bytes than LIMITS (files, bytes) allows,
+        all before a blob is read.
+        """
+        repository = self._repository(url, commit, history=False)
+        listing = _git(repository, 'ls-tree', '-r', '-l', '-z', '--full-tree', commit, '--', f'{folder}/')
+        where = f'{folder}/ in {url} at {commit[:7]}'
+        entries = []
+        for record in listing.stdout.split(b'\0')[:-1]:
+            info, _, raw = record.partition(b'\t')
+            mode, kind, blob, size = info.decode().split()
+            try:
+                name = raw.decode().removeprefix(f'{folder}/')
+            except UnicodeDecodeError:
+                raise ValueError(f'{where}: a file name is not UTF-8') from None
+            if mode == '120000' or kind == 'commit':
+                what = 'a link' if kind == 'blob' else 'a submodule'
+                raise ValueError(f'{where}: {name} is {what}, and a profile holds plain files only')
+            if any(part in ('', '.', '..') or part.lower() == '.git' for part in name.split('/')):
+                raise ValueError(f'{where}: {name!r} is not a name a profile may hold')
+            entries.append((name, blob, int(size)))
+        if not entries:
+            raise ValueError(f'{where}: no such folder')
+        most_files, most_bytes = limits
+        if len(entries) > most_files:
+            raise ValueError(f'{where}: {len(entries)} files, more than the {most_files} a profile may hold')
+        total = sum(size for _, _, size in entries)
+        if total > most_bytes:
+            raise ValueError(f'{where}: {total} bytes, more than the {most_bytes} a profile may hold')
+        batch = _git(repository, 'cat-file', '--batch', stdin=b''.join(blob.encode() + b'\n' for _, blob, _ in entries))
+        files, data = {}, batch.stdout
+        for name, _, size in entries:
+            _, _, data = data.partition(b'\n')  # "<blob> blob <size>", then the bytes and a newline
+            files[name], data = data[:size], data[size + 1 :]
+        return files
+
+    def subjects(self, url, old, new, folder):
+        """'%h %s' of every commit in OLD..NEW that touched FOLDER, newest first, each without
+        control characters; None when OLD is no longer an ancestor of NEW (the author rewrote
+        the history)."""
+        repository = self._repository(url, new, history=True)
+        if _git(repository, 'merge-base', '--is-ancestor', old, new, check=False).returncode:
+            return None
+        log = _git(
+            repository,
+            '-c',
+            'log.showSignature=false',
+            'log',
+            '--no-color',
+            '--format=%h %s',
+            f'{old}..{new}',
+            '--',
+            f'{folder}/',
+        )
+        return [printable(line) for line in log.stdout.decode(errors='replace').splitlines()]
+
+    def _repository(self, url, commit, history):
+        """A private bare repository that holds COMMIT, one per URL for this instance's lifetime.
+
+        Without HISTORY: git fetch --depth 1 by the commit's hash. With HISTORY, or when the host
+        refuses to serve a commit by its hash (some do unless a branch or tag names it): a plain
+        bare clone, which must then hold COMMIT, or ValueError naming the source and the commit.
+        """
+        held = self._fetched.get(url)
+        if held and (held[1] or not history) and _holds(held[0], commit):
+            return held[0]
+        if not history and not (held and held[1]):
+            repository = held[0] if held else self._new(bare=True)
+            fetched = _git(
+                repository, 'fetch', '--quiet', '--depth', '1', '--no-tags', '--', url, commit, check=False, timeout=120
+            )
+            if not fetched.returncode and _holds(repository, commit):
+                self._fetched[url] = (repository, False)
+                return repository
+        repository = self._new(bare=False)
+        _git(None, 'clone', '--quiet', '--bare', '--', url, repository, timeout=600)
+        if not _holds(repository, commit):
+            raise ValueError(f'{url}: no branch or tag holds the commit {commit}')
+        self._fetched[url] = (repository, True)
+        return repository
+
+    def _new(self, bare):
+        """A fresh path in this instance's private folder; with BARE, an empty bare repository there."""
+        if self._scratch is None:
+            self._scratch = tempfile.TemporaryDirectory(prefix='shaffy-profiles-')
+        path = Path(self._scratch.name) / str(len(list(Path(self._scratch.name).iterdir())))
+        if bare:
+            _git(None, 'init', '--quiet', '--bare', path)
+        return path
+
+
+def _git(repository, *arguments, stdin=None, check=True, timeout=60):
+    """git on REPOSITORY, never asking for a password: a profile's repository is public. A failure
+    raises ValueError with git's own reason."""
+    command = ['git', *(['--git-dir', str(repository)] if repository else []), *map(str, arguments)]
+    try:
+        result = subprocess.run(
+            command,
+            input=stdin,
+            capture_output=True,
+            env=dict(os.environ, GIT_TERMINAL_PROMPT='0'),
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise ValueError(f'git {arguments[0]} took longer than {timeout} seconds') from None
+    if check and result.returncode:
+        reason = printable(result.stderr.decode(errors='replace').strip().replace('\n', ' ')) or result.returncode
+        raise ValueError(f'git {arguments[0]} failed: {reason}')
+    return result
+
+
+def _holds(repository, commit):
+    return not _git(repository, 'cat-file', '-e', f'{commit}^{{commit}}', check=False).returncode
 
 
 def numeric(version):
