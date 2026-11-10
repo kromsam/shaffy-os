@@ -381,7 +381,7 @@ who answer for them. Read what you vendor. More are under the GitHub topic
 
 | Repository | Profiles |
 | --- | --- |
-| None yet | Publish yours ([write a profile](#write-a-profile)) and propose it here with a pull request against `dev`. |
+| [kromsam/shaffy-os-profiles](https://github.com/kromsam/shaffy-os-profiles) | `ruby`: Ruby through mise with the ruby-lsp gem, LazyVim's Ruby extra and Claude Code's ruby-lsp plugin. |
 
 To add a repository, add a row with its profiles, in alphabetical order, and
 open a pull request against `dev`.
