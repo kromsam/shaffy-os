@@ -603,7 +603,7 @@ def _digest(path):
 def _manifest(folder):
     """A vendored copy's profile.yaml, or {} when it cannot be read."""
     try:
-        return loader.parse(Path(folder) / profiles.MANIFEST)
+        return loader.parse(Path(folder) / profiles.MANIFEST, aliases=False)
     except loader.SettingsError:
         return {}
 

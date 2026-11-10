@@ -193,6 +193,8 @@ def profile_schema(schema):
         properties[section] = copied
     used = json.dumps(properties)
     defs = {name: copy.deepcopy(value) for name, value in schema['$defs'].items() if f'#/$defs/{name}' in used}
+    # A file Git reads, such as .gitattributes, would change the supplement's repository, not the home.
+    defs['reference']['pattern'] = defs['reference']['pattern'].replace('^', '^(?!(.*/)?\\.[gG][iI][tT])', 1)
     _describe_for_a_profile(properties, defs)
     return {
         '$schema': schema['$schema'],
@@ -212,7 +214,9 @@ def profile_schema(schema):
 
 def _describe_for_a_profile(properties, defs):
     """Replace the copied descriptions that name the supplement's own files and targets."""
-    defs['reference']['description'] = 'A file inside the profile, relative to its folder.'
+    defs['reference']['description'] = (
+        'A file inside the profile, relative to its folder; no part of its path starts with .git.'
+    )
     overrides = properties['overrides']
     overrides['description'] = (
         'Native fragments, each a file in the profile, loaded after the public configuration and before the '
@@ -276,12 +280,13 @@ def hwdb_unit_matches(text):
 def read_profile(folder, schema, label, *, parse, validate, release_problem, profile_id=None):
     """Parse and check FOLDER/profile.yaml; return (data, problems).
 
-    PARSE and VALIDATE are the loader's, RELEASE_PROBLEM its release check bound to the checkout.
-    Order: too new a minimum_release alone; else every PROFILE_EXCLUDED key with explain(); else
-    the schema (profile_schema(schema)); then every asset target under PROFILE_REFUSED_TARGETS.
+    PARSE and VALIDATE are the loader's, RELEASE_PROBLEM its release check bound to the checkout;
+    PARSE refuses an alias. Order: too new a minimum_release alone; else every PROFILE_EXCLUDED
+    key with explain(); else the schema (profile_schema(schema)); then every asset target under
+    PROFILE_REFUSED_TARGETS.
     References and the keyboard map's text are the loader's (_layer_files), which follows links.
     """
-    data = parse(Path(folder) / MANIFEST)
+    data = parse(Path(folder) / MANIFEST, aliases=False)  # someone else wrote it
     too_new = release_problem(data.get('minimum_release'))
     if too_new:
         return data, [f'{label}: {too_new}']

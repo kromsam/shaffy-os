@@ -149,7 +149,9 @@ preferences, never access or the state of the tools that manage the home. A keyb
 match a keyboard model by its vendor and product, never one unit by a port, a
 unique id or a serial. A profile holds plain files, at most 200 of them and
 8 MiB in all, with no link or submodule, and every file it names lies inside
-its folder.
+its folder. No name in it holds a control character, and none starts with
+`.git`, since Git would read such a file in your supplement. Its
+`profile.yaml` writes every value out: an alias (`*name`) is refused.
 
 If a profile should be able to share something it may not, that is a change to
 Shaffy OS ([fix it upstream](#fix-it-upstream)).
@@ -214,9 +216,11 @@ something, fix it for everyone who uses it:
    ```
 
    The patch applies with `git apply` in the author's repository at the
-   vendored commit. The command also prints where to send it: the author's
-   fork and a prefilled issue on GitHub. It names each line of the patch that
-   looks personal, by its rule, never the value.
+   vendored commit. The command writes it to a file or a pipe, never to the
+   terminal, which would act on any escape sequence in it. It also prints
+   where to send it: the author's fork and a prefilled issue on GitHub. It
+   names each line of the patch that looks personal, by its rule, never the
+   value.
 3. Restore the copy with `git restore profiles/alice/writing`, so that the
    loads accept it again.
 4. Read the patch, then open the issue or the pull request yourself. Nothing

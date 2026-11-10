@@ -668,7 +668,7 @@
     },
     "reference": {
       "type": "string",
-      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000\\n]+$",
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000-\\u001f\\u007f-\\u009f]+$",
       "description": "A file inside the supplement, relative to its root."
     },
     "package_list": {

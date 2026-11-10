@@ -101,10 +101,24 @@ _Loader.add_constructor('tag:yaml.org,2002:int', _construct_int)
 _Loader.add_constructor('tag:yaml.org,2002:map', _construct_mapping)
 
 
-def parse(path):
-    """Parse one YAML file into plain data, or raise SettingsError."""
+class _NoAliases(_Loader):
+    """_Loader for a file someone else wrote: an alias is refused, since a few nested ones
+    multiply into more data than a printout of the settings can hold."""
+
+    def compose_node(self, parent, index):
+        if self.check_event(yaml.events.AliasEvent):
+            event = self.peek_event()
+            raise yaml.composer.ComposerError(
+                None, None, f'an alias (*{event.anchor}); write the value out in full', event.start_mark
+            )
+        return super().compose_node(parent, index)
+
+
+def parse(path, aliases=True):
+    """Parse one YAML file into plain data, or raise SettingsError, which names an alias as well
+    unless ALIASES."""
     try:
-        data = yaml.load(Path(path).read_text(), Loader=_Loader)
+        data = yaml.load(Path(path).read_text(), Loader=_Loader if aliases else _NoAliases)
     except OSError as error:
         raise SettingsError([f'{path}: cannot read: {error.strerror}']) from error
     except yaml.YAMLError as error:

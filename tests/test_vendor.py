@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import pty
 import subprocess
 import sys
 import tempfile
@@ -158,13 +159,62 @@ class UpstreamTests(GitCase):
         cases = {
             'a link': (link, 'link.yaml is a link'),
             'a submodule': (submodule, 'vendor is a submodule'),
-            '.git': (self.repository.craft('notes', {'.git': '040000'}), "'.git/config' is not a name"),
-            '.GIT': (self.repository.craft('notes', {'.GIT': '040000'}), "'.GIT/config' is not a name"),
-            '..': (self.repository.craft('notes', {'..': '040000'}), "'../config' is not a name"),
+            # git's own check of every object it receives refuses these trees before tree() reads them.
+            '.git': (self.repository.craft('notes', {'.git': '040000'}), 'fsck error'),
+            '.GIT': (self.repository.craft('notes', {'.GIT': '040000'}), 'fsck error'),
+            '..': (self.repository.craft('notes', {'..': '040000'}), 'fsck error'),
         }
         for case, (commit, message) in cases.items():
             with self.subTest(case), self.assertRaisesRegex(ValueError, message):
                 self.upstream.tree(self.repository.url, commit, 'notes', LIMITS)
+
+    def test_a_name_with_a_control_or_format_character_is_refused_without_showing_it(self):
+        self.repository.commit('Add notes', {'notes/profile.yaml': 'one\n'})
+        # An OSC 52 sequence would replace the clipboard in the terminal that printed it.
+        for name, mode in (('\x1b]52;c;ZXhhbXBsZQ==\x07', '120000'), ('a\u202eb.txt', '100644'), ('\x9bx', '100644')):
+            commit = self.repository.craft('notes', {name: mode})
+            with self.subTest(name=ascii(name)):
+                with self.assertRaisesRegex(ValueError, 'a control or format character') as caught:
+                    self.upstream.tree(self.repository.url, commit, 'notes', LIMITS)
+                self.assertEqual(pins.printable(str(caught.exception)), str(caught.exception))
+
+    def test_a_name_git_reads_is_refused(self):
+        self.repository.commit('Add notes', {'notes/profile.yaml': 'one\n'})
+        for name, mode in (
+            ('.gitattributes', '100644'),
+            ('.gitignore', '100644'),
+            ('.GitModules', '100644'),
+            ('.github', '040000'),
+        ):
+            commit = self.repository.craft('notes', {name: mode})
+            with self.subTest(name), self.assertRaisesRegex(ValueError, 'is not a name a profile may hold'):
+                self.upstream.tree(self.repository.url, commit, 'notes', LIMITS)
+
+    def test_only_the_folders_files_are_fetched(self):
+        git('-C', self.repository.served, 'config', 'uploadpack.allowFilter', 'true')  # as public hosts serve
+        (self.repository.work / 'other').mkdir()
+        (self.repository.work / 'other/large.bin').write_bytes(os.urandom(2 * 2**20))
+        old = self.repository.commit('Add notes beside a large file', {'notes/profile.yaml': 'one\n'})
+        new = self.repository.commit('Change notes', {'notes/profile.yaml': 'two\n'})
+        temporary = self.directory / 'tmp'
+        temporary.mkdir()
+        with mock.patch.object(tempfile, 'tempdir', str(temporary)):
+            tree = self.upstream.tree(self.repository.url, new, 'notes', LIMITS)
+            subjects = self.upstream.subjects(self.repository.url, old, new, 'notes')
+            fetched = sum(path.stat().st_size for path in temporary.rglob('*') if path.is_file())
+        self.assertEqual(tree, {'profile.yaml': b'two\n'})
+        self.assertEqual([line.split(' ', 1)[1] for line in subjects], ['Change notes'])
+        self.assertLess(fetched, 2**20)
+
+    def test_a_malformed_object_is_refused(self):
+        self.repository.commit('Add notes', {'notes/profile.yaml': 'one\n'})
+        served = self.repository.served
+        tree = git('-C', served, 'rev-parse', 'HEAD^{tree}')
+        text = f'tree {tree}\nauthor A <a@example.com> 1 +0000\ncommitter A <a@example.com> never +0000\n\nBad date\n'
+        commit = git('-C', served, 'hash-object', '--literally', '-w', '-t', 'commit', '--stdin', stdin=text)
+        git('-C', served, 'update-ref', 'refs/heads/malformed', commit)
+        with self.assertRaisesRegex(ValueError, 'git clone failed'):
+            self.upstream.tree(self.repository.url, commit, 'notes', LIMITS)
 
     def test_more_files_or_bytes_than_the_limits_are_refused(self):
         commit = self.repository.commit('Add notes', {'notes/profile.yaml': 'one\n', 'notes/a.txt': 'a' * 20})
@@ -704,6 +754,33 @@ class BoundaryTests(CommandCase):
         self.assertEqual(again.returncode, 1)
         self.assertTrue(again.stderr.startswith('shaffy: alice/notes is vendored already'), again.stderr)
 
+    def test_the_profile_command_shows_no_control_character_an_author_or_a_lock_holds(self):
+        env = dict(os.environ, HOME=str(self.directory / 'home'), PATH='/usr/bin:/bin', LANG='C.UTF-8')
+        planted = '\x1b]52;c;ZXhhbXBsZQ==\x07'
+
+        def shaffy(*arguments):
+            return subprocess.run(
+                [str(ROOT / 'bin/shaffy'), 'profile', *arguments, '--supplement', str(self.supplement)],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120,
+                check=False,
+            )
+
+        refused = shaffy('add', SOURCE, 'notes', '--ref', self.repository.craft('notes', {planted: '120000'}))
+        self.add('keys')
+        lock = json.loads((self.supplement / profiles.LOCK).read_text())
+        lock['profiles']['alice/keys']['source'] = SOURCE + planted
+        (self.supplement / profiles.LOCK).write_text(json.dumps(lock))
+        unread = shaffy('update')
+        for result, said in ((refused, 'a control or format character'), (unread, 'cannot be read')):
+            with self.subTest(said):
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(said, result.stderr)
+                shown = result.stdout + result.stderr
+                self.assertEqual(shown, '\n'.join(pins.printable(line) for line in shown.split('\n')))
+
 
 class ProposeTests(CommandCase):
     def edit(self):
@@ -824,6 +901,27 @@ class ProposeTests(CommandCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(result.stdout.startswith(b'diff --git a/notes/'), result.stdout[:80])
         self.assertTrue(result.stderr.startswith(b'A fix for alice/notes against'), result.stderr)
+
+    def test_the_propose_command_refuses_to_write_the_patch_to_a_terminal(self):
+        self.add('notes')
+        self.edit()
+        env = dict(os.environ, HOME=str(self.directory / 'home'), PATH='/usr/bin:/bin', LANG='C.UTF-8')
+        leader, follower = pty.openpty()
+        self.addCleanup(os.close, leader)
+        try:
+            result = subprocess.run(
+                [str(ROOT / 'bin/shaffy'), 'profile', 'propose', 'alice/notes', '--supplement', str(self.supplement)],
+                stdout=follower,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                timeout=120,
+                check=False,
+            )
+        finally:
+            os.close(follower)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn('redirect it into a file: ./bin/shaffy profile propose alice/notes > ', result.stderr)
 
 
 class ReportTests(CommandCase):

@@ -736,54 +736,69 @@ def profile(args):
     """Vendor, update or remove the profiles in a supplement's profiles/ folder, draft a fix for
     an author or Shaffy OS (lib/shaffy/vendor.py, lib/shaffy/sharing.py), or check an author's
     profile repository (lib/shaffy/authoring.py). Each prints what they return, and a refusal as
-    `shaffy: ...` with exit status 1; propose writes its patch to stdout and the rest to stderr.
-    Nothing is sent anywhere."""
+    `shaffy: ...` with exit status 1, every line without a control or format character, which an
+    author's text could plant to drive the terminal. propose writes its patch to stdout, never to
+    a terminal, and the rest to stderr. Nothing is sent anywhere."""
     from shaffy import pins, sharing, vendor
     from shaffy.selection import SelectionError, resolve
+
+    def show(lines, stream=sys.stdout):
+        text = '\n'.join(map(str, lines))
+        print('\n'.join(pins.printable(line) for line in text.split('\n')), file=stream, flush=True)
+
+    def refuse(message):
+        show([f'shaffy: {message}'], sys.stderr)
+        return 1
 
     if args.action == 'check':  # an author's repository; a supplement adds only its private values
         from shaffy.authoring import check_repository
 
         report = check_repository(ROOT, args.path, args.supplement)
-        print('\n'.join(report.lines()), flush=True)  # before the refusal on stderr
+        show(report.lines())  # before the refusal on stderr
         if report.problems:
-            return _fail(f'profile check found {report.problems} problem{"s" * (report.problems != 1)}')
+            return refuse(f'profile check found {report.problems} problem{"s" * (report.problems != 1)}')
         return 0
     if args.action == 'propose' and args.to == 'shaffy' and not args.id:
-        print('\n'.join(sharing.propose_shaffy(None, ROOT, key=args.key)))  # needs no supplement
+        show(sharing.propose_shaffy(None, ROOT, key=args.key))  # needs no supplement
         return 0
+    if args.action == 'propose' and args.to == 'author':
+        if not args.id:
+            return refuse('name the profile: ./bin/shaffy profile propose OWNER/NAME')
+        if sys.stdout.isatty():  # the patch holds the author's bytes and the edits as they are
+            return refuse(
+                'propose writes a patch, which a terminal would show unfiltered; redirect it into a file: '
+                f'./bin/shaffy profile propose {args.id} > {args.id.replace("/", "-")}.patch'
+            )
     try:
         selection = resolve(args.supplement)
     except SelectionError as error:
-        return _fail(error)
+        return refuse(error)
     if selection['mode'] != 'supplement':
-        return _fail('no supplement is bound; pass --supplement PATH, or bind one with ./bin/shaffy supplement attach')
+        return refuse('no supplement is bound; pass --supplement PATH, or bind one with ./bin/shaffy supplement attach')
     root = Path(selection['path'])
     try:
         with pins.Upstream() as upstream:
             if args.action == 'propose' and args.to == 'shaffy':
-                print('\n'.join(sharing.propose_shaffy(root, ROOT, args.id, args.key)))
+                show(sharing.propose_shaffy(root, ROOT, args.id, args.key))
                 return 0
             if args.action == 'propose':
-                if not args.id:
-                    return _fail('name the profile: ./bin/shaffy profile propose OWNER/NAME')
                 patch, header = sharing.propose(root, ROOT, args.id, upstream)
-                print('\n'.join(header), file=sys.stderr)
+                show(header, sys.stderr)
                 sys.stdout.write(patch)
                 return 0
             if args.action == 'remove':
-                print('\n'.join(vendor.remove(root, args.ids)))
+                show(vendor.remove(root, args.ids))
                 return 0
             if args.action == 'add':
                 outcome = vendor.add(root, ROOT, args.source, args.names, args.ref, upstream)
             else:
                 outcome = vendor.update(root, ROOT, args.ids, args.ref, upstream)
     except vendor.ProfileError as error:
-        return _fail(error)
+        return refuse(error)
     if outcome.reviews or outcome.loaded:
-        print('\n'.join(outcome.lines()))
+        show(outcome.lines())
     for refusal in outcome.refused:
-        print(f'shaffy: {refusal}', file=sys.stderr)
+        refuse(refusal)
     return 1 if outcome.refused else 0
 
 

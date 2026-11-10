@@ -121,38 +121,50 @@ class Upstream:
     def tree(self, url, commit, folder, limits):
         """{path: bytes} of every file under FOLDER at COMMIT, paths relative to FOLDER.
 
-        Raises ValueError for a missing folder, a link, a submodule, a name no checkout could
-        write safely ('..', '.git'), or more files or bytes than LIMITS (files, bytes) allows,
-        all before a blob is read.
+        Raises ValueError for a missing folder, a link, a submodule, a name with a control or
+        format character, a name no checkout could write safely ('..', or one Git reads, such as
+        .git or .gitattributes), or more files than LIMITS (files, bytes) allows, all before a
+        blob is fetched; then for more bytes than LIMITS allows, before a blob is read. Only the
+        folder's blobs are fetched.
         """
         repository = self._repository(url, commit, history=False)
-        listing = _git(repository, 'ls-tree', '-r', '-l', '-z', '--full-tree', commit, '--', f'{folder}/')
+        listing = _git(repository, 'ls-tree', '-r', '-z', '--full-tree', commit, '--', f'{folder}/')
         where = f'{folder}/ in {url} at {commit[:7]}'
         entries = []
         for record in listing.stdout.split(b'\0')[:-1]:
             info, _, raw = record.partition(b'\t')
-            mode, kind, blob, size = info.decode().split()
+            mode, kind, blob = info.decode().split()
             try:
                 name = raw.decode().removeprefix(f'{folder}/')
             except UnicodeDecodeError:
                 raise ValueError(f'{where}: a file name is not UTF-8') from None
+            if printable(name) != name:  # before any message shows the name as it is
+                raise ValueError(f'{where}: {name!r} holds a control or format character, which no name may')
             if mode == '120000' or kind == 'commit':
                 what = 'a link' if kind == 'blob' else 'a submodule'
                 raise ValueError(f'{where}: {name} is {what}, and a profile holds plain files only')
-            if any(part in ('', '.', '..') or part.lower() == '.git' for part in name.split('/')):
+            if any(part in ('', '.', '..') or part.lower().startswith('.git') for part in name.split('/')):
                 raise ValueError(f'{where}: {name!r} is not a name a profile may hold')
-            entries.append((name, blob, int(size)))
+            entries.append((name, blob))
         if not entries:
             raise ValueError(f'{where}: no such folder')
         most_files, most_bytes = limits
         if len(entries) > most_files:
             raise ValueError(f'{where}: {len(entries)} files, more than the {most_files} a profile may hold')
-        total = sum(size for _, _, size in entries)
-        if total > most_bytes:
-            raise ValueError(f'{where}: {total} bytes, more than the {most_bytes} a profile may hold')
-        batch = _git(repository, 'cat-file', '--batch', stdin=b''.join(blob.encode() + b'\n' for _, blob, _ in entries))
+        blobs = b''.join(blob.encode() + b'\n' for _, blob in entries)
+        found = _git(repository, 'cat-file', '--batch-check', stdin=blobs).stdout.splitlines()
+        missing = b''.join(line.split()[0] + b'\n' for line in found if line.endswith(b' missing'))
+        if missing:  # a host that filters sent none of the blobs
+            _git(
+                repository, 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--stdin', 'origin', stdin=missing
+            )
+            found = _git(repository, 'cat-file', '--batch-check', stdin=blobs).stdout.splitlines()
+        sizes = [int(line.split()[2]) for line in found]
+        if sum(sizes) > most_bytes:
+            raise ValueError(f'{where}: {sum(sizes)} bytes, more than the {most_bytes} a profile may hold')
+        batch = _git(repository, 'cat-file', '--batch', stdin=blobs)
         files, data = {}, batch.stdout
-        for name, _, size in entries:
+        for (name, _), size in zip(entries, sizes, strict=True):
             _, _, data = data.partition(b'\n')  # "<blob> blob <size>", then the bytes and a newline
             files[name], data = data[:size], data[size + 1 :]
         return files
@@ -180,36 +192,33 @@ class Upstream:
     def _repository(self, url, commit, history):
         """A private bare repository that holds COMMIT, one per URL for this instance's lifetime.
 
-        Without HISTORY: git fetch --depth 1 by the commit's hash. With HISTORY, or when the host
-        refuses to serve a commit by its hash (some do unless a branch or tag names it): a plain
-        bare clone, which must then hold COMMIT, or ValueError naming the source and the commit.
+        git clone --revision COMMIT, with --depth 1 unless HISTORY. A host that filters (public
+        hosts do) sends commits and trees only; tree() fetches the blobs of one folder. When the
+        host refuses a commit by its hash (some do unless a branch or tag names it): a clone of
+        every branch, which must then hold COMMIT, or ValueError naming the source and the commit.
+        Every object git receives is checked (transfer.fsckObjects).
         """
         held = self._fetched.get(url)
         if held and (held[1] or not history) and _holds(held[0], commit):
             return held[0]
-        if not history and not (held and held[1]):
-            repository = held[0] if held else self._new(bare=True)
-            fetched = _git(
-                repository, 'fetch', '--quiet', '--depth', '1', '--no-tags', '--', url, commit, check=False, timeout=120
-            )
-            if not fetched.returncode and _holds(repository, commit):
-                self._fetched[url] = (repository, False)
-                return repository
-        repository = self._new(bare=False)
-        _git(None, 'clone', '--quiet', '--bare', '--', url, repository, timeout=600)
-        if not _holds(repository, commit):
-            raise ValueError(f'{url}: no branch or tag holds the commit {commit}')
-        self._fetched[url] = (repository, True)
+        repository = self._new()
+        clone = ('clone', '--quiet', '--bare', '--filter=blob:none', '--config', 'transfer.fsckObjects=true')
+        depth = () if history else ('--depth', '1')
+        cloned = _git(None, *clone, *depth, f'--revision={commit}', '--', url, repository, check=False, timeout=600)
+        if cloned.returncode or not _holds(repository, commit):
+            shutil.rmtree(repository, ignore_errors=True)
+            _git(None, *clone, '--', url, repository, timeout=600)
+            if not _holds(repository, commit):
+                raise ValueError(f'{url}: no branch or tag holds the commit {commit}')
+            history = True
+        self._fetched[url] = (repository, history)
         return repository
 
-    def _new(self, bare):
-        """A fresh path in this instance's private folder; with BARE, an empty bare repository there."""
+    def _new(self):
+        """A fresh path in this instance's private folder."""
         if self._scratch is None:
             self._scratch = tempfile.TemporaryDirectory(prefix='shaffy-profiles-')
-        path = Path(self._scratch.name) / str(len(list(Path(self._scratch.name).iterdir())))
-        if bare:
-            _git(None, 'init', '--quiet', '--bare', path)
-        return path
+        return Path(self._scratch.name) / str(len(list(Path(self._scratch.name).iterdir())))
 
 
 def _git(repository, *arguments, stdin=None, check=True, timeout=60):
@@ -221,7 +230,8 @@ def _git(repository, *arguments, stdin=None, check=True, timeout=60):
             command,
             input=stdin,
             capture_output=True,
-            env=dict(os.environ, GIT_TERMINAL_PROMPT='0'),
+            # Every fetch is one the code asks for: a missing object is never fetched on demand.
+            env=dict(os.environ, GIT_TERMINAL_PROMPT='0', GIT_NO_LAZY_FETCH='1'),
             timeout=timeout,
             check=False,
         )

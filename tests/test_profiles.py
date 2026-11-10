@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy import profiles
-from shaffy.loader import parse, validate
+from shaffy.loader import SettingsError, parse, validate
 from support import vendor_profile
 
 SCHEMA = json.loads((ROOT / 'schema/supplement.schema.json').read_text())
@@ -234,6 +234,31 @@ class ReadProfileTests(unittest.TestCase):
                     self.assertIn(f'assets.{target}: a profile may not write under {prefix}', problems[0])
         _, fine = self.read('schema_version: 1\ndescription: x\nassets:\n  "~/.local/share/x": files/x\n')
         self.assertEqual(fine, [])
+
+    def test_a_reference_with_a_control_character_or_a_name_git_reads_is_refused(self):
+        # YAML's double quotes write ESC as \e and BEL as \a.
+        for reference in ('keys\\e]52;c;ZXhhbXBsZQ==\\a.hwdb', 'keys\\x7f.hwdb', '.gitattributes', 'keys/.GitIgnore'):
+            with self.subTest(reference=reference):
+                _, problems = self.read(
+                    f'schema_version: 1\ndescription: x\noverrides:\n  keyboard_hwdb: "{reference}"\n'
+                )
+                self.assertEqual(len(problems), 1, problems)
+                self.assertIn('profile.yaml: overrides.keyboard_hwdb: ', problems[0])
+        _, fine = self.read('schema_version: 1\ndescription: x\noverrides:\n  keyboard_hwdb: keys/git.hwdb\n')
+        self.assertEqual(fine, [])
+        # A supplement's own files may be Git's: only the control characters are refused there.
+        config = {'schema_version': 1, 'supplement_id': 'synthetic', 'overrides': {'fish': '.gitignore'}}
+        self.assertEqual(validate(config, SCHEMA, 'config.yaml'), [])
+        config['overrides']['fish'] = 'shell\x1b.fish'
+        self.assertEqual(len(validate(config, SCHEMA, 'config.yaml')), 1)
+
+    def test_an_alias_is_refused(self):
+        # Each alias of a few nested ones multiplies what a printout of the settings holds.
+        with self.assertRaisesRegex(SettingsError, r'profile\.yaml:6:14: .*alias'):
+            self.read(
+                'schema_version: 1\ndescription: &d Example description.\nai:\n  mcp_servers:\n    example:\n'
+                '      args: [*d]\n      command: example-mcp\n'
+            )
 
 
 class LockTests(unittest.TestCase):

@@ -207,8 +207,8 @@
     },
     "reference": {
       "type": "string",
-      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000\\n]+$",
-      "description": "A file inside the profile, relative to its folder."
+      "pattern": "^(?!(.*/)?\\.[gG][iI][tT])(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+      "description": "A file inside the profile, relative to its folder; no part of its path starts with .git."
     },
     "package_list": {
       "type": "array",
