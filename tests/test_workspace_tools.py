@@ -3,11 +3,14 @@
 import json
 import os
 from pathlib import Path
+import re
 import runpy
+import shutil
 import subprocess
 import tempfile
 import tomllib
 import unittest
+import uuid
 
 import yaml
 
@@ -132,26 +135,9 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertEqual(merged['hooks']['PostToolUse'][0]['matcher'], '^(apply_patch|Edit|Write)$')
         self.assertEqual(merge['merge_codex_hooks']('', {}), '')
 
-    def test_workmux_default_panes_put_the_agent_beside_the_editor_above_a_shell(self):
+    def test_workmux_departs_from_its_defaults_only_in_font_agent_and_update_check(self):
         config = yaml.safe_load((HOME / 'dot_config/workmux/config.yaml').read_text())
-        self.assertEqual(config['agent'], 'claude')
-        self.assertTrue(config['nerdfont'], 'the first run must not prompt for nerd font icons')
-        editor, shell, agent = config['panes']
-        self.assertEqual((editor['command'], editor['focus']), ('nvim .', True))
-        self.assertEqual((shell['split'], shell['percentage']), ('vertical', 15))
-        self.assertEqual(
-            (agent['command'], agent['split'], agent['percentage'], agent['target']), ('<agent>', 'horizontal', 30, 0)
-        )
-
-    def test_workmux_layouts_offer_codex_and_both_agents(self):
-        config = yaml.safe_load((HOME / 'dot_config/workmux/config.yaml').read_text())
-        codex = config['layouts']['codex']['panes']
-        self.assertEqual([p.get('command') for p in codex], ['nvim .', None, 'codex'])
-        duo = config['layouts']['duo']['panes']
-        self.assertEqual([p.get('command') for p in duo], ['nvim .', None, 'claude', 'codex'])
-        self.assertEqual((duo[3]['split'], duo[3]['target']), ('vertical', 2))
-        for layout in config['layouts'].values():
-            self.assertEqual(len([p for p in layout['panes'] if p.get('focus')]), 1)
+        self.assertEqual(config, {'nerdfont': True, 'agent': 'claude', 'auto_update_check': False})
 
     def test_workspace_tools_use_latest_through_mise_everywhere(self):
         config = tomllib.loads((HOME / 'dot_config/mise/config.toml').read_text())
@@ -315,6 +301,33 @@ class WorkspaceToolsTests(unittest.TestCase):
         self.assertIn('set -g status-position top', conf)
         self.assertIn('bind -N "Split pane vertically" -n M-Enter', conf)
         self.assertNotIn('omarchy-', conf, 'Omarchy helper scripts are not installed here')
+
+    @unittest.skipUnless(shutil.which('tmux'), 'tmux is not installed')
+    def test_prefix_keys_open_the_workmux_dashboard_sidebar_and_agents(self):
+        server = ['tmux', '-L', f'test-{uuid.uuid4().hex[:12]}', '-f', '/dev/null', 'start-server', ';']
+        server += ['source-file', str(HOME / 'dot_config/tmux/tmux.conf'), ';', 'list-keys', '-T', 'prefix', ';']
+        listing = subprocess.run(
+            [*server, 'kill-server'], env={**os.environ, 'TMUX': ''}, capture_output=True, text=True, check=True
+        ).stdout
+        bound = {}
+        for line in listing.splitlines():
+            words = line.split()
+            if words[:1] == ['bind-key']:
+                bound[words[words.index('prefix') + 1]] = line
+        expected = {
+            'C-s': '"workmux dashboard"',
+            'C-w': '"workmux dashboard --tab worktrees"',
+            'C-t': '"workmux sidebar"',
+            'L': '"workmux last-done"',
+            'Tab': '"workmux last-agent"',
+        }
+        for key, command in expected.items():
+            self.assertIn(command, bound.get(key, f'{key} is unbound'))
+        # tmux refuses a popup larger than the client, so the dashboards size by percentage.
+        for key in ('C-s', 'C-w'):
+            sizes = dict(re.findall(r' -([wh]) "?(\d+%?)"?', bound[key]))
+            self.assertEqual(set(sizes), {'w', 'h'}, bound[key])
+            self.assertTrue(all(size.endswith('%') for size in sizes.values()), bound[key])
 
 
 if __name__ == '__main__':

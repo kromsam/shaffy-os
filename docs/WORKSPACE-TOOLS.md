@@ -205,14 +205,12 @@ their entries win.
 ## Worktrees and tmux with workmux
 
 [workmux](https://github.com/raine/workmux) gives each task its own Git worktree
-and tmux window. Inside the window, `~/.config/workmux/config.yaml` puts the
-editor in the upper left 70%, the agent in the upper right 30%, and a full-width
-Fish shell in the bottom 15%.
+and tmux window. Shaffy OS keeps workmux's default panes: the agent, Claude
+Code unless `-a` names another, with a shell beside it.
 
 ```sh
-wm add fix-login              # worktree + window: nvim left, claude right, shell below
-wm add fix-login -l codex     # Codex instead of Claude
-wm add fix-login -l duo       # Claude above Codex on the right
+wm add fix-login              # worktree + window: claude, with a shell beside it
+wm add fix-login -a codex     # Codex instead of Claude
 wm add fix-login -p "…"       # start the agent with a prompt
 wm list                       # worktrees, windows and agent status
 wm dashboard                  # TUI overview of running agents
@@ -223,23 +221,33 @@ wm remove fix-login           # drop without merging
 `wm` is the Fish alias for `workmux`; completions load on first use from
 `completions/workmux.fish`. Worktrees live beside the project in
 `<project>__worktrees/`. Branch names become window names, prefixed with a Nerd
-Font branch icon (`nerdfont: true` skips the first-run font question). A project
-can replace the panes with its own `.workmux.yaml`; the global file sets only the
-default layout, the `codex` and `duo` layouts and `agent: claude`. To give
-several agents the same task, `wm add NAME -a claude -a codex` creates one
-worktree per agent.
+Font branch icon. `~/.config/workmux/config.yaml` changes three of workmux's
+defaults; `workmux config reference` lists them all. `nerdfont: true` skips the
+first-run font question. `agent: claude` opens the agent in every project;
+without it, workmux opens the agent only in a project with a `CLAUDE.md`, and
+two shells elsewhere. `auto_update_check: false` stops workmux from suggesting
+`workmux update`, which would replace the binary inside mise's installation and
+skip mise's minimum release age. A project sets its own panes, named layouts and
+setup steps in a `.workmux.yaml`, which `workmux init` creates. To give several
+agents the same task, `wm add NAME -a claude -a codex` creates one worktree per
+agent.
 
 mise's GitHub backend downloads workmux's latest published release binary for
 the machine's platform, so workmux needs no Rust toolchain to install.
 `~/.local/bin/workmux` runs the mise binary for tmux, Niri and agent hooks.
+Updates come with the other mise tools, so `workmux update` stays unused.
 
 Start tmux first: **Super+Alt+Return** attaches to or creates the `Work` session;
 **Super+Return** still opens plain Alacritty. On the first `wm add`, workmux
-offers to install its agent status hooks and skills, and `workmux setup` offers
-the same later. The hooks show whether an agent is working, waiting or done in
-the window name. Claude's hooks go to `~/.claude/settings.json`, Codex's to
-`~/.codex/hooks.json` with `hooks = true` in its configuration. Both are private
-files; the home apply's Codex merge keeps settings it does not own.
+offers to install its agent status hooks and skills, and `workmux setup`, run in
+a terminal, offers the same later. The hooks show whether an agent is working,
+waiting or done in the window name. Claude's hooks go to
+`~/.claude/settings.json`, Codex's to `~/.codex/hooks.json` with `hooks = true`
+in its configuration. Both are private files; the home apply's Codex merge keeps
+settings it does not own. The skills (`/worktree`, `/coordinator`, `/merge`,
+`/rebase`, `/open-pr` and `/workmux`) are copies in `~/.claude/skills/`, and
+Codex gets none. A workmux release can change them; `workmux setup --skills`
+then shows how each copy differs and offers to replace it.
 
 ### Keys
 
@@ -272,6 +280,15 @@ Press **Ctrl+Space** (or Ctrl+B), then:
 | [ | Copy mode with vi keys: `v` selects, `y` copies |
 | q | Reload the configuration |
 | ? | Popup listing every binding |
+| Ctrl+S / Ctrl+W | workmux dashboard of agents / worktrees, in a popup |
+| Ctrl+T | Show or hide the workmux sidebar |
+| L | Go to the agent that last finished or is waiting; again for the one before |
+| Tab | Back to the previous agent |
+
+The workmux keys are the ones its README suggests, with popups sized as a share
+of the window because the README's fixed 100 by 30 fails in a smaller one. L
+and Tab replace tmux's own last-session key and window picker; Alt+Up/Down and
+N/P still switch sessions, and w still lists the windows.
 
 Inside tmux, Alt+Left/Right and Alt+Up/Down shadow Fish's directory-history and
 token-search bindings.

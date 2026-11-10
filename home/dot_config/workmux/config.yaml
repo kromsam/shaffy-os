@@ -1,44 +1,10 @@
 ---
 # workmux: one git worktree and tmux window per task, opened with `wm add <branch>`.
-# The default panes follow Omarchy's tdl layout: editor upper left (70%), agent
-# upper right (30%), shell across the bottom (15%). Project .workmux.yaml files
-# may replace `panes` for their own needs.
+# Only the settings below differ from workmux's defaults (`workmux config reference`);
+# the window's panes stay workmux's own, and a project's .workmux.yaml may change them.
 nerdfont: true
+# Naming the agent opens it in every project's window, not only beside a CLAUDE.md.
 agent: claude
-
-panes:
-  - command: nvim .
-    focus: true
-  - split: vertical
-    percentage: 15
-  - command: <agent>
-    split: horizontal
-    percentage: 30
-    target: 0
-
-# `wm add <branch> -l codex` puts Codex in the agent's place; `-l duo` puts Claude
-# above Codex there.
-layouts:
-  codex:
-    panes:
-      - command: nvim .
-        focus: true
-      - split: vertical
-        percentage: 15
-      - command: codex
-        split: horizontal
-        percentage: 30
-        target: 0
-  duo:
-    panes:
-      - command: nvim .
-        focus: true
-      - split: vertical
-        percentage: 15
-      - command: claude
-        split: horizontal
-        percentage: 30
-        target: 0
-      - command: codex
-        split: vertical
-        target: 2
+# mise installs and updates workmux, so no notice suggests `workmux update`, which
+# would replace mise's binary in place.
+auto_update_check: false
