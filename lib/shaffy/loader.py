@@ -224,7 +224,8 @@ def fold(layers):
     """Merge the layers' settings in order (docs/PROFILES.md, "How layers combine").
 
     Returns (settings, origin, problems). ORIGIN maps each unit's path to the Layer that set it
-    last, and each UNION item's path (path + (item,)) to the layer that added it first, or to the
+    last, each field of a KEYED entry (path + (field,)) to the layer whose value it holds, and
+    each UNION item's path (path + (item,)) to the layer that added it first, or to the
     supplement when config.yaml lists it as well. overrides and assets are not folded:
     _layer_files resolves them per layer and _assets joins the asset entries. Two profiles that
     give one unit different values are a problem naming both, unless the supplement sets that unit
@@ -232,7 +233,7 @@ def fold(layers):
     profiles'. With the defaults and a supplement alone the result equals merge(defaults,
     supplement), which a test holds.
     """
-    settings, origin, held, contested, base = {}, {}, {}, {}, {}
+    settings, origin, held, contested, base, fields = {}, {}, {}, {}, {}, {}
     for layer in layers:
         for path, value in _units({k: v for k, v in layer.data.items() if k not in FILE_SECTIONS}):
             if path in UNION:
@@ -247,17 +248,24 @@ def fold(layers):
                 continue
             before = _get(settings, path)
             if layer.kind == 'defaults':
-                base[path] = value
+                base[path] = (layer, value)
             elif layer.kind == 'profile':
                 first = held.setdefault(path, (layer, value))
                 if first[1] != value:
                     contested.setdefault(path, [first[0]]).append(layer)
             elif contested.pop(path, None):
-                before = base.get(path)  # config.yaml settles it: neither profile's entry stays
-            if path[:-1] in KEYED and isinstance(value, dict) and isinstance(before, dict):
-                value = merge(before, value)  # an MCP server, field by field over the one before it
+                owner, before = base.get(path, (None, None))  # config.yaml settles it: neither profile's entry stays
+                fields[path] = dict.fromkeys(before, owner) if isinstance(before, dict) else {}
+            if path[:-1] in KEYED and isinstance(value, dict):
+                own = value
+                if isinstance(before, dict):
+                    value = merge(before, value)  # an MCP server, field by field over the one before it
+                else:
+                    fields[path] = {}
+                fields.setdefault(path, {}).update(dict.fromkeys(own, layer))
             _put(settings, path, copy.deepcopy(value))
             origin[path] = layer
+    origin.update({(*path, name): owner for path, named in fields.items() for name, owner in named.items()})
     return settings, origin, [_contested(dotted(path), setters) for path, setters in contested.items()]
 
 
@@ -333,7 +341,9 @@ def _effective_problems(settings, origin=None):
         if 'command' not in spec and 'url' not in spec:
             problems.append(f'{label}: needs a command or a url')
         elif 'command' in spec and 'url' in spec:
-            problems.append(f'{label}: has both a command and a url')
+            command, url = (origin.get(('ai', 'mcp_servers', name, field)) for field in ('command', 'url'))
+            both = f' (from {_named(command)}) and a url (from {_named(url)})' if command != url else ' and a url'
+            problems.append(f'{label}: has both a command{both}')
         elif 'url' in spec and ('args' in spec or 'env' in spec):
             problems.append(f'{label}: args and env need a command')
     # Claude Code knows a marketplace by its name alone, and merge-ai-config.py writes one repository

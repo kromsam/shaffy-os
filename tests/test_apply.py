@@ -424,6 +424,34 @@ class HomeApplyTests(unittest.TestCase):
         self.assertEqual(third.returncode, 0, third.stderr)
         self.assertIn('(0 target(s) changed)', third.stdout)
 
+    def test_a_profile_fragment_follows_its_place_in_the_list_and_its_content(self):
+        manifest = {'profile.yaml': 'schema_version: 1\ndescription: x\noverrides:\n  noctalia: shell.toml\n'}
+        for profile_id, position in (('alice/one', 'top_center'), ('bob/two', 'bottom_center')):
+            vendor_profile(self.supplement, profile_id, {**manifest, 'shell.toml': f'[osd]\nposition = "{position}"\n'})
+        config = self.supplement / 'config.yaml'
+        unlisted = config.read_text()
+        config.write_text(unlisted + 'profiles: [alice/one, bob/two]\n')
+        self.attach()
+        first = self.shaffy('apply', '--home')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        noctalia = self.home / '.config/noctalia'
+        self.assertEqual(
+            sorted(path.name for path in noctalia.glob('96-profile-*')),
+            ['96-profile-01-alice-one.toml', '96-profile-02-bob-two.toml'],
+        )
+        config.write_text(unlisted + 'profiles: [bob/two]\n')  # bob/two moves up to the first place
+        second = self.shaffy('apply', '--home')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual([path.name for path in noctalia.glob('96-profile-*')], ['96-profile-01-bob-two.toml'])
+        self.assertEqual((noctalia / '96-profile-01-bob-two.toml').read_text(), '[osd]\nposition = "bottom_center"\n')
+        vendor_profile(self.supplement, 'bob/two', {**manifest, 'shell.toml': '[osd]\nposition = "top_left"\n'})
+        third = self.shaffy('apply', '--home')
+        self.assertEqual(third.returncode, 0, third.stderr)
+        self.assertEqual((noctalia / '96-profile-01-bob-two.toml').read_text(), '[osd]\nposition = "top_left"\n')
+        fourth = self.shaffy('apply', '--home')
+        self.assertEqual(fourth.returncode, 0, fourth.stderr)
+        self.assertIn('(0 target(s) changed)', fourth.stdout)
+
     def test_the_renamed_niri_and_noctalia_files_replace_the_old_names(self):
         # Remove after 2027-02-06, with the old names in home/.chezmoiremove.
         old = [self.home / '.config/niri/omarchy-overrides.kdl', self.home / '.config/noctalia/90-omarchy.toml']

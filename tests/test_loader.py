@@ -243,7 +243,7 @@ class InvalidInputTests(LoaderCase):
         for server, expected in (
             (
                 '    zotero:\n      url: "http://127.0.0.1:9000/mcp"\n',
-                'ai.mcp_servers.zotero: has both a command and a url',
+                'ai.mcp_servers.zotero: has both a command (from the public defaults) and a url (from config.yaml)',
             ),
             (
                 '    chat:\n      url: "http://127.0.0.1:9000/mcp"\n      args: []\n',
@@ -799,7 +799,14 @@ class ProfileTests(LoaderCase):
             zotero['env'], {'ZOTERO_LOCAL': 'true', 'ZOTERO_LOCAL_WRITE': 'true'}
         )  # the profile's over them
         self.assertEqual(zotero['args'], ['serve'])  # config.yaml's over both
-        self.assertEqual(data['provenance'], {'ai.mcp_servers.notes': 'alice/notes'})
+        self.assertEqual(
+            data['provenance'],
+            {
+                'ai.mcp_servers.notes': 'alice/notes',
+                'ai.mcp_servers.notes.command': 'alice/notes',
+                'ai.mcp_servers.zotero.env': 'alice/notes',  # its field, in the entry config.yaml set last
+            },
+        )
         self.assertEqual([profile['id'] for profile in data['profiles']], ['alice/notes'])
         self.assertEqual(data['profiles'][0]['description'], 'Example settings.')
         self.assertEqual(data['profiles'][0]['source'], 'https://github.com/example/profiles')
@@ -1014,6 +1021,24 @@ class ProfileTests(LoaderCase):
         self.assertIn("overrides.fish: 'profiles/alice/notes/a.fish' leads into profiles/", self.refused(supplement))
         (supplement / 'config.yaml').write_text(self.HEAD + 'dotfiles: profiles/alice\n')
         self.assertIn("dotfiles: 'profiles/alice' leads into profiles/", self.refused(supplement))
+
+    def test_mcp_command_and_url_from_two_layers_name_both(self):
+        supplement = self.listing('alice/notes')
+        self.vendor(
+            supplement, 'alice/notes', 'ai:\n  mcp_servers:\n    zotero:\n      url: "http://127.0.0.1:1/mcp"\n'
+        )
+        self.assertIn(
+            f'{supplement}/profiles/alice/notes/profile.yaml: ai.mcp_servers.zotero: has both a command (from the '
+            'public defaults) and a url (from alice/notes)',
+            self.refused(supplement),
+        )
+        with open(supplement / 'config.yaml', 'a') as stream:
+            stream.write('ai:\n  mcp_servers:\n    zotero:\n      command: example-zotero\n')
+        self.assertIn(
+            'effective settings: ai.mcp_servers.zotero: has both a command (from config.yaml) and a url (from '
+            'alice/notes)',
+            self.refused(supplement),
+        )
 
     def test_an_effective_problem_names_the_profile_that_set_the_entry(self):
         supplement = self.listing('alice/notes')

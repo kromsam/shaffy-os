@@ -766,6 +766,46 @@ class RemovalTemplateTests(unittest.TestCase):
                 self.assertTrue(any(fnmatch.fnmatchcase(line, place) for place in places))
 
 
+@host_test('systemd-hwdb compiles the keyboard map', tools=('systemd-hwdb',))
+class KeyboardMapRenderTests(unittest.TestCase):
+    def test_a_profile_keyboard_map_reaches_the_system_settings(self):
+        """The text the keyboard role installs as one file compiles, and udev reads the supplement's part
+        last: its key wins where both map one, and the profile's other keys apply."""
+        from shaffy.loader import load
+
+        match = 'evdev:input:b0003v1234p5678*'
+        with tempfile.TemporaryDirectory() as directory:
+            supplement = Path(directory) / 'supplement'
+            supplement.mkdir()
+            (supplement / 'own.hwdb').write_text(f'{match}\n KEYBOARD_KEY_70039=capslock\n')
+            (supplement / 'config.yaml').write_text(
+                'schema_version: 1\nsupplement_id: t\nprofiles: [alice/keys]\noverrides:\n  keyboard_hwdb: own.hwdb\n'
+            )
+            vendor_profile(
+                supplement,
+                'alice/keys',
+                {
+                    'profile.yaml': 'schema_version: 1\ndescription: x\noverrides:\n  keyboard_hwdb: keys.hwdb\n',
+                    'keys.hwdb': f'{match}\n KEYBOARD_KEY_70039=leftmeta\n KEYBOARD_KEY_700e2=leftctrl\n',
+                },
+            )
+            text = load(ROOT, supplement=supplement)['shaffy']['system_overrides']['keyboard_hwdb']
+            root = Path(directory) / 'root'
+            (root / 'etc/udev/hwdb.d').mkdir(parents=True)
+            (root / 'etc/udev/hwdb.d/90-shaffy-keyboard.hwdb').write_text(text)  # as roles/keyboard writes it
+            compiled = subprocess.run(
+                ['systemd-hwdb', 'update', '--root', str(root)], capture_output=True, text=True, check=False
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            query = subprocess.run(
+                ['systemd-hwdb', 'query', '--root', str(root), 'evdev:input:b0003v1234p5678e0111-e0,1,4,11,14,k71'],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        self.assertEqual(sorted(query.stdout.split()), ['KEYBOARD_KEY_70039=capslock', 'KEYBOARD_KEY_700e2=leftctrl'])
+
+
 @unittest.skipIf(REASON, f'render sandbox unavailable: {REASON}')
 class DotfilesRenderTests(unittest.TestCase):
     """The supplement's dotfiles, applied after the public home in the same synthetic home."""
