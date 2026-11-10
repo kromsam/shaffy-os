@@ -1,5 +1,5 @@
 """Subcommands of `bin/shaffy`: selftest, lint, check, data, diff, apply, status, outdated,
-update, supplement, integration and hook."""
+update, supplement, integration, profile and hook."""
 
 import argparse
 import json
@@ -711,6 +711,37 @@ def _dotfiles_status(drift):
     return lines, [summary] + [f'  {line}' for line in changed[:10]], False
 
 
+def profile(args):
+    """Vendor, update or remove the profiles in a supplement's profiles/ folder (lib/shaffy/vendor.py);
+    each prints what vendor returns, and a refusal as `shaffy: ...` with exit status 1."""
+    from shaffy import pins, vendor
+    from shaffy.selection import SelectionError, resolve
+
+    try:
+        selection = resolve(args.supplement)
+    except SelectionError as error:
+        return _fail(error)
+    if selection['mode'] != 'supplement':
+        return _fail('no supplement is bound; pass --supplement PATH, or bind one with ./bin/shaffy supplement attach')
+    root = Path(selection['path'])
+    try:
+        with pins.Upstream() as upstream:
+            if args.action == 'remove':
+                print('\n'.join(vendor.remove(root, args.ids)))
+                return 0
+            if args.action == 'add':
+                outcome = vendor.add(root, ROOT, args.source, args.names, args.ref, upstream)
+            else:
+                outcome = vendor.update(root, ROOT, args.ids, args.ref, upstream)
+    except vendor.ProfileError as error:
+        return _fail(error)
+    if outcome.reviews or outcome.loaded:
+        print('\n'.join(outcome.lines()))
+    for refusal in outcome.refused:
+        print(f'shaffy: {refusal}', file=sys.stderr)
+    return 1 if outcome.refused else 0
+
+
 def outdated(args):
     """Report what can be updated, from packages to this repository's pins; changes nothing."""
     from shaffy.updates import report
@@ -1007,5 +1038,23 @@ def main(argv):
         help='adopt: record its activation already here as managed; release: stop tracking it and change nothing',
     )
     own.set_defaults(run=integration)
+    shared = commands.add_parser('profile', help="vendor, update and remove other people's profiles (docs/PROFILES.md)")
+    verbs = shared.add_subparsers(dest='action', required=True, metavar='action')
+    vendoring = verbs.add_parser('add', help='vendor profiles from a repository into profiles/; config.yaml is yours')
+    vendoring.add_argument('source', help='OWNER/REPO on GitHub, or the https URL of a Git repository')
+    vendoring.add_argument('names', nargs='+', metavar='NAME', help="a profile's folder in that repository")
+    vendoring.add_argument(
+        '--ref',
+        default='HEAD',
+        help='the branch, tag or commit to vendor and follow (default: HEAD, the default branch)',
+    )
+    renewing = verbs.add_parser('update', help="take a newer commit; shows the author's commits and what runs code")
+    renewing.add_argument('ids', nargs='*', metavar='ID', help='OWNER/NAME; default: every vendored profile')
+    renewing.add_argument('--ref', help='follow this branch, tag or commit from now on')
+    dropping = verbs.add_parser('remove', help='delete vendored profiles that config.yaml no longer lists')
+    dropping.add_argument('ids', nargs='+', metavar='ID', help='OWNER/NAME')
+    for verb in (vendoring, renewing, dropping):
+        verb.add_argument('--supplement', metavar='PATH', help='this supplement instead of the bound one')
+    shared.set_defaults(run=profile)
     args = parser.parse_args(argv)
     return args.run(args)

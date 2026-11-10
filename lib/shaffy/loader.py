@@ -558,7 +558,7 @@ def _profile_layer(checkout, schema, profile):
         profile.prefix,
         _strip(data, profiles.PROFILE_KEYS),
         tuple(requires),
-        profiles.issues(locked),
+        profiles.issues(locked.source),
     )
     summary = {
         'id': locked.id,
@@ -602,8 +602,12 @@ def check_profile(checkout, folder, label=None, profile_id=None, issues=''):
     return _layer_files(layer, 1)[4]
 
 
-def load(checkout, supplement=None, without=False, home=None):
-    """Resolve, parse, validate and fold the layers. Raises SelectionError or SettingsError."""
+def load(checkout, supplement=None, without=False, home=None, listed=None):
+    """Resolve, parse, validate and fold the layers. Raises SelectionError or SettingsError.
+
+    LISTED, when given, replaces config.yaml's profiles list: a profile command's review loads the
+    settings as they will be once the person lists what it vendored.
+    """
     checkout = Path(checkout)
     selection = resolve(supplement, without, home)
     schema = json.loads((checkout / 'schema/supplement.schema.json').read_text())
@@ -622,7 +626,7 @@ def load(checkout, supplement=None, without=False, home=None):
         supplement_id = overrides.get('supplement_id')
         if not problems:
             # Each listed profile is one more layer, its bytes verified against the lock first.
-            found, problems = profiles.vendored(root, overrides.get('profiles', []))
+            found, problems = profiles.vendored(root, overrides.get('profiles', []) if listed is None else listed)
             for profile in found:
                 layer, summary, read_problems = _profile_layer(checkout, schema, profile)
                 problems += read_problems

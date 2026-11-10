@@ -138,10 +138,8 @@ class FormatTests(unittest.TestCase):
                 profiles.parse_id(text)
 
     def test_the_authors_issues_page_is_github_only(self):
-        locked = profiles.Locked('a/b', 'https://github.com/a/profiles/', 'b', 'HEAD', '0' * 40, {})
-        self.assertEqual(profiles.issues(locked), 'https://github.com/a/profiles/issues')
-        other = profiles.Locked('a/b', 'https://codeberg.org/a/profiles', 'b', 'HEAD', '0' * 40, {})
-        self.assertEqual(profiles.issues(other), 'https://codeberg.org/a/profiles')
+        self.assertEqual(profiles.issues('https://github.com/a/profiles/'), 'https://github.com/a/profiles/issues')
+        self.assertEqual(profiles.issues('https://codeberg.org/a/profiles'), 'https://codeberg.org/a/profiles')
 
 
 class KeyboardMapTests(unittest.TestCase):

@@ -152,9 +152,9 @@ def places():
     return {tool: pattern.replace('{position:02d}-{slug}', '*') for tool, pattern in PLACES.items()}
 
 
-def issues(locked):
-    """Where to tell a profile's author: its GitHub issues page, else its repository URL."""
-    source = locked.source.rstrip('/')
+def issues(source):
+    """Where to tell the author of a profile from SOURCE: its GitHub issues page, else the repository."""
+    source = source.rstrip('/')
     return source + '/issues' if source.startswith('https://github.com/') else source
 
 
@@ -427,8 +427,8 @@ def vendored(root, listed):
             problems.append(
                 f"{profile_id}: a vendored profile stays its author's. Keep your change in config.yaml, which wins "
                 f'over every profile; draft it for the author with ./bin/shaffy profile propose {profile_id} '
-                f'({issues(locked)}); then restore the copy with git restore {FOLDER}/{profile_id}. If a profile '
-                'command was interrupted, run it again.'
+                f'({issues(locked.source)}); then restore the copy with git restore {FOLDER}/{profile_id}. If a '
+                'profile command was interrupted, run it again.'
             )
             continue
         found.append(Vendored(locked, folder, f'{FOLDER}/{profile_id}/'))
