@@ -1015,6 +1015,22 @@ class ProfileTests(LoaderCase):
         (supplement / 'profiles/alice/notes/shared.fish').write_text('# unlocked\n')
         self.assertIn('profiles/alice/notes/shared.fish: not in profiles/lock.json', self.refused(supplement))
 
+    def test_an_asset_where_profile_fragments_go_is_refused_in_every_layer(self):
+        # Removed fragments are deleted there, so such an asset would stop every apply after the first.
+        own = '~/.config/mise/conf.d/80-profile-01-zz.toml'
+        supplement = self.listing('alice/notes', extra=f'assets:\n  "{own}": own.toml\n')
+        (supplement / 'own.toml').write_text('[tools]\n')
+        self.vendor(
+            supplement, 'alice/notes', 'assets:\n  "~/.config/fish/profiles/zz.fish": a.fish\n', {'a.fish': '# a\n'}
+        )
+        message = self.refused(supplement)
+        self.assertIn(f'assets.{own}: ~/.config/mise/conf.d/80-profile-*.toml is where profile fragments go', message)
+        self.assertIn(
+            'profile.yaml: assets.~/.config/fish/profiles/zz.fish: ~/.config/fish/profiles/*.fish is where profile '
+            'fragments go',
+            message,
+        )
+
     def test_a_supplement_reference_into_profiles_is_refused(self):
         supplement = self.listing('alice/notes', extra='overrides:\n  fish: profiles/alice/notes/a.fish\n')
         self.vendor(supplement, 'alice/notes', files={'a.fish': '# alice\n'})

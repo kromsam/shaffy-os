@@ -145,9 +145,14 @@ reason and both ways out:
 Some files are refused as well. A profile may not write under `~/.ssh/`,
 `~/.gnupg/`, `~/.pki/`, `~/.password-store/`, `~/.local/share/keyrings/`,
 `~/.config/chezmoi/` or `~/.local/state/shaffy/`. A profile shares
-preferences, never access or the state of the tools that manage the home. A keyboard map must
-match a keyboard model by its vendor and product, never one unit by a port, a
-unique id or a serial. A profile holds plain files, at most 200 of them and
+preferences, never access or the state of the tools that manage the home. No
+asset, in a profile or in `config.yaml`, may lie where profile fragments go
+(`~/.config/niri/profiles/*.kdl`, `~/.config/fish/profiles/*.fish`,
+`~/.config/alacritty/profiles/*.toml`, `~/.config/noctalia/96-profile-*.toml`
+and `~/.config/mise/conf.d/80-profile-*.toml`), since an apply deletes a file
+there that no profile sets; set the file as an `overrides` fragment instead.
+A keyboard map must match a keyboard model by its vendor and product, never
+one unit by a port, a unique id or a serial. A profile holds plain files, at most 200 of them and
 8 MiB in all, with no link or submodule, and every file it names lies inside
 its folder. No name in it holds a control character, and none starts with
 `.git`, since Git would read such a file in your supplement. Its

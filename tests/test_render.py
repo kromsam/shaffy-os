@@ -726,6 +726,14 @@ class RemovalTemplateTests(unittest.TestCase):
                 '.config/noctalia/96-profile-02-gone-old.toml',
                 '.config/mise/conf.d/80-profile-01-gone-old.toml',
             ]
+            # A pattern chezmoi would match against other files, or refuse, which stops the whole apply.
+            unsafe = [
+                '.config/fish/profiles/*.fish',
+                '.config/niri/profiles/[x.kdl',
+                '.config/noctalia/96-profile-{x}.toml',
+                '.config/mise/conf.d/80-profile-a\\b.toml',
+                '.config/alacritty/profiles/a\nb.toml',
+            ]
             kept = [
                 '.config/fish/profiles/01-alice-notes.fish',  # alice/notes is still listed
                 '.config/noctalia/96-profile-01-alice-notes.toml',
@@ -733,7 +741,7 @@ class RemovalTemplateTests(unittest.TestCase):
                 '.config/mise/conf.d/90-supplement.toml',
                 '.config/mise/conf.d/50-mine.toml',
             ]
-            for target in stale + kept:
+            for target in stale + unsafe + kept:
                 (home / target).parent.mkdir(parents=True, exist_ok=True)
                 (home / target).write_text('# planted\n')
             (root / 'chezmoi.toml').write_text(f'persistentState = "{root / "state.boltdb"}"\n')

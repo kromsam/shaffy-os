@@ -342,7 +342,10 @@ assets:
   against its SHA-256. `executable: true` installs it with mode 0755;
   `private: true` removes group and world access.
 - One entry is one file. A target may not contain `.` or `..` components, a
-  double slash, control characters, `"` or `\`.
+  double slash, control characters, `"` or `\`. Nor may it lie where profile
+  fragments go, such as `~/.config/fish/profiles/*.fish` or
+  `~/.config/mise/conf.d/80-profile-*.toml` ([profiles](PROFILES.md#what-a-profile-may-set)):
+  an apply deletes a file there that no profile sets.
 - `check` and the preflight of every home apply refuse, before anything is
   written, a target that is a real folder, a target whose path runs through a
   link or a file, a target the public source already manages, and a target

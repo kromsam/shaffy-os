@@ -12,8 +12,10 @@ packages.load_groups takes parse, so it never imports the loader. vendor.py fetc
 
 import copy
 from dataclasses import dataclass
+import fnmatch
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -150,6 +152,11 @@ def place(tool, position, profile_id):
 def places():
     """{tool: glob} of every target PLACES can produce, for the removal template and the claims."""
     return {tool: pattern.replace('{position:02d}-{slug}', '*') for tool, pattern in PLACES.items()}
+
+
+def place_of(target):
+    """The glob of places() that TARGET, relative to the home, matches, or None."""
+    return next((pattern for pattern in places().values() if fnmatch.fnmatchcase(target, pattern)), None)
 
 
 def issues(source):
@@ -389,8 +396,8 @@ def read_lock(root):
 def vendored(root, listed):
     """The profiles config.yaml lists, in its order, each verified against the lock.
 
-    A listed ID the lock lacks names `profile add`. A locked file that is missing, a link, or
-    differs from its SHA-256 is a problem naming that file, followed by one line per profile:
+    A listed ID the lock lacks names `profile add`. A locked file that is missing, a link, reached
+    through a link, or differs from its SHA-256 is a problem naming that file, followed by one line per profile:
     keep the change in config.yaml, draft it for the author with `profile propose ID` (with its
     issues link), git restore the copy. A missing folder says "run profile update ID or git
     restore profiles/", and a folder that differs adds "if a profile command was interrupted,
@@ -402,6 +409,7 @@ def vendored(root, listed):
     lock, problems = read_lock(root)
     if problems:
         return [], problems
+    real = os.path.realpath(root)
     found = []
     for profile_id in listed:
         locked = lock.get(profile_id)
@@ -424,6 +432,9 @@ def vendored(root, listed):
                 actual = digests(folder, [name])[name]
             except ValueError as error:
                 wrong.append(str(error))
+                continue
+            if os.path.realpath(folder / name) != os.path.join(real, FOLDER, os.path.normpath(f'{profile_id}/{name}')):
+                wrong.append(f'{folder / name}: reached through a link, which a vendored path never is')
                 continue
             if actual != digest:
                 wrong.append(f'{folder / name}: differs from {profile_id} as vendored at {locked.commit[:7]}')

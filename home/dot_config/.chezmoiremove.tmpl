@@ -2,7 +2,9 @@
      profile fragment place that the settings no longer render, so a profile that leaves the list,
      or a fragment it drops, stops loading at the next apply (docs/PROFILES.md, "Removing a
      profile"). chezmoi reads these patterns relative to ~/.config and aborts the whole apply on an
-     absolute one, so only trimmed paths are emitted. */ -}}
+     absolute one, so only trimmed paths are emitted, and never a name with a glob character, a
+     backslash or a newline, which would match other files or abort the apply too. Shaffy OS
+     writes no such name. */ -}}
 {{- template "guard" . -}}
 {{- $shaffy := (includeTemplate "shaffy.json" . | fromJson).shaffy }}
 {{- $config := printf "%s/.config/" .chezmoi.destDir }}
@@ -12,8 +14,9 @@
 {{- end }}
 {{- range $pattern := $shaffy.fragment_places }}
 {{-   range glob (joinPath $.chezmoi.destDir $pattern) }}
-{{-     if and (hasPrefix $config .) (not (has (printf ".config/%s" (trimPrefix $config .)) $current)) }}
-{{-       printf "%s\n" (trimPrefix $config .) }}
+{{-     $name := trimPrefix $config . }}
+{{-     if and (hasPrefix $config .) (not (regexMatch "[\\[\\]*?{}\\\\\n]" $name)) (not (has (printf ".config/%s" $name) $current)) }}
+{{-       printf "%s\n" $name }}
 {{-     end }}
 {{-   end }}
 {{- end -}}

@@ -487,6 +487,13 @@ def _layer_files(layer, position):
         hwdb = text
     for target, value in sorted(layer.data.get('assets', {}).items()):
         key = f'assets.{target}'
+        place = profiles.place_of(target[2:])
+        if place:
+            problems.append(
+                f'{prefix}{key}: ~/{place} is where profile fragments go, and an apply deletes a file there that no '
+                'profile sets, so an asset there would stop every apply after the first; choose another target'
+            )
+            continue
         reference = value['file'] if isinstance(value, dict) else value
         try:
             path = locate(reference, key)

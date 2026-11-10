@@ -326,6 +326,26 @@ class LockTests(unittest.TestCase):
             problems, [f'{folder}: missing; run ./bin/shaffy profile update alice/notes or git restore profiles/']
         )
 
+    def test_a_locked_file_reached_through_a_link_is_refused(self):
+        vendor_profile(self.root, 'alice/notes', {**self.FILES, 'docs/README.md': '# notes\n'})
+        folder = self.root / 'profiles/alice/notes'
+        with tempfile.TemporaryDirectory() as elsewhere:
+            outside = Path(elsewhere)
+            shutil.move(folder / 'docs', outside / 'docs')
+            (folder / 'docs').symlink_to(outside / 'docs')
+            found, problems = profiles.vendored(self.root, ['alice/notes'])
+            self.assertEqual(found, [])
+            self.assertEqual(
+                problems[0], f'{folder}/docs/README.md: reached through a link, which a vendored path never is'
+            )
+            (folder / 'docs').unlink()
+            shutil.move(outside / 'docs', folder / 'docs')
+            shutil.move(self.root / 'profiles/alice', outside / 'alice')
+            (self.root / 'profiles/alice').symlink_to(outside / 'alice')
+            found, problems = profiles.vendored(self.root, ['alice/notes'])
+            self.assertEqual(found, [])
+            self.assertIn(f'{folder}/a.fish: reached through a link', problems[0])
+
     def test_nothing_is_read_for_an_empty_list(self):
         (self.root / 'profiles').mkdir()
         (self.root / 'profiles/lock.json').write_text('{')
