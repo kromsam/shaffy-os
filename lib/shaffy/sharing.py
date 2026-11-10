@@ -26,9 +26,11 @@ from .vendor import (
     ProfileError,
     _config,
     _contents,
+    _loads,
     _manifest,
     _place,
     _read_lock,
+    _references,
     _resolve,
 )
 
@@ -42,8 +44,9 @@ def propose(root, checkout, profile_id, upstream):
     """(patch, header lines): the copy's hand edits of the files the lock lists, as a patch git
     apply takes in the author's repository at the locked commit, and where to send it. The header
     names each personal-looking value in the added lines, or in a binary file's bytes, by its rule
-    and place, never the value; each binary file, which a scan of its bytes cannot read whole; and
-    each file the lock does not list, which the patch leaves out unscanned."""
+    and place, never the value; each binary file, which a scan of its bytes cannot read whole; each
+    file the lock does not list, which the patch leaves out unscanned; and each of those the copy's
+    profile.yaml names, without which the patch alone breaks the profile."""
     root = Path(root)
     locked = _read_lock(root).get(profile_id)
     if locked is None:
@@ -92,9 +95,19 @@ def propose(root, checkout, profile_id, upstream):
             f'Left out of the patch, since the lock does not list {"it" if len(unlisted) == 1 else "them"}, and not '
             f'scanned: {", ".join(unlisted)}. Add one that belongs in the profile to its repository yourself.'
         )
+    unsent = sorted(set(_references(_loads(checkout, folder) or {})) - set(locked.files))
+    if unsent:
+        those = 'that file' if len(unsent) == 1 else 'those files'
+        header.append(
+            f'Your {profiles.MANIFEST} names {", ".join(f"{locked.path}/{name}" for name in unsent)}, which the patch '
+            f'leaves out, so the patch alone breaks the profile: send {those} with it.'
+        )
     if source.startswith('https://github.com/'):
         title = quote(f'{locked.path}: ')
-        body = quote(f'A fix for the {locked.path} profile at {locked.commit[:7]}; the patch is attached.')
+        body = quote(
+            f'A fix for the {locked.path} profile at {locked.commit[:7]}.\n\n'
+            '<attach the patch here, and say what it changes and why>'
+        )
         header += [
             f'Send it yourself: fork the repository ({source}/fork), git apply the patch there and open a pull',
             f'request, or open an issue with the patch attached: {source}/issues/new?title={title}&body={body}',
@@ -220,8 +233,8 @@ def summary(root, shaffy):
     shareable = _shareable(_config(root))
     if shareable:
         lines.append(
-            f'  config.yaml also sets {shareable} that a profile could share if they are not personal: '
-            'docs/PROFILES.md#share-yours'
+            f'  config.yaml also sets {shareable}. A profile could share what names no person or machine: '
+            'docs/PROFILES.md#share-yours, then ./bin/shaffy profile check'
         )
     return lines
 
@@ -319,19 +332,33 @@ def _rules(root, checkout):
 
 def _personal(patch, rules):
     """(path, line, rule) for each added line of PATCH a personal-value rule matches."""
-    hits, path, number = set(), None, 0
-    for line in patch.splitlines():
-        if line.startswith('+++ '):
-            path = line.removeprefix('+++ b/') if line.startswith('+++ b/') else None
-        elif line.startswith('@@'):
-            number = int(re.search(r'\+(\d+)', line).group(1)) - 1
-        elif line.startswith('+'):
-            number += 1
-            text = line[1:]
-            hits |= {(path, number, rule) for rule, find in rules if find(text) or find(text.replace('_', '-'))}
-        elif line.startswith(' '):
-            number += 1
+    hits = {
+        (path, number, rule)
+        for path, number, text in _added(patch)
+        for rule, find in rules
+        if find(text) or find(text.replace('_', '-'))
+    }
     return sorted(hits)
+
+
+def _added(patch):
+    """(path, line number, text) of each line PATCH adds. A line ends at a newline only, never at
+    another character str.splitlines() breaks at, and each hunk is read for as many lines as its
+    header counts, so an added line that starts with "++ " is never taken for a file's header."""
+    path, old, new, number = None, 0, 0, 0
+    for line in patch.split('\n'):
+        if old or new:
+            if line.startswith('+'):
+                number, new = number + 1, new - 1
+                yield path, number, line[1:]
+            elif line.startswith('-'):
+                old -= 1
+            elif line.startswith(' '):
+                number, old, new = number + 1, old - 1, new - 1
+        elif line.startswith('+++ '):
+            path = line.removeprefix('+++ b/') if line.startswith('+++ b/') else None
+        elif hunk := re.match(r'@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', line):
+            old, number, new = int(hunk[1] or 1), int(hunk[2]) - 1, int(hunk[3] or 1)
 
 
 def _matches(data, rules):

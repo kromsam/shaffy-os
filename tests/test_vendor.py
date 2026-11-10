@@ -15,6 +15,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
@@ -1063,7 +1064,35 @@ class ProposeTests(CommandCase):
             _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
         text = '\n'.join(header)
         self.assertIn('fork the repository (https://github.com/alice/profiles/fork)', text)
-        self.assertIn('https://github.com/alice/profiles/issues/new?title=notes%3A%20&body=', text)
+        body = f'A fix for the notes profile at {self.first[:7]}.\n\n'
+        body += '<attach the patch here, and say what it changes and why>'
+        self.assertIn(f'https://github.com/alice/profiles/issues/new?title=notes%3A%20&body={quote(body)}', text)
+
+    def test_propose_scans_every_added_line_whatever_it_holds(self):
+        self.add('notes')
+        planted = '/home/' + 'example-person/notes'  # split, so the repository's own scan passes this file
+        # A vertical tab or a line separator is no line end in a patch; an added "++ " line is no header.
+        (self.supplement / 'profiles/alice/notes/style.csl').write_text(
+            f'<style/>\n<!-- a\x0b{planted} -->\n++ {planted}\n<!-- \u2028{planted} -->\n'
+        )
+        _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertEqual(
+            [line for line in header if line.startswith('  notes/')],
+            ['  notes/style.csl:2: home-path', '  notes/style.csl:3: home-path', '  notes/style.csl:4: home-path'],
+        )
+
+    def test_propose_says_when_the_patch_alone_breaks_the_profile(self):
+        self.add('notes')
+        folder = self.supplement / 'profiles/alice/notes'
+        extra = '  "~/.local/share/example-notes/extra.csl": extra.csl\n'
+        (folder / 'profile.yaml').write_text(NOTES['notes/profile.yaml'] + extra)
+        (folder / 'extra.csl').write_text('<style/>\n')
+        _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertIn(
+            'Your profile.yaml names notes/extra.csl, which the patch leaves out, so the patch alone breaks the '
+            'profile: send that file with it.',
+            header,
+        )
 
     def test_propose_to_shaffy_drafts_the_configuration_form(self):
         self.add('notes')
@@ -1205,8 +1234,8 @@ class ReportTests(CommandCase):
             [
                 'Profiles: 1 in use',
                 f'  alice/notes at {self.first[:7]}, following HEAD of {SOURCE}',
-                '  config.yaml also sets 1 asset, lazyvim.extras and overrides (fish, mise) that a profile could share '
-                'if they are not personal: docs/PROFILES.md#share-yours',
+                '  config.yaml also sets 1 asset, lazyvim.extras and overrides (fish, mise). A profile could share '
+                'what names no person or machine: docs/PROFILES.md#share-yours, then ./bin/shaffy profile check',
             ],
         )
 
