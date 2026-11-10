@@ -185,10 +185,14 @@ follows from then on, and a 40-hex commit pins it. Read the change with
 
 3. Commit both, then apply.
 
-The command refuses while `config.yaml` still lists the profile. It prints
-what stays on the machine, and the author's link if you removed the profile
-because something was wrong with it. The same rules hold when an update drops
-an entry from a profile:
+The command refuses while `config.yaml` still lists the profile. It also
+refuses a copy you edited by hand, and a folder under `profiles/` that has no
+lock entry, since deleting either would lose your own work: draft the edits
+for the author first ([fix it upstream](#fix-it-upstream)), or commit them in
+your supplement, then run it again with `--force`. It prints what stays on the
+machine, and the author's link if you removed the profile because something
+was wrong with it. The same rules hold when an update drops an entry from a
+profile:
 
 | What the profile set | At the next apply |
 | --- | --- |

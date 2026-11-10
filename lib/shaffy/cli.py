@@ -787,7 +787,7 @@ def profile(args):
                 sys.stdout.write(patch)
                 return 0
             if args.action == 'remove':
-                show(vendor.remove(root, args.ids))
+                show(vendor.remove(root, ROOT, args.ids, args.force))
                 return 0
             if args.action == 'add':
                 outcome = vendor.add(root, ROOT, args.source, args.names, args.ref, upstream)
@@ -1117,6 +1117,9 @@ def main(argv):
     renewing.add_argument('--ref', help='follow this branch, tag or commit from now on')
     dropping = verbs.add_parser('remove', help='delete vendored profiles that config.yaml no longer lists')
     dropping.add_argument('ids', nargs='+', metavar='ID', help='OWNER/NAME')
+    dropping.add_argument(
+        '--force', action='store_true', help='delete a copy with hand edits, or a folder without a lock entry, too'
+    )
     drafting = verbs.add_parser(
         'propose',
         help='draft your edits of a profile for its author, or a need profiles lack for Shaffy OS; sends nothing',

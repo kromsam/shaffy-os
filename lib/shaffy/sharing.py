@@ -181,8 +181,8 @@ def findings(root, shaffy):
             profile_id = f'{owner.name}/{present.name}'
             if profile_id not in lock:
                 notes.append(
-                    f'{profiles.FOLDER}/{profile_id} has no lock entry, so nothing reads it: ./bin/shaffy profile '
-                    f'remove {profile_id} deletes it'
+                    f'{profiles.FOLDER}/{profile_id} has no lock entry, so nothing reads it: commit or move what you '
+                    f'keep, then ./bin/shaffy profile remove --force {profile_id} deletes it'
                 )
     return notes + _overlaps(root, shaffy)
 

@@ -4,7 +4,6 @@ Every repository is built in a temporary folder and served as a bare copy over f
 test reaches the network, and every git reads no configuration of this machine's.
 """
 
-import fcntl
 import hashlib
 import json
 import os
@@ -20,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy import loader, pins, profiles, sharing, vendor
+from support import vendor_profile
 
 LIMITS = (200, 8 * 2**20)
 GIT_ENV = {
@@ -299,6 +299,9 @@ class CommandCase(GitCase):
     def update(self, *ids, ref=None):
         return vendor.update(self.supplement, ROOT, ids, ref, self.upstream)
 
+    def remove(self, *ids, force=False):
+        return vendor.remove(self.supplement, ROOT, ids, force)
+
     def load(self, *listed):
         return loader.load(ROOT, supplement=self.supplement, listed=list(listed))
 
@@ -379,7 +382,7 @@ class AddTests(CommandCase):
         self.assertIn('With alice/tools listed in config.yaml, the settings do not load yet:', text)
         self.assertIn('the marketplace example-plugins is named with', text)
         self.config('')
-        vendor.remove(self.supplement, ['alice/tools'])
+        self.remove('alice/tools')
         text = '\n'.join(self.add('tools').lines())
         self.assertIn('the settings load, with these notes:', text)
         self.assertIn('neovim', text)
@@ -566,6 +569,37 @@ class UpdateTests(CommandCase):
         )
         self.assertEqual(tree_of(self.supplement), after)
 
+    def test_a_source_that_cannot_be_read_keeps_its_profile_and_the_others_reach_the_lock(self):
+        other = Repository(self.directory / 'bob')
+        bob = 'https://example.test/bob/profiles'
+        served = {'GIT_CONFIG_COUNT': '2', 'GIT_CONFIG_KEY_1': f'url.{other.url}.insteadOf', 'GIT_CONFIG_VALUE_1': bob}
+        patcher = mock.patch.dict(os.environ, served)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        other.commit('Add tools', {'tools/profile.yaml': NOTES['keys/profile.yaml']})
+        self.add('notes')
+        vendor.add(self.supplement, ROOT, bob, ['tools'], 'HEAD', self.upstream)
+        newer = self.repository.commit('Change the style', {'notes/style.csl': '<style version="2"/>\n'})
+        tools = other.commit('Describe tools', {'tools/README.md': 'Synthetic tools.\n'})
+        before = self.vendored('bob/tools')
+        real = pins._git
+
+        def unreachable(repository, *arguments, **keywords):
+            if arguments[0] == 'clone' and bob in arguments:
+                raise ValueError('git clone failed: a synthetic outage')
+            return real(repository, *arguments, **keywords)
+
+        with mock.patch.object(pins, '_git', unreachable):
+            outcome = self.update()
+        [refusal] = outcome.refused
+        self.assertRegex(refusal, '^bob/tools: git clone failed: a synthetic outage. It stays as it is')
+        self.assertEqual(self.lock()['alice/notes']['commit'], newer)
+        self.assertEqual(self.vendored('bob/tools'), before)
+        self.load('alice/notes', 'bob/tools')  # each folder matches its lock entry
+        self.update()
+        self.assertEqual(self.lock()['bob/tools']['commit'], tools)
+        self.load('alice/notes', 'bob/tools')
+
 
 class RemoveTests(CommandCase):
     def test_remove_refuses_while_listed_and_names_what_stays(self):
@@ -576,10 +610,10 @@ class RemoveTests(CommandCase):
         self.add('notes')
         self.config('profiles: [alice/notes]\n')
         with self.assertRaisesRegex(vendor.ProfileError, 'config.yaml still lists alice/notes'):
-            vendor.remove(self.supplement, ['alice/notes'])
+            self.remove('alice/notes')
         self.assertTrue((self.supplement / 'profiles/alice/notes').exists())
         self.config('')
-        lines = vendor.remove(self.supplement, ['alice/notes'])
+        lines = self.remove('alice/notes')
         self.assertIn(
             '  assets: ~/.local/share/example-notes/style.csl stays in the home, unmanaged, after the next apply', lines
         )
@@ -590,9 +624,50 @@ class RemoveTests(CommandCase):
             lines[-2:], ['Removed it because something was wrong or missing? Tell the author:', f'  {ISSUES}']
         )
         self.assertFalse((self.supplement / profiles.FOLDER).exists())  # the last one: no folder, no lock
-        self.assertEqual(
-            vendor.remove(self.supplement, ['alice/notes']), ['alice/notes: not vendored here; nothing to remove.']
+        self.assertEqual(self.remove('alice/notes'), ['alice/notes: not vendored here; nothing to remove.'])
+
+    def test_remove_refuses_hand_edits_and_a_folder_without_a_lock_entry(self):
+        self.add('notes')
+        edited = self.supplement / 'profiles/alice/notes/style.csl'
+        edited.write_text('<style mine="yes"/>\n')
+        (edited.parent / 'mine.csl').write_text('<style/>\n')
+        (edited.parent / 'README.md').unlink()  # a deletion loses nothing
+        with self.assertRaisesRegex(
+            vendor.ProfileError,
+            r'^alice/notes: its copy has hand edits \(mine.csl, style.csl\), which remove would delete\. '
+            r'.*profile propose alice/notes.* commit .*profile remove --force alice/notes',
+        ):
+            self.remove('alice/notes')
+        own = self.supplement / 'profiles/bob/mine'
+        own.mkdir(parents=True)
+        (own / 'profile.yaml').write_text('schema_version: 1\ndescription: Mine.\n')
+        with self.assertRaisesRegex(
+            vendor.ProfileError, r'^profiles/bob/mine has no lock entry.* Commit them .*profile remove --force bob/mine'
+        ):
+            self.remove('bob/mine')
+        self.assertEqual(edited.read_text(), '<style mine="yes"/>\n')
+        self.assertTrue((own / 'profile.yaml').exists())
+        self.assertIn('alice/notes', self.lock())
+        lines = self.remove('alice/notes', 'bob/mine', force=True)
+        self.assertIn('Removed profiles/bob/mine, which had no lock entry, so nothing read it.', lines)
+        self.assertFalse((self.supplement / profiles.FOLDER).exists())
+
+    def test_remove_and_update_take_a_copy_whose_profile_yaml_no_longer_loads(self):
+        older = (
+            'schema_version: 1\ndescription: x\noverrides:\n  example: x.conf\n'
+            'assets:\n  "~/.local/share/x": {executable: true}\n'
         )
+        for profile_id in ('alice/notes', 'alice/old'):
+            vendor_profile(self.supplement, profile_id, {'profile.yaml': older, 'x.conf': 'x\n'}, source=SOURCE)
+        text = '\n'.join(self.update('alice/notes').lines())
+        self.assertIn('+ overrides.fish', text)  # what the copy set is unknown, so every entry is new
+        lines = self.remove('alice/old')
+        self.assertIn(
+            'What stays on the machine is not listed: profiles/alice/old/profile.yaml is missing or does not load '
+            'here (docs/PROFILES.md#removing-a-profile).',
+            lines,
+        )
+        self.assertFalse((self.supplement / 'profiles/alice/old').exists())
 
 
 class CrashTests(CommandCase):
@@ -660,31 +735,75 @@ class CrashTests(CommandCase):
         self.assertEqual(self.vendored(), vendored)
         self.assertEqual(self.lock()['alice/notes']['commit'], self.first)
 
-    def test_inside_remove_the_rerun_deletes_the_folder(self):
+    def test_a_crash_in_one_profile_keeps_the_lock_entries_of_those_before_it(self):
+        self.add('keys', 'notes')
+        newer = self.repository.commit(
+            'Change both',
+            {'keys/profile.yaml': NOTES['keys/profile.yaml'] + '# 2\n', 'notes/style.csl': '<style version="2"/>\n'},
+        )
+        real = vendor._swap
+
+        def swap(folder, profile_id, staged):
+            if profile_id == 'alice/notes':
+                raise RuntimeError('crash')
+            real(folder, profile_id, staged)
+
+        self.interrupted((vendor, '_swap'), swap, lambda: self.update())
+        self.assertEqual(self.lock()['alice/keys']['commit'], newer)
+        self.load('alice/keys')
+        self.update()
+        self.load('alice/keys', 'alice/notes')
+
+    def test_inside_remove_the_rerun_deletes_what_is_left(self):
         self.add('notes', 'keys')
         real = vendor.shutil.rmtree
 
         def rmtree(path, *arguments, **keywords):
             if Path(path).name == 'notes':
+                (Path(path) / 'style.csl').unlink()  # partway through
                 raise RuntimeError('crash')
             real(path, *arguments, **keywords)
 
-        self.interrupted((vendor.shutil, 'rmtree'), rmtree, lambda: vendor.remove(self.supplement, ['alice/notes']))
-        self.assertNotIn('alice/notes', self.lock())
+        self.interrupted((vendor.shutil, 'rmtree'), rmtree, lambda: self.remove('alice/notes'))
+        self.assertIn('alice/notes', self.lock())  # written last
         self.assertTrue((self.supplement / 'profiles/alice/notes').exists())
-        vendor.remove(self.supplement, ['alice/notes'])
+        self.remove('alice/notes')  # what is left holds no hand edit
         self.assertFalse((self.supplement / 'profiles/alice/notes').exists())
         self.assertEqual(list(self.lock()), ['alice/keys'])
 
     def test_a_second_command_while_one_runs_is_refused(self):
+        with vendor._exclusive(self.supplement) as folder:
+            with self.assertRaisesRegex(vendor.ProfileError, 'another profile command is changing'):
+                self.add('notes')
+            self.assertEqual(list(folder.iterdir()), [])
+            folder.rmdir()  # as the first command does at its end when it leaves the folder empty
+            with self.assertRaisesRegex(vendor.ProfileError, 'another profile command is changing'):
+                self.add('notes')
+
+    def test_every_kind_of_leftover_is_deleted_or_named(self):
         folder = self.supplement / profiles.FOLDER
         folder.mkdir()
-        handle = os.open(folder, os.O_RDONLY | os.O_DIRECTORY)
-        self.addCleanup(os.close, handle)
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        with self.assertRaisesRegex(vendor.ProfileError, 'another profile command is changing'):
-            self.add('notes')
-        self.assertEqual(list(folder.iterdir()), [])
+        outside = self.directory / 'outside'
+        outside.mkdir()
+        (outside / 'kept').write_text('x\n')
+        (folder / '.staging-link').symlink_to(outside)
+        (folder / '.staging-file').write_text('x\n')
+        (folder / '.lock-folder').mkdir()
+        (folder / '.lock-folder/x').write_text('x\n')
+        self.add('notes')
+        self.assertEqual(sorted(path.name for path in folder.iterdir()), ['alice', 'lock.json'])
+        self.assertEqual((outside / 'kept').read_text(), 'x\n')
+        (folder / '.staging-stuck').mkdir()
+        refused = PermissionError(13, 'Permission denied')
+        with (
+            mock.patch.object(vendor.shutil, 'rmtree', side_effect=refused),
+            self.assertRaisesRegex(
+                vendor.ProfileError,
+                r'staging-stuck: left by an interrupted profile command, and it cannot be deleted \(Permission '
+                r'denied\); move it out of profiles/',
+            ),
+        ):
+            self.update()
 
 
 class BoundaryTests(CommandCase):
@@ -696,7 +815,7 @@ class BoundaryTests(CommandCase):
             self.add('notes', 'keys')
             self.repository.commit('Change the style', {'notes/style.csl': '<style version="2"/>\n'})
             self.update()
-            vendor.remove(self.supplement, ['alice/keys'])
+            self.remove('alice/keys')
         self.assertEqual(tree_of(self.supplement, skip={profiles.FOLDER}), before)  # config.yaml and .git included
         self.assertEqual(list(home.iterdir()), [])
         status = git('-C', self.supplement, 'status', '--porcelain', '--untracked-files=all')
@@ -707,11 +826,11 @@ class BoundaryTests(CommandCase):
         (outside / 'notes').mkdir(parents=True)
         for profile_id in ('../outside', 'alice/../../outside', '/tmp/x'):
             with self.subTest(profile_id), self.assertRaisesRegex(vendor.ProfileError, 'is not a profile ID'):
-                vendor.remove(self.supplement, [profile_id])
+                self.remove(profile_id)
         self.add('notes')
         os.symlink(outside, self.supplement / 'profiles/bob')
         with self.assertRaisesRegex(vendor.ProfileError, 'profiles/bob is a link'):
-            vendor.remove(self.supplement, ['bob/notes'])
+            self.remove('bob/notes')
         self.assertTrue((outside / 'notes').is_dir())
 
     def test_running_each_command_twice_gives_byte_identical_files(self):
@@ -725,9 +844,9 @@ class BoundaryTests(CommandCase):
         once = tree_of(self.supplement)
         self.update()
         self.assertEqual(tree_of(self.supplement), once)
-        vendor.remove(self.supplement, ['alice/keys'])
+        self.remove('alice/keys')
         once = tree_of(self.supplement)
-        vendor.remove(self.supplement, ['alice/keys'])
+        self.remove('alice/keys')
         self.assertEqual(tree_of(self.supplement), once)
 
     def test_the_profile_command_prints_the_review_and_refuses_with_status_1(self):
@@ -949,7 +1068,8 @@ class ReportTests(CommandCase):
             notes,
         )
         self.assertIn(
-            'profiles/bob/left has no lock entry, so nothing reads it: ./bin/shaffy profile remove bob/left deletes it',
+            'profiles/bob/left has no lock entry, so nothing reads it: commit or move what you keep, then '
+            './bin/shaffy profile remove --force bob/left deletes it',
             notes,
         )
 

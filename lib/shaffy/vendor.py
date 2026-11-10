@@ -296,21 +296,23 @@ def update(root, checkout, ids, ref, upstream):
             )
         written = dict(lock)
         reviews, refused, commits = [], [], {}
-        for profile_id in dict.fromkeys(ids) or sorted(lock):
-            locked = lock[profile_id]
-            follows = ref or locked.ref
-            try:
-                if (locked.source, follows) not in commits:
-                    commits[locked.source, follows] = _resolve(upstream, locked.source, follows)
-                commit = commits[locked.source, follows]
-                review = _update_one(folder, checkout, locked, follows, commit, config, upstream)
-            except ProfileError as error:
-                refused.append(str(error))
-                continue
-            reviews.append(review)
-            written[profile_id] = review.after
-        if written != lock:
-            _write_lock(root, written)
+        try:
+            for profile_id in dict.fromkeys(ids) or sorted(lock):
+                locked = lock[profile_id]
+                follows = ref or locked.ref
+                try:
+                    if (locked.source, follows) not in commits:
+                        commits[locked.source, follows] = _resolve(upstream, locked.source, follows)
+                    commit = commits[locked.source, follows]
+                    review = _update_one(folder, checkout, locked, follows, commit, config, upstream)
+                except ProfileError as error:
+                    refused.append(str(error))
+                    continue
+                reviews.append(review)
+                written[profile_id] = review.after
+        finally:  # the profiles already swapped get their entries, whatever stopped the others
+            if written != lock:
+                _write_lock(root, written)
         changed = [review.after.id for review in reviews if review.before != review.after]
         loaded = _loaded(root, checkout, config, changed) if changed else ()
     return Outcome(tuple(reviews), tuple(refused), loaded)
@@ -323,8 +325,13 @@ def _update_one(folder, checkout, locked, follows, commit, config, upstream):
     if commit == locked.commit and current == locked.files:
         after = profiles.Locked(locked.id, locked.source, locked.path, follows, commit, locked.files)
         return Review(locked, after, '', (), (), {}, (), True)  # up to date, or following another ref
-    subjects = () if commit == locked.commit else upstream.subjects(locked.source, locked.commit, commit, locked.path)
-    staged, data = _stage(folder, checkout, locked.id, locked.source, locked.path, commit, upstream, kept=True)
+    try:
+        subjects = (
+            () if commit == locked.commit else upstream.subjects(locked.source, locked.commit, commit, locked.path)
+        )
+        staged, data = _stage(folder, checkout, locked.id, locked.source, locked.path, commit, upstream, kept=True)
+    except (ValueError, OSError) as error:  # a fetch that failed: nothing of this profile changed yet
+        raise ProfileError(f'{locked.id}: {error}. It stays as it is; run this again to retry.') from None
     new = _contents(staged)
     if current is not None and current not in (locked.files, new):
         shutil.rmtree(staged)
@@ -336,7 +343,7 @@ def _update_one(folder, checkout, locked, follows, commit, config, upstream):
     # The entries before: the copy as locked, which is the staged one when the commit is the same;
     # unknown after a crash left the folder missing or already swapped, so every entry shows as new.
     if current == locked.files:
-        old_folder, old_data = present, _manifest(present)
+        old_folder, old_data = present, _loads(checkout, present) or {}
     elif commit == locked.commit:
         old_folder, old_data = staged, data
     else:
@@ -356,9 +363,11 @@ def _update_one(folder, checkout, locked, follows, commit, config, upstream):
     )
 
 
-def remove(root, ids):
+def remove(root, checkout, ids, force=False):
     """Delete IDS' folders and lock entries; returns what stays on the machine and each author's
-    issues link. Refuses an ID config.yaml still lists."""
+    issues link. Refuses an ID config.yaml still lists and, unless FORCE, a copy with hand edits or
+    a folder without a lock entry, before it deletes anything. The lock is written last, so a
+    rerun after a crash finds entries whose folders are gone or partly deleted, and drops them."""
     root = Path(root)
     for profile_id in ids:
         try:
@@ -371,52 +380,47 @@ def remove(root, ids):
             f'config.yaml still lists {", ".join(listed)}; drop {"it" if len(listed) == 1 else "them"} from '
             'profiles: first, so the settings stop using what this deletes.'
         )
+    ids = list(dict.fromkeys(ids))
     lines = []
     with _exclusive(root) as folder:
         lock = _read_lock(root)
-        for profile_id in dict.fromkeys(ids):
+        for profile_id in ids if not force else ():
+            _refuse_loss(folder, profile_id, lock.get(profile_id))
+        for profile_id in ids:
             present = _place(folder, profile_id)
-            if profile_id not in lock and not present.exists():
-                lines.append(f'{profile_id}: not vendored here; nothing to remove.')
+            if profile_id not in lock:
+                if present.exists():
+                    lines.append(
+                        f'Removed {profiles.FOLDER}/{profile_id}, which had no lock entry, so nothing read it.'
+                    )
+                    shutil.rmtree(present)
+                else:
+                    lines.append(f'{profile_id}: not vendored here; nothing to remove.')
                 continue
+            data = _loads(checkout, present)
             lines += [
                 f'Removed {profiles.FOLDER}/{profile_id} and its lock entry; review with git diff and commit.',
                 'At the next apply its settings stop applying.',
-                *_staying(_effects(present, _manifest(present))),
+                *(
+                    _staying(_effects(present, data))
+                    if data is not None
+                    else [
+                        f'What stays on the machine is not listed: {profiles.FOLDER}/{profile_id}/{profiles.MANIFEST} '
+                        'is missing or does not load here (docs/PROFILES.md#removing-a-profile).'
+                    ]
+                ),
+                'Removed it because something was wrong or missing? Tell the author:',
+                f'  {profiles.issues(lock[profile_id].source)}',
             ]
-            if profile_id in lock:
-                lines += [
-                    'Removed it because something was wrong or missing? Tell the author:',
-                    f'  {profiles.issues(lock[profile_id].source)}',
-                ]
-        remaining = {profile_id: entry for profile_id, entry in lock.items() if profile_id not in ids}
-        if remaining != lock:
-            _write_lock(root, remaining)  # first: a crash then leaves a folder that check names
-        for profile_id in ids:
-            present = _place(folder, profile_id)
             if present.exists():
                 shutil.rmtree(present)
+        for profile_id in ids:
             with contextlib.suppress(OSError):
-                present.parent.rmdir()  # its owner's folder, once empty
+                _place(folder, profile_id).parent.rmdir()  # its owner's folder, once empty
+        remaining = {profile_id: entry for profile_id, entry in lock.items() if profile_id not in ids}
+        if remaining != lock:
+            _write_lock(root, remaining)
     return lines
-
-
-def install(root, profile_id, files, locked):
-    """Make profiles/OWNER/NAME hold exactly FILES and record LOCKED; profile check's temporary
-    supplements and the tests' fixtures are built with this."""
-    owner, name = profiles.parse_id(profile_id)
-    folder = Path(root) / profiles.FOLDER / owner / name
-    if folder.exists():
-        shutil.rmtree(folder)
-    for relative, content in files.items():
-        path = folder / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-    lock, problems = profiles.read_lock(root)
-    if problems:
-        raise ProfileError('\n'.join(problems))
-    lock[profile_id] = locked
-    _write_lock(root, lock)
 
 
 # -- internal -----------------------------------------------------------------------------
@@ -424,14 +428,14 @@ def install(root, profile_id, files, locked):
 
 @contextlib.contextmanager
 def _exclusive(root):
-    """The profiles folder, locked against another profile command (flock on the folder itself,
-    so no lock file appears in Git), with an earlier crash's leftovers deleted. A folder left
-    empty is removed again."""
+    """The profiles folder, with an earlier crash's leftovers deleted, while this command holds an
+    exclusive flock on the supplement's own folder: no command removes that one, so a second
+    command cannot lock a new profiles/ while the first still writes, and no lock file appears in
+    Git. A profiles folder left empty is removed again."""
     folder = Path(root) / profiles.FOLDER
     if folder.is_symlink():
         raise ProfileError(f'{folder} is a link; the profile commands write only into a folder of the supplement')
-    folder.mkdir(exist_ok=True)
-    handle = os.open(folder, os.O_RDONLY | os.O_DIRECTORY)
+    handle = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
     held = False
     try:
         try:
@@ -439,11 +443,19 @@ def _exclusive(root):
         except BlockingIOError:
             raise ProfileError(f'another profile command is changing {folder}; run this one when it is done') from None
         held = True
+        folder.mkdir(exist_ok=True)
         for leftover in folder.iterdir():
-            if leftover.name.startswith(STAGING):
-                shutil.rmtree(leftover)
-            elif leftover.name.startswith(LOCK_TEMPORARY):
-                leftover.unlink()
+            if leftover.name.startswith((STAGING, LOCK_TEMPORARY)):
+                try:
+                    if leftover.is_dir() and not leftover.is_symlink():
+                        shutil.rmtree(leftover)
+                    else:
+                        leftover.unlink()
+                except OSError as error:
+                    raise ProfileError(
+                        f'{leftover}: left by an interrupted profile command, and it cannot be deleted '
+                        f'({error.strerror}); move it out of {profiles.FOLDER}/'
+                    ) from None
         yield folder
     finally:
         if held:
@@ -459,6 +471,29 @@ def _place(folder, profile_id):
         if path.is_symlink():
             raise ProfileError(f'{path} is a link; {profiles.FOLDER}/ holds plain folders. Move it aside.')
     return present
+
+
+def _refuse_loss(folder, profile_id, locked):
+    """Refuse to remove PROFILE_ID when its folder holds what a deletion would lose: a file that
+    differs from LOCKED or that it does not list, or any file when it has no lock entry. A file the
+    lock lists that is missing loses nothing, as after a remove interrupted partway."""
+    present = _place(folder, profile_id)
+    if not present.exists():
+        return
+    force = f'then ./bin/shaffy profile remove --force {profile_id} deletes'
+    if locked is None:
+        raise ProfileError(
+            f'{profiles.FOLDER}/{profile_id} has no lock entry, so it is no vendored copy, and remove would delete '
+            f'files of your own. Commit them in the supplement or move them out of {profiles.FOLDER}/ first; '
+            f'{force} them.'
+        )
+    edited = sorted(name for name, digest in _contents(present).items() if locked.files.get(name) != digest)
+    if edited:
+        raise ProfileError(
+            f'{profile_id}: its copy has hand edits ({", ".join(edited)}), which remove would delete. Draft them '
+            f'for the author with ./bin/shaffy profile propose {profile_id}, or commit them in the supplement; '
+            f'{force} the copy.'
+        )
 
 
 def _read_lock(root):
@@ -606,6 +641,12 @@ def _manifest(folder):
         return loader.parse(Path(folder) / profiles.MANIFEST, aliases=False)
     except loader.SettingsError:
         return {}
+
+
+def _loads(checkout, folder):
+    """A copy's profile.yaml when it loads here as a listed profile's must, else None: a copy
+    vendored under an older release, or edited, may not, and _effects reads only one that does."""
+    return None if loader.check_profile(checkout, folder) else _manifest(folder)
 
 
 def _effects(folder, data):

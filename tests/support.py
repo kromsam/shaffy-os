@@ -59,8 +59,8 @@ def host_test(reason, *, tools=(), paths=(), reflink=False):
 def vendor_profile(
     supplement, profile_id, files, *, source='https://github.com/example/profiles', commit='0' * 40, ref='HEAD'
 ):
-    """Vendor a synthetic profile into SUPPLEMENT as `./bin/shaffy profile add` leaves one: FILES
-    ({path: text or bytes}) under profiles/OWNER/NAME and a lock entry with their digests."""
+    """Vendor a synthetic profile into SUPPLEMENT as `./bin/shaffy profile add` leaves one: exactly
+    FILES ({path: text or bytes}) under profiles/OWNER/NAME, and a lock entry with their digests."""
     from shaffy import profiles, vendor
 
     content = {name: text.encode() if isinstance(text, str) else text for name, text in files.items()}
@@ -72,5 +72,12 @@ def vendor_profile(
         commit,
         {name: hashlib.sha256(data).hexdigest() for name, data in content.items()},
     )
-    vendor.install(supplement, profile_id, content, locked)
+    folder = Path(supplement) / profiles.FOLDER / profile_id
+    shutil.rmtree(folder, ignore_errors=True)
+    for name, data in content.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+    lock, problems = profiles.read_lock(supplement)
+    assert not problems, problems
+    vendor._write_lock(supplement, {**lock, profile_id: locked})
     return locked

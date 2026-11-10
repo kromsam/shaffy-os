@@ -332,14 +332,12 @@ class LockTests(unittest.TestCase):
         self.assertEqual(profiles.vendored(self.root, []), ([], []))
         self.assertEqual(profiles.files([]), [])
 
-    def test_install_converges_on_the_same_bytes(self):
-        from shaffy import vendor
-
-        locked = vendor_profile(self.root, 'alice/notes', self.FILES)
+    def test_a_fixture_converges_on_the_same_bytes(self):
+        vendor_profile(self.root, 'alice/notes', self.FILES)
         vendor_profile(self.root, 'bob/notes', {'profile.yaml': 'schema_version: 1\ndescription: y\n'})
         lock = (self.root / 'profiles/lock.json').read_bytes()
         (self.root / 'profiles/alice/notes/stale').write_text('left over\n')
-        vendor.install(self.root, 'alice/notes', {k: v.encode() for k, v in self.FILES.items()}, locked)
+        vendor_profile(self.root, 'alice/notes', self.FILES)
         self.assertEqual((self.root / 'profiles/lock.json').read_bytes(), lock)
         self.assertEqual(
             sorted(p.name for p in (self.root / 'profiles/alice/notes').iterdir()), ['a.fish', 'profile.yaml']

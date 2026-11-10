@@ -17,7 +17,7 @@ import tempfile
 
 from . import lint, literals, loader, profiles, sandbox
 from .selection import SelectionError, resolve
-from .vendor import LIMITS, ProfileError, _references, install
+from .vendor import LIMITS, _references, _write_lock
 
 ALLOW = 'literals.allow'  # values the static rules may pass, in tests/public-literals.allow's format
 LICENCES = ('LICENSE', 'LICENSE.md', 'LICENSE.txt')  # or a LICENSES/ folder, as REUSE keeps them
@@ -280,21 +280,22 @@ def _render_one(checkout, folders, source):
     temporary supplement."""
     with tempfile.TemporaryDirectory(prefix='shaffy-profile-check-') as directory:
         root = Path(directory)
-        listed, required = [], {}
+        lock, required = {}, {}
         for folder in folders:
             data = loader.parse(folder / profiles.MANIFEST)
             named = {profiles.MANIFEST, *_references(data)}
             named |= {profiles.README} if (folder / profiles.README).is_file() else set()
-            content = {name: (folder / name).read_bytes() for name in sorted(named)}
             profile_id = f'{OWNER}/{folder.name}'
-            digests = {name: hashlib.sha256(blob).hexdigest() for name, blob in content.items()}
-            locked = profiles.Locked(profile_id, source, folder.name, 'HEAD', '0' * 40, digests)
-            try:
-                install(root, profile_id, content, locked)
-            except ProfileError as error:
-                return 0, [str(error)]
-            listed.append(profile_id)
+            digests = {}
+            for name in sorted(named):
+                blob = (folder / name).read_bytes()
+                (root / profiles.FOLDER / profile_id / name).parent.mkdir(parents=True, exist_ok=True)
+                (root / profiles.FOLDER / profile_id / name).write_bytes(blob)
+                digests[name] = hashlib.sha256(blob).hexdigest()
+            lock[profile_id] = profiles.Locked(profile_id, source, folder.name, 'HEAD', '0' * 40, digests)
             required |= dict.fromkeys(data.get('requires', []), 'managed')
+        _write_lock(root, lock)
+        listed = list(lock)
         config = {'schema_version': 1, 'supplement_id': 'profile-check', 'profiles': listed}
         if required:
             config['integrations'] = required
