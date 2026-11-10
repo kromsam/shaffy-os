@@ -357,15 +357,43 @@ class AddTests(CommandCase):
         self.assertEqual(lines[0], f'Vendored alice/notes at {self.first[:7]} (HEAD of {SOURCE})')
         self.assertEqual(lines[2], '  Synthetic notes for the tests.')
         running = lines.index('Runs code or reaches the network; read these first:')
-        other = lines.index('Other entries:')
-        self.assertLess(running, other)
         self.assertRegex(lines[running + 1], r'^  \+ overrides\.fish shell/notes\.fish +runs in every shell$')
-        self.assertEqual(lines[other + 1].rstrip(), '  + assets ~/.local/share/example-notes/style.csl')
+        self.assertRegex(
+            lines[running + 2], r'^  \+ assets ~/.local/share/example-notes/style.csl +a program reads it there'
+        )
+        self.assertNotIn('Other entries:', lines)
         text = '\n'.join(lines)
         self.assertIn('list "- alice/notes" under\nprofiles: in config.yaml', text)
         self.assertIn(f'./bin/shaffy profile propose alice/notes drafts it for the author:\n  {ISSUES}', text)
         self.assertIn('./bin/shaffy profile propose alice/notes --to shaffy', text)
         self.assertIn('With alice/notes listed in config.yaml, the settings load.', text)
+
+    def test_an_asset_runs_code_unless_it_lies_where_only_data_goes(self):
+        running = [
+            '~/.bashrc',
+            '~/.config/environment.d/90-example.conf',
+            '~/.config/fish/functions/example.fish',
+            '~/.config/git/config',
+            '~/.config/mise/conf.d/50-example.toml',
+        ]
+        inert = [
+            '~/.local/share/fonts/Example.otf',
+            '~/.local/share/icons/example.svg',
+            '~/.local/share/themes/Example/gtk-3.0/gtk.css',
+            '~/Pictures/example.png',
+        ]
+        manifest = 'schema_version: 1\ndescription: Synthetic assets.\nassets:\n'
+        manifest += ''.join(f'  "{target}": file\n' for target in running + inert)
+        self.repository.commit('Add assets', {'mixed/profile.yaml': manifest, 'mixed/file': 'x\n'})
+        lines = self.add('mixed').lines()
+        first = lines.index('Runs code or reaches the network; read these first:')
+        other = lines.index('Other entries:')
+
+        def targets(group):
+            return sorted(line.split()[2] for line in group if line.startswith('  + assets '))
+
+        self.assertEqual(targets(lines[first:other]), running)
+        self.assertEqual(targets(lines[other:]), inert)
 
     def test_the_review_loads_the_settings_with_the_profile_listed(self):
         self.repository.commit(
@@ -916,7 +944,11 @@ class ProposeTests(CommandCase):
         folder = self.edit()
         patch, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
         self.assertEqual(header[0], f'A fix for alice/notes against {SOURCE} at {self.first[:7]}.')
-        self.assertEqual(header[1], 'Personal values: none found in the added lines.')
+        self.assertEqual(header[1], 'Personal values: none found in the added lines and the bytes of each binary file.')
+        self.assertIn(
+            'Left out of the patch, since the lock does not list it, and not scanned: notes/extra.csl.',
+            '\n'.join(header),
+        )
         self.assertEqual(
             header[-2:],
             [
@@ -931,9 +963,10 @@ class ProposeTests(CommandCase):
         (self.directory / 'fix.patch').write_text(patch, errors='surrogateescape')
         git('-C', clone, 'apply', '--check', self.directory / 'fix.patch')
         git('-C', clone, 'apply', self.directory / 'fix.patch')
-        for name in ('style.csl', 'shell/notes.fish', 'extra.csl', 'profile.yaml'):
+        for name in ('style.csl', 'shell/notes.fish', 'profile.yaml'):
             self.assertEqual((clone / 'notes' / name).read_bytes(), (folder / name).read_bytes(), name)
         self.assertFalse((clone / 'notes/README.md').exists())
+        self.assertFalse((clone / 'notes/extra.csl').exists())
         self.assertTrue((clone / 'notes/tests/check.sh').exists())  # never vendored, so never touched
 
     def test_propose_warns_of_personal_values_without_printing_them(self):
@@ -944,6 +977,21 @@ class ProposeTests(CommandCase):
         self.assertIn('  notes/style.csl:2: home-path', header)
         self.assertTrue(header[1].startswith('Personal values: replace these in the added lines'))
         self.assertNotIn(planted, '\n'.join(header))
+
+    def test_propose_scans_a_binary_files_bytes_and_leaves_out_what_the_lock_does_not_list(self):
+        self.add('notes')
+        folder = self.supplement / 'profiles/alice/notes'
+        planted = ('/home/' + 'example-person/photos').encode()  # split, so the repository's own scan passes
+        (folder / 'style.csl').write_bytes(b'\xff\xd8\x00Exif\x00' + planted + b'\x00\xff')
+        (folder / 'photo.jpg').write_bytes(b'\xff\xd8\x00' + planted)
+        patch, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertIn('diff --git a/notes/style.csl b/notes/style.csl', patch)
+        self.assertNotIn('photo.jpg', patch)
+        self.assertIn('  notes/style.csl (its bytes): home-path', header)
+        text = '\n'.join(header)
+        self.assertIn('Binary, so scanned as bytes only: notes/style.csl.', text)
+        self.assertIn('Left out of the patch, since the lock does not list it, and not scanned: notes/photo.jpg.', text)
+        self.assertNotIn(planted.decode(), text)
 
     def test_the_supplements_denylist_and_identifying_settings_are_scanned_too(self):
         self.add('notes')

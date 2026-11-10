@@ -18,7 +18,7 @@ import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import shlex
 import shutil
@@ -46,12 +46,19 @@ RUNS = {
     ('lazyvim', 'extras'): 'loads editor plugins, some outside the managed lock',
     ('ai', 'claude_plugins'): 'the workspace installer installs it from',
 }
-# Asset targets another program runs, whatever their mode.
-RUN_TARGETS = (
-    '~/.config/autostart/',
-    '~/.config/systemd/user/',
-    '~/.config/fish/conf.d/',
-    '~/.local/share/applications/',
+# Where an asset holds only data that programs show, such as fonts, icons, themes and pictures.
+# An asset anywhere else counts as running code: a program may run it, or take commands from it,
+# as from an environment.d file, a Git, shell or mise configuration, or a systemd unit.
+INERT_TARGETS = (
+    '~/.fonts/',
+    '~/.icons/',
+    '~/.local/share/backgrounds/',
+    '~/.local/share/fonts/',
+    '~/.local/share/icons/',
+    '~/.local/share/themes/',
+    '~/.local/share/wallpapers/',
+    '~/.themes/',
+    '~/Pictures/',
 )
 # What stays on the machine when a profile's entry leaves (docs/ARCHITECTURE.md, "Absence and removal").
 STAYS = {
@@ -650,7 +657,7 @@ def _loads(checkout, folder):
 
 
 def _effects(folder, data):
-    """{key: Effect} for every entry of a profile's settings, classified by RUNS and RUN_TARGETS."""
+    """{key: Effect} for every entry of a profile's settings, classified by RUNS and INERT_TARGETS."""
     folder = Path(folder)
     effects = []
     for tool, reference in data.get('overrides', {}).items():
@@ -662,12 +669,10 @@ def _effects(folder, data):
         flags = value if isinstance(value, dict) else {'file': value}
         if flags.get('executable'):
             runs = 'an installed program'
-        elif target.startswith(RUN_TARGETS):
-            runs = 'another program runs it'
-        elif PurePosixPath(target).name in ('mise.toml', '.mise.toml'):
-            runs = 'mise reads it: tools, hooks and the environment'
-        else:
+        elif target.startswith(INERT_TARGETS):
             runs = ''
+        else:
+            runs = 'a program reads it there, and may run what it says'
         content = json.dumps(
             [_digest(folder / flags['file']), bool(flags.get('executable')), bool(flags.get('private'))]
         )

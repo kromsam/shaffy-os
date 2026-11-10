@@ -227,7 +227,7 @@ class WorkspaceToolsTests(unittest.TestCase):
                 installs = [
                     line for line in (root / 'calls').read_text().splitlines() if line.startswith('mise install')
                 ]
-                self.assertEqual(installs, [' '.join(['mise install -y', *names, *extra])])
+                self.assertEqual(installs, [' '.join(['mise install -y --', *names, *extra])])
 
     def test_installer_reads_every_conf_d_file(self):
         public = (HOME / 'dot_config/mise/config.toml').read_text()
@@ -258,7 +258,43 @@ class WorkspaceToolsTests(unittest.TestCase):
             installs = [line for line in (root / 'calls').read_text().splitlines() if line.startswith('mise install')]
         # In name order, each tool once; mise takes each one's version from the file that wins.
         expected = ['example-shared', 'example-bob', 'example-runtime']
-        self.assertEqual(installs, [' '.join(['mise install -y', *names, *expected])])
+        self.assertEqual(installs, [' '.join(['mise install -y --', *names, *expected])])
+
+    def test_installer_passes_each_tool_whole_and_stops_at_a_file_mise_cannot_read(self):
+        public = (HOME / 'dot_config/mise/config.toml').read_text()
+        names = list(tomllib.loads(public)['tools'])
+        for fragment in ('[tools]\n"example spaced" = "1"\n"--example-option" = "1"\n', 'not [toml\n'):
+            with self.subTest(fragment=fragment), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'bin').mkdir()
+                # One argument per line, so a split name shows; `mise install` fails, which stops the script.
+                (root / 'bin/mise').write_text(
+                    f'#!/bin/sh\n[ "$1" = install ] && printf "%s\\n" "$@" > "{root}/install"\n[ "$1" != install ]\n'
+                )
+                (root / 'bin/mise').chmod(0o755)
+                (root / 'config/mise/conf.d').mkdir(parents=True)
+                (root / 'config/mise/config.toml').write_text(public)
+                (root / 'config/mise/conf.d/80-profile-01-alice-tools.toml').write_text(fragment)
+                result = subprocess.run(
+                    ['bash', str(REPO / 'scripts/install-workspace-tools.sh')],
+                    env={
+                        **os.environ,
+                        'XDG_CONFIG_HOME': str(root / 'config'),
+                        'PATH': f'{root / "bin"}:{os.environ["PATH"]}',
+                    },
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if fragment.startswith('not'):
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('80-profile-01-alice-tools.toml: mise cannot read it', result.stderr)
+                    self.assertFalse((root / 'install').exists())
+                else:
+                    self.assertEqual(
+                        (root / 'install').read_text().splitlines(),
+                        ['install', '-y', '--', *names, 'example spaced', '--example-option'],
+                    )
 
     def test_launchers_run_installed_tools_without_version_lookups(self):
         # `mise exec TOOL@latest` resolves every configured `latest` against upstream and,

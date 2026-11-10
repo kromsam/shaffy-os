@@ -40,7 +40,8 @@ The script refuses to run as root. It installs every tool
 home's mise configuration, which the home apply renders from that file; all
 public mise tools use `latest`. It installs every tool of the files in
 `~/.config/mise/conf.d/` as well, the profiles' and the supplement's mise
-fragments, with the versions and options they give them. With
+fragments, with the versions and options they give them; a file there that
+mise cannot read stops it, named. With
 the `zotero` integration managed it also
 installs Better BibTeX ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)).
 `./bin/shaffy update` runs it again to install updates, after the packages

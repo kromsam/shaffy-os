@@ -6,10 +6,12 @@ set -euo pipefail
   exit 1
 }
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-# Every public tool home/dot_config/mise/config.toml names. mise takes each one's version
-# and options from the home's configuration, which the home apply renders from that file.
-read -ra tools < <(/usr/bin/python3 -c 'import sys, tomllib; print(*tomllib.load(open(sys.argv[1], "rb"))["tools"])' \
+# Every public tool home/dot_config/mise/config.toml names, one per line, so no name splits.
+# mise takes each one's version and options from the home's configuration, which the home apply
+# renders from that file.
+mapfile -t tools < <(/usr/bin/python3 -c 'import sys, tomllib; print(*tomllib.load(open(sys.argv[1], "rb"))["tools"], sep="\n")' \
   "${repo}/home/dot_config/mise/config.toml")
+wait "$!" # set -e does not see a process substitution fail
 # So that configuration must be this checkout's: a tool it lacks would install without its options.
 /usr/bin/python3 - "${repo}/home/dot_config/mise/config.toml" "${XDG_CONFIG_HOME:-${HOME}/.config}/mise/config.toml" <<'PY'
 import sys, tomllib
@@ -22,12 +24,21 @@ if tools[0] != tools[1]:
 PY
 
 # And every tool of the conf.d files mise reads beside it, with their options: the profiles'
-# 80-profile-* and the supplement's 90-supplement.toml among them, in name order.
-read -ra personal < <(/usr/bin/python3 -c 'import pathlib, sys, tomllib
-print(*dict.fromkeys(tool for path in sorted(pathlib.Path(sys.argv[1]).glob("*.toml"))
-                     for tool in tomllib.loads(path.read_text()).get("tools", {})))' \
-  "${XDG_CONFIG_HOME:-${HOME}/.config}/mise/conf.d")
-(cd "${HOME}" && mise install -y "${tools[@]}" "${personal[@]}")
+# 80-profile-* and the supplement's 90-supplement.toml among them, in name order. A file mise
+# cannot read stops the install, named, rather than leaving its tools out.
+mapfile -t personal < <(/usr/bin/python3 -c 'import pathlib, sys, tomllib
+tools, failed = {}, False
+for path in sorted(pathlib.Path(sys.argv[1]).glob("*.toml")):
+    try:
+        tools.update(dict.fromkeys(tomllib.loads(path.read_text()).get("tools", {})))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        print(f"{path}: mise cannot read it: {error}", file=sys.stderr)
+        failed = True
+for tool in tools:
+    print(tool)
+sys.exit(failed)' "${XDG_CONFIG_HOME:-${HOME}/.config}/mise/conf.d")
+wait "$!"
+(cd "${HOME}" && mise install -y -- "${tools[@]}" "${personal[@]}")
 
 /usr/bin/python3 "${repo}/scripts/install-pstack.py"
 # Better BibTeX for the managed Zotero profile; Zotero updates it once it is installed.

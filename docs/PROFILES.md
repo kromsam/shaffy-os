@@ -28,7 +28,9 @@ example vendors the `writing` profile from the repository `alice/shaffy-os-profi
    folder at that commit into your supplement's `profiles/alice/writing/`, and
    records the source, the commit and every file's SHA-256 in
    `profiles/lock.json`. It prints what the profile asks of the machine, the
-   entries that run code or reach the network first. `--ref` names a branch, a
+   entries that run code or reach the network first, among them every asset
+   outside the folders for fonts, icons, themes and pictures. `--ref` names a
+   branch, a
    tag or a commit to follow instead. A source is `OWNER/REPO` on GitHub, or
    the `https` URL of any Git repository.
 2. Read what it vendored. The copy is code that will run on your machine:
@@ -229,7 +231,10 @@ something, fix it for everyone who uses it:
    terminal, which would act on any escape sequence in it. It also prints
    where to send it: the author's fork and a prefilled issue on GitHub. It
    names each line of the patch that looks personal, by its rule, never the
-   value.
+   value. A binary file is scanned as bytes only, which misses a value its
+   format encodes, such as a photo's position, so check it yourself. The patch
+   holds only the files the lock lists: a file you added is named and left
+   out, for you to add to the author's repository if it belongs there.
 3. Restore the copy with `git restore profiles/alice/writing`, so that the
    loads accept it again.
 4. Read the patch, then open the issue or the pull request yourself. Nothing

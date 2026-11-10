@@ -39,9 +39,11 @@ MECHANISM = 'A mechanism profiles need'  # the form's "Where it should go" optio
 
 
 def propose(root, checkout, profile_id, upstream):
-    """(patch, header lines): the copy's hand edits as a patch git apply takes in the author's
-    repository at the locked commit, and where to send it. The header names each personal-looking
-    value in the added lines by its rule and line, never the value."""
+    """(patch, header lines): the copy's hand edits of the files the lock lists, as a patch git
+    apply takes in the author's repository at the locked commit, and where to send it. The header
+    names each personal-looking value in the added lines, or in a binary file's bytes, by its rule
+    and place, never the value; each binary file, which a scan of its bytes cannot read whole; and
+    each file the lock does not list, which the patch leaves out unscanned."""
     root = Path(root)
     locked = _read_lock(root).get(profile_id)
     if locked is None:
@@ -62,15 +64,34 @@ def propose(root, checkout, profile_id, upstream):
         fetched = upstream.tree(locked.source, locked.commit, locked.path, LIMITS)
     except ValueError as error:
         raise ProfileError(f'{profile_id}: {error}') from None
+    unlisted = [f'{locked.path}/{name}' for name in sorted(set(current) - set(locked.files))]
     old = {name: fetched[name] for name in locked.files if name in fetched}
-    new = {name: (folder / name).read_bytes() for name in current}
+    new = {name: (folder / name).read_bytes() for name in current if name in locked.files}
+    if new == old:
+        raise ProfileError(
+            f'nothing to propose: the files the lock lists are as vendored at {locked.commit[:7]}, and a patch '
+            f'leaves out {", ".join(unlisted)}; add a file that belongs in the profile to its repository yourself.'
+        )
     patch = _patch(locked.path, old, new)
-    hits = _personal(patch, _rules(root, checkout))
+    rules = _rules(root, checkout)
+    binary = sorted(name for name, data in new.items() if data != old.get(name) and b'\0' in data[:8000])
+    found = [f'{path}:{number}: {rule}' for path, number, rule in _personal(patch, rules)]
+    found += [f'{locked.path}/{name} (its bytes): {rule}' for name in binary for rule in _matches(new[name], rules)]
     source = locked.source.rstrip('/').removesuffix('.git')
     header = [
         f'A fix for {profile_id} against {locked.source} at {locked.commit[:7]}.',
-        *_scanned(hits, 'the added lines'),
+        *_scanned(found, 'the added lines' + (' and the bytes of each binary file' if binary else '')),
     ]
+    if binary:
+        header.append(
+            f'Binary, so scanned as bytes only: {", ".join(f"{locked.path}/{name}" for name in binary)}. A value a '
+            "format encodes, such as a photo's position or compressed text, is not found: check it yourself."
+        )
+    if unlisted:
+        header.append(
+            f'Left out of the patch, since the lock does not list {"it" if len(unlisted) == 1 else "them"}, and not '
+            f'scanned: {", ".join(unlisted)}. Add one that belongs in the profile to its repository yourself.'
+        )
     if source.startswith('https://github.com/'):
         title = quote(f'{locked.path}: ')
         body = quote(f'A fix for the {locked.path} profile at {locked.commit[:7]}; the patch is attached.')
@@ -313,11 +334,17 @@ def _personal(patch, rules):
     return sorted(hits)
 
 
-def _scanned(hits, what):
-    if not hits:
+def _matches(data, rules):
+    """The rules a line of DATA matches, its bytes read as UTF-8 where they are."""
+    lines = data.decode(errors='replace').splitlines()
+    return sorted({rule for line in lines for rule, find in rules if find(line) or find(line.replace('_', '-'))})
+
+
+def _scanned(found, what):
+    if not found:
         return [f'Personal values: none found in {what}.']
     return [f'Personal values: replace these in {what} before you send it (the value is not shown):'] + [
-        f'  {path}:{number}: {rule}' for path, number, rule in hits
+        f'  {place}' for place in found
     ]
 
 
