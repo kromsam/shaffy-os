@@ -1,9 +1,10 @@
 ---
 # Checks a public profile repository against a Shaffy OS release: `shaffy profile check`
-# (each profile loads, every file it names is tracked, the licence, a scan for personal
-# values, lint, and the home each profile renders) and a secret scan of its history. A
-# profile repository calls it from a workflow of its own
-# (profile.example/.github/workflows/shaffy.yml); it runs in that repository.
+# (each profile loads, every file it names is in the last commit, the licence, a scan for
+# personal values, lint, and the home each profile renders) and a secret scan of its history.
+# A profile repository calls it from a workflow of its own
+# (profile.example/.github/workflows/shaffy.yml); it runs in that repository, so its result
+# is the author's claim: the author controls the caller and the scan's .gitleaks.toml.
 name: profiles
 on:
   workflow_call:
@@ -37,12 +38,15 @@ jobs:
           path: shaffy-os
           fetch-depth: 0 # the release tags, which a profile's minimum_release is checked against
           persist-credentials: false
-      # runuser without -l keeps the step's directory.
+      # runuser without -l keeps the step's directory. tester owns its home and the profile
+      # repository's checkout; the Shaffy OS checkout that judges it stays root's, read-only to
+      # tester, whose Git may read it.
       - name: Install the development tools (mise.dev.toml)
         working-directory: shaffy-os
         run: |
           useradd --create-home tester
-          chown -R tester: "$GITHUB_WORKSPACE"
+          chown -R tester: "$GITHUB_WORKSPACE/profiles"
+          git config --system --add safe.directory "$GITHUB_WORKSPACE/shaffy-os"
           runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
             mise trust mise.toml
             mise trust mise.dev.toml

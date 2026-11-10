@@ -207,6 +207,9 @@ class SupplementWorkflowTests(unittest.TestCase):
         runs = [step.get('run', '') for step in steps]
         self.assertTrue(any('./bin/shaffy profile check ../profiles' in run for run in runs), runs)
         self.assertTrue(any('gitleaks git' in run for run in runs), runs)
+        # tester runs the profile repository's checks: it owns that checkout, never the one that judges it.
+        chowns = [line.split() for run in runs for line in run.splitlines() if line.strip().startswith('chown')]
+        self.assertEqual([words[-1] for words in chowns], ['"$GITHUB_WORKSPACE/profiles"'])
         caller = yaml.safe_load((ROOT / 'profile.example/.github/workflows/shaffy.yml').read_text())
         self.assertEqual(caller['jobs']['profiles']['uses'], 'kromsam/shaffy-os/.github/workflows/profiles.yml@main')
 

@@ -353,7 +353,9 @@ someone else.
 
 The scaffold's `.github/workflows/shaffy.yml` runs the same check on every
 push, with Shaffy OS's reusable workflow `.github/workflows/profiles.yml`, and
-scans the history for secrets. `schema/profile.schema.json` validates
+scans the history for secrets. The workflow runs in the author's repository,
+which also holds the secret scan's `.gitleaks.toml`, so a green run is the
+author's claim, not Shaffy OS's review. `schema/profile.schema.json` validates
 `profile.yaml` in an editor through the line at the top of the example.
 
 When the check passes, publish the repository:
