@@ -18,7 +18,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from shaffy import loader, pins, profiles, vendor
+from shaffy import loader, pins, profiles, sharing, vendor
 
 LIMITS = (200, 8 * 2**20)
 GIT_ENV = {
@@ -718,7 +718,7 @@ class ProposeTests(CommandCase):
     def test_propose_prints_a_patch_that_applies_to_the_source(self):
         self.add('notes')
         folder = self.edit()
-        patch, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        patch, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
         self.assertEqual(header[0], f'A fix for alice/notes against {SOURCE} at {self.first[:7]}.')
         self.assertEqual(header[1], 'Personal values: none found in the added lines.')
         self.assertEqual(
@@ -744,7 +744,7 @@ class ProposeTests(CommandCase):
         self.add('notes')
         planted = '/home/' + 'example-person/notes'  # split, so the repository's own scan passes this file
         (self.supplement / 'profiles/alice/notes/style.csl').write_text(f'<style/>\n<!-- {planted} -->\n')
-        _, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
         self.assertIn('  notes/style.csl:2: home-path', header)
         self.assertTrue(header[1].startswith('Personal values: replace these in the added lines'))
         self.assertNotIn(planted, '\n'.join(header))
@@ -752,7 +752,7 @@ class ProposeTests(CommandCase):
     def test_propose_without_edits_has_nothing_to_propose(self):
         self.add('notes')
         with self.assertRaisesRegex(vendor.ProfileError, f'nothing to propose: .* as vendored at {self.first[:7]}'):
-            vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+            sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
 
     def test_propose_to_a_github_author_links_the_fork_and_a_prefilled_issue(self):
         self.add('notes')
@@ -761,7 +761,7 @@ class ProposeTests(CommandCase):
         lock['profiles']['alice/notes']['source'] = 'https://github.com/alice/profiles'
         (self.supplement / profiles.LOCK).write_text(json.dumps(lock))
         with mock.patch.dict(os.environ, {'GIT_CONFIG_VALUE_0': 'https://github.com/alice/profiles'}):
-            _, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+            _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
         text = '\n'.join(header)
         self.assertIn('fork the repository (https://github.com/alice/profiles/fork)', text)
         self.assertIn('https://github.com/alice/profiles/issues/new?title=notes%3A%20&body=', text)
@@ -769,10 +769,10 @@ class ProposeTests(CommandCase):
     def test_propose_to_shaffy_drafts_the_configuration_form(self):
         self.add('notes')
         self.config('profiles: [alice/notes]\n')
-        draft = vendor.propose_shaffy(self.supplement, ROOT, 'alice/notes', 'desktop.keyboard')
-        form = loader.parse(ROOT / vendor.FORM)
+        draft = sharing.propose_shaffy(self.supplement, ROOT, 'alice/notes', 'desktop.keyboard')
+        form = loader.parse(ROOT / sharing.FORM)
         fields = {field['id']: field['attributes'] for field in form['body'] if 'id' in field}
-        self.assertIn(f'{vendor.SHAFFY_ISSUES}/new?template=configuration.yml', draft[1])
+        self.assertIn(f'{sharing.SHAFFY_ISSUES}/new?template=configuration.yml', draft[1])
         self.assertEqual(draft[2], 'Personal values: none found in the draft.')
         body = draft[draft.index('') + 1 :]
         self.assertEqual(body[0], 'Title: Profiles: let a profile set desktop.keyboard')
@@ -788,10 +788,10 @@ class ProposeTests(CommandCase):
             self.assertNotIn(personal, text)
 
     def test_propose_to_shaffy_needs_no_profile_and_refuses_a_key_profiles_may_set(self):
-        draft = vendor.propose_shaffy(None, ROOT)
+        draft = sharing.propose_shaffy(None, ROOT)
         self.assertIn('Title: Profiles: <the mechanism profiles need>', draft)
         with self.assertRaisesRegex(vendor.ProfileError, 'assets is not a setting profiles are refused'):
-            vendor.propose_shaffy(None, ROOT, key='assets')
+            sharing.propose_shaffy(None, ROOT, key='assets')
 
     def test_the_propose_command_writes_the_patch_to_stdout_and_the_rest_to_stderr(self):
         self.add('notes')
@@ -819,7 +819,7 @@ class ReportTests(CommandCase):
         (folder / 'alice/notes/stray.txt').write_text('x\n')
         (folder / 'bob/left').mkdir(parents=True)
         (folder / '.staging-alice-notes-x').mkdir()
-        notes = vendor.findings(self.supplement, self.listed_data())
+        notes = sharing.findings(self.supplement, self.listed_data())
         self.assertIn(
             f'{folder}/.staging-alice-notes-x: left by an interrupted profile command; the next one deletes it', notes
         )
@@ -857,7 +857,7 @@ class ReportTests(CommandCase):
         )
         self.add('one', 'two')
         self.config('profiles: [alice/one, alice/two]\n')
-        notes = vendor.findings(self.supplement, self.listed_data())
+        notes = sharing.findings(self.supplement, self.listed_data())
         self.assertEqual(
             notes,
             [
@@ -878,7 +878,7 @@ class ReportTests(CommandCase):
             'assets:\n  "~/.local/share/fonts/x.otf": font.otf\n'
             'lazyvim:\n  extras: [lazyvim.plugins.extras.lang.ruby]\n'
         )
-        lines = vendor.summary(self.supplement, self.listed_data())
+        lines = sharing.summary(self.supplement, self.listed_data())
         self.assertEqual(
             lines,
             [

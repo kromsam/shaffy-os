@@ -165,9 +165,9 @@ def check(args):
             f'Settings are valid: supplement {selection["supplement_id"]} at {selection["path"]} '
             f'({selection["source"]}).'
         )
-        from shaffy import vendor
+        from shaffy import sharing
 
-        for note in data['shaffy']['notes'] + vendor.findings(Path(selection['path']), data['shaffy']):
+        for note in data['shaffy']['notes'] + sharing.findings(Path(selection['path']), data['shaffy']):
             print(f'Note: {note}')
     else:
         print(f'Settings are valid: public defaults only ({selection["source"]}).')
@@ -665,7 +665,7 @@ def status(args):
 
 def _profiles_status():
     """status's lines on the profiles the bound supplement uses, from the cached settings."""
-    from shaffy import vendor
+    from shaffy import sharing
     from shaffy.fastload import load_data
     from shaffy.loader import SettingsError
     from shaffy.selection import SelectionError
@@ -674,7 +674,7 @@ def _profiles_status():
         shaffy = load_data(ROOT)['shaffy']
     except (SelectionError, SettingsError) as error:
         return [f'Profiles: unknown; {error}']
-    return vendor.summary(Path(shaffy['selection']['path']), shaffy)
+    return sharing.summary(Path(shaffy['selection']['path']), shaffy)
 
 
 def _named_dotfiles(strict=False):
@@ -734,14 +734,14 @@ def _dotfiles_status(drift):
 
 def profile(args):
     """Vendor, update or remove the profiles in a supplement's profiles/ folder, or draft a fix
-    for an author or Shaffy OS (lib/shaffy/vendor.py). Each prints what vendor returns, and a
-    refusal as `shaffy: ...` with exit status 1; propose writes its patch to stdout and the rest
-    to stderr. Nothing is sent anywhere."""
-    from shaffy import pins, vendor
+    for an author or Shaffy OS (lib/shaffy/vendor.py, lib/shaffy/sharing.py). Each prints what they
+    return, and a refusal as `shaffy: ...` with exit status 1; propose writes its patch to stdout and
+    the rest to stderr. Nothing is sent anywhere."""
+    from shaffy import pins, sharing, vendor
     from shaffy.selection import SelectionError, resolve
 
     if args.action == 'propose' and args.to == 'shaffy' and not args.id:
-        print('\n'.join(vendor.propose_shaffy(None, ROOT, key=args.key)))  # needs no supplement
+        print('\n'.join(sharing.propose_shaffy(None, ROOT, key=args.key)))  # needs no supplement
         return 0
     try:
         selection = resolve(args.supplement)
@@ -753,12 +753,12 @@ def profile(args):
     try:
         with pins.Upstream() as upstream:
             if args.action == 'propose' and args.to == 'shaffy':
-                print('\n'.join(vendor.propose_shaffy(root, ROOT, args.id, args.key)))
+                print('\n'.join(sharing.propose_shaffy(root, ROOT, args.id, args.key)))
                 return 0
             if args.action == 'propose':
                 if not args.id:
                     return _fail('name the profile: ./bin/shaffy profile propose OWNER/NAME')
-                patch, header = vendor.propose(root, ROOT, args.id, upstream)
+                patch, header = sharing.propose(root, ROOT, args.id, upstream)
                 print('\n'.join(header), file=sys.stderr)
                 sys.stdout.write(patch)
                 return 0

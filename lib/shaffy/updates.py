@@ -180,7 +180,7 @@ def removal_section(root, today=None):
 
 def profile_section(home, upstream=None):
     """The bound supplement's vendored profiles against their authors' repositories."""
-    from . import pins, vendor
+    from . import pins, sharing
     from .selection import SelectionError, resolve
 
     try:
@@ -189,7 +189,7 @@ def profile_section(home, upstream=None):
         return Section('Profiles', f'not checked: {error}')
     if selection['mode'] != 'supplement':
         return Section('Profiles', 'none in use')
-    summary, lines = vendor.behind(Path(selection['path']), upstream or pins.Upstream())
+    summary, lines = sharing.behind(Path(selection['path']), upstream or pins.Upstream())
     return Section('Profiles', summary, lines)
 
 
