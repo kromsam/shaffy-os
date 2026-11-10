@@ -188,6 +188,22 @@ class InvalidInputTests(LoaderCase):
         values = yaml.load('mode: 0600\ntime: 1:20\nday: 2026-09-23\nflag: on\n', Loader=_Loader)
         self.assertEqual(values, {'mode': 600, 'time': '1:20', 'day': '2026-09-23', 'flag': 'on'})
 
+    def test_a_file_that_cannot_be_read_as_settings_is_a_settings_error(self):
+        start = b'schema_version: 1\nsupplement_id: t\n'
+        for case, content, expected in (
+            ('not UTF-8', start + b'identity:\n  name: \xff\n', r'config\.yaml: not UTF-8 text'),
+            ('nested too deeply', start + b'ai: ' + b'[' * 2000 + b']' * 2000, r'config\.yaml:3:\d+: nested deeper'),
+            ('a list as a key', start + b'? [a, b]\n: c\n', r'config\.yaml:3:3: a key must be a single value'),
+            ('a number too long', start + b'size: ' + b'9' * 5000, r'config\.yaml:3:7: not an integer, or one too'),
+            ('a float that is none', start + b'size: !!float many\n', r'config\.yaml: .*many'),
+        ):
+            with self.subTest(case):
+                path = self.supplement('')
+                (path / 'config.yaml').write_bytes(content)
+                with self.assertRaises(SettingsError) as caught:
+                    self.load(supplement=path)
+                self.assertRegex('\n'.join(caught.exception.problems), expected)
+
     def test_unsupported_version(self):
         self.assertIn('schema_version: 2 is not supported', self.problems('schema_version: 2\nsupplement_id: t\n'))
 

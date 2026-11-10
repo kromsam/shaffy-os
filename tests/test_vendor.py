@@ -697,6 +697,22 @@ class RemoveTests(CommandCase):
         )
         self.assertFalse((self.supplement / 'profiles/alice/old').exists())
 
+    def test_remove_force_takes_a_copy_whose_profile_yaml_cannot_be_read(self):
+        for case, content in (
+            ('not UTF-8', b'schema_version: 1\ndescription: \xff\n'),
+            ('nested too deeply', b'schema_version: 1\ndescription: ' + b'[' * 2000 + b']' * 2000),
+            ('a list as a key', b'schema_version: 1\n? [a]\n: b\n'),
+            ('a number too long', b'schema_version: ' + b'9' * 5000),
+        ):
+            with self.subTest(case):
+                self.add('notes')
+                (self.supplement / 'profiles/alice/notes/profile.yaml').write_bytes(content)
+                lines = self.remove('alice/notes', force=True)
+                self.assertIn(
+                    'Removed profiles/alice/notes and its lock entry; review with git diff and commit.', lines
+                )
+                self.assertFalse((self.supplement / profiles.FOLDER).exists())  # the folder and the lock
+
 
 class CrashTests(CommandCase):
     """Every crash point of the design's table, and the rerun that converges."""

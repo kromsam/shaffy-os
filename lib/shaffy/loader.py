@@ -4,6 +4,7 @@ PyYAML parses (YAML 1.2 core typing, duplicate keys rejected), python-jsonschema
 validates the structure, and hand-written checks cover what a schema cannot.
 """
 
+from collections.abc import Hashable
 import copy
 from dataclasses import dataclass
 import hashlib
@@ -34,6 +35,9 @@ UNION = (('packages', 'extra'), ('lazyvim', 'extras'))
 KEYED = (('ai', 'mcp_servers'), ('ai', 'claude_plugins'))
 # Resolved per layer against its own root, never folded.
 FILE_SECTIONS = ('overrides', 'assets')
+# Nesting levels a settings file may hold. The settings use five, and the code that reads them
+# recurses at least once per level, so a deeper file would stop it with a RecursionError.
+DEPTH = 32
 
 
 @dataclass(frozen=True)
@@ -60,7 +64,21 @@ class SettingsError(Exception):
 
 class _Loader(yaml.SafeLoader):
     """YAML 1.2 core schema: only true/false are booleans; no timestamps,
-    sexagesimal numbers or 0-prefixed octals. Editors read files the same way."""
+    sexagesimal numbers or 0-prefixed octals. Editors read files the same way.
+    Nothing nests deeper than DEPTH."""
+
+    nesting = 0
+
+    def compose_node(self, parent, index):
+        if self.nesting == DEPTH:
+            raise yaml.composer.ComposerError(
+                None, None, f'nested deeper than {DEPTH} levels', self.peek_event().start_mark
+            )
+        self.nesting += 1
+        try:
+            return super().compose_node(parent, index)
+        finally:
+            self.nesting -= 1
 
 
 _Loader.yaml_implicit_resolvers = {}
@@ -80,17 +98,26 @@ for _tag, _pattern, _first in (
 
 def _construct_int(loader, node):
     value = loader.construct_scalar(node)
-    if value.startswith('0o'):
-        return int(value[2:], 8)
-    if value.startswith('0x'):
-        return int(value[2:], 16)
-    return int(value, 10)  # "0600" is decimal 600 in YAML 1.2, never octal
+    try:
+        if value.startswith('0o'):
+            return int(value[2:], 8)
+        if value.startswith('0x'):
+            return int(value[2:], 16)
+        return int(value, 10)  # "0600" is decimal 600 in YAML 1.2, never octal
+    except ValueError:  # an explicit !!int that is none, or more digits than int() converts
+        raise yaml.constructor.ConstructorError(
+            None, None, 'not an integer, or one too long to read', node.start_mark
+        ) from None
 
 
 def _construct_mapping(loader, node):
     mapping = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=True)
+        if not isinstance(key, Hashable):
+            raise yaml.constructor.ConstructorError(
+                None, None, 'a key must be a single value, not a list or a mapping', key_node.start_mark
+            )
         if key in mapping:
             raise yaml.constructor.ConstructorError(None, None, f'duplicate key {key!r}', key_node.start_mark)
         mapping[key] = loader.construct_object(value_node, deep=True)
@@ -118,14 +145,18 @@ def parse(path, aliases=True):
     """Parse one YAML file into plain data, or raise SettingsError, which names an alias as well
     unless ALIASES."""
     try:
-        data = yaml.load(Path(path).read_text(), Loader=_Loader if aliases else _NoAliases)
+        data = yaml.load(Path(path).read_text(encoding='utf-8'), Loader=_Loader if aliases else _NoAliases)
     except OSError as error:
         raise SettingsError([f'{path}: cannot read: {error.strerror}']) from error
+    except UnicodeDecodeError as error:
+        raise SettingsError([f'{path}: not UTF-8 text (byte {error.start + 1})']) from error
     except yaml.YAMLError as error:
         mark = getattr(error, 'problem_mark', None)
         where = f':{mark.line + 1}:{mark.column + 1}' if mark else ''
         problem = getattr(error, 'problem', None) or str(error)
         raise SettingsError([f'{path}{where}: {problem}']) from error
+    except (ValueError, TypeError) as error:  # what PyYAML's own constructors let through, as for !!float many
+        raise SettingsError([f'{path}: {error}']) from error
     if not isinstance(data, dict):
         raise SettingsError([f'{path}: the top level must be a mapping of settings'])
     return data
