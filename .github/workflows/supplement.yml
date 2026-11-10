@@ -47,12 +47,15 @@ jobs:
           path: shaffy-os
           fetch-depth: 0 # the release tags, which a supplement's minimum_release is checked against
           persist-credentials: false
-      # runuser without -l keeps the step's directory.
+      # runuser without -l keeps the step's directory. tester owns its home and the supplement's
+      # checkout, where the supplement's own tests run; the Shaffy OS checkout that judges it stays
+      # root's, read-only to tester, whose Git may read it.
       - name: Install the development tools (mise.dev.toml)
         working-directory: shaffy-os
         run: |
           useradd --create-home tester
-          chown -R tester: "$GITHUB_WORKSPACE"
+          chown -R tester: "$GITHUB_WORKSPACE/supplement"
+          git config --system --add safe.directory "$GITHUB_WORKSPACE/shaffy-os"
           runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
             mise trust mise.toml
             mise trust mise.dev.toml

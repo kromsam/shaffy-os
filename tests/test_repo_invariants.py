@@ -194,6 +194,15 @@ class SupplementWorkflowTests(unittest.TestCase):
         self.assertEqual(len(scans), 2)
         self.assertIn('git submodule foreach --quiet --recursive', scans[1])
 
+    def test_tester_owns_the_supplements_checkout_never_the_one_that_judges_it(self):
+        import yaml
+
+        workflow = yaml.safe_load((ROOT / '.github/workflows/supplement.yml').read_text())
+        runs = [step.get('run', '') for step in workflow['jobs']['supplement']['steps']]
+        # tester runs the supplement's own tests; a test that could rewrite Shaffy OS could pass itself.
+        chowns = [line.split() for run in runs for line in run.splitlines() if line.strip().startswith('chown')]
+        self.assertEqual([words[-1] for words in chowns], ['"$GITHUB_WORKSPACE/supplement"'])
+
     def test_the_profile_workflow_checks_against_the_releases_and_scans_the_history(self):
         import yaml
 
