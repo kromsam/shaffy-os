@@ -30,9 +30,8 @@ example vendors the `writing` profile from the repository `alice/shaffy-os-profi
    `profiles/lock.json`. It prints what the profile asks of the machine, the
    entries that run code or reach the network first, among them every asset
    outside the folders for fonts, icons, themes and pictures. `--ref` names a
-   branch, a
-   tag or a commit to follow instead. A source is `OWNER/REPO` on GitHub, or
-   the `https` URL of any Git repository.
+   branch, a tag or a commit to follow instead. A source is `OWNER/REPO` on
+   GitHub, or the `https` URL of any Git repository.
 2. Read what it vendored. The copy is code that will run on your machine:
 
    ```sh
@@ -68,9 +67,11 @@ load (`check`, `data`, `diff` and `apply`) verifies the vendored copy against
 `./bin/shaffy data` shows which layer set each asset and each value, and
 `./bin/shaffy status` lists the profiles in use with their commits.
 
-Nothing is fetched during a check, a render or an apply. Only `profile add` and
-`profile update` read the author's repository, and only `./bin/shaffy profile`
-writes the `profiles/` folder.
+`check`, `data`, `diff` and `apply` never fetch. Four commands read the
+author's repository: `profile add` and `profile update` fetch the profile,
+`profile propose` fetches the vendored commit to compare your edits with, and
+`outdated` asks which commit each followed branch or tag names now. Only
+`profile add`, `update` and `remove` write the `profiles/` folder.
 
 ## How layers combine
 
@@ -154,11 +155,11 @@ asset, in a profile or in `config.yaml`, may lie where profile fragments go
 and `~/.config/mise/conf.d/80-profile-*.toml`), since an apply deletes a file
 there that no profile sets; set the file as an `overrides` fragment instead.
 A keyboard map must match a keyboard model by its vendor and product, never
-one unit by a port, a unique id or a serial. A profile holds plain files, at most 200 of them and
-8 MiB in all, with no link or submodule, and every file it names lies inside
-its folder. No name in it holds a control character, and none starts with
-`.git`, since Git would read such a file in your supplement. Its
-`profile.yaml` writes every value out: an alias (`*name`) is refused.
+one unit by a port, a unique id or a serial. A profile holds plain files, at
+most 200 of them and 8 MiB in all, with no link or submodule, and every file it
+names lies inside its folder. No name in it holds a control character, and
+none starts with `.git`, since Git would read such a file in your supplement.
+Its `profile.yaml` writes every value out: an alias (`*name`) is refused.
 
 If a profile should be able to share something it may not, that is a change to
 Shaffy OS ([fix it upstream](#fix-it-upstream)).
@@ -214,9 +215,11 @@ profile:
 
 ## Fix it upstream
 
-A vendored copy stays exactly as its author published it. Never edit a file
-under `profiles/` to change what it does. When a profile is wrong or lacks
-something, fix it for everyone who uses it:
+A vendored copy stays as its author published it. Every load refuses a copy
+that differs from `profiles/lock.json`, so an edit there never changes your
+machine. You edit the copy only to draft a fix with `profile propose`, and you
+restore it in the same sitting. Never apply or commit an edited copy. When a
+profile is wrong or lacks something, fix it for everyone who uses it:
 
 1. Put what your machine needs now in `config.yaml`, which wins over every
    profile, with a comment that names the issue it waits for.
@@ -229,14 +232,16 @@ something, fix it for everyone who uses it:
    The patch applies with `git apply` in the author's repository at the
    vendored commit. The command writes it to a file or a pipe, never to the
    terminal, which would act on any escape sequence in it. It also prints
-   where to send it: the author's fork and a prefilled issue on GitHub. It
-   names each line of the patch that looks personal, by its rule, never the
-   value. A binary file is scanned as bytes only, which misses a value its
+   where to send it: for a repository on GitHub, its fork page and a prefilled
+   issue; for another host, the repository's address. It names each line of
+   the patch that looks personal, by its rule, never the value. A binary file is scanned as bytes only, which misses a value its
    format encodes, such as a photo's position, so check it yourself. The patch
    holds only the files the lock lists: a file you added is named and left
-   out, for you to add to the author's repository if it belongs there.
-3. Restore the copy with `git restore profiles/alice/writing`, so that the
-   loads accept it again.
+   out, for you to add to the author's repository if it belongs there. When
+   your `profile.yaml` names such a file, the command says that the patch
+   alone breaks the profile.
+3. Restore the copy with `git restore profiles/alice/writing` before you
+   apply or commit anything, so that the loads accept it again.
 4. Read the patch, then open the issue or the pull request yourself. Nothing
    is sent for you.
 

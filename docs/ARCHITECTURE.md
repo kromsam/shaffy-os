@@ -807,9 +807,10 @@ and changes nothing else.
 ## Absence and removal
 
 - A setting that is always managed renders its public default when absent.
-- A home fragment (every `overrides.*` except `keyboard_hwdb`) renders into an
-  `empty_` target, so removing it from the settings leaves an empty file where
-  chezmoi would otherwise delete the target. Without
+- The supplement's own home fragment (every `overrides.*` except
+  `keyboard_hwdb`) renders into an `empty_` target, so removing it from the
+  settings leaves an empty file where chezmoi would otherwise delete the
+  target. Without
   `overrides.keyboard_hwdb`, the `keyboard` role removes the hardware database
   file it installed. A fragment or asset the settings name but the supplement
   lacks fails validation.

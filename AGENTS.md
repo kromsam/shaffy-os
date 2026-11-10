@@ -47,9 +47,12 @@ This forbids, as ways of making a change:
 - running `chezmoi apply`, or `ansible-playbook` with `site.yml`, instead of
   `./bin/shaffy apply`;
 - installing packages ad hoc instead of declaring them;
-- editing a vendored profile under a supplement's `profiles/`, which every load
-  then refuses. Put the change in `config.yaml`, and send the fix to the
-  profile's author ([fix it upstream](docs/PROFILES.md#fix-it-upstream)).
+- editing a vendored profile under a supplement's `profiles/` to change the
+  machine. Every load refuses a copy that differs from what was vendored. Put
+  the change in `config.yaml`, and send the fix to the profile's author
+  ([fix it upstream](docs/PROFILES.md#fix-it-upstream)). The copy is edited
+  only to draft that fix with `./bin/shaffy profile propose`, and restored in
+  the same sitting. It is never applied or committed edited.
 
 Reading the live system is always fine, and is often the right first step.
 
@@ -57,8 +60,9 @@ Reading the live system is always fine, and is often the right first step.
 
 A value is personal when it identifies a person, a machine or an account, or
 adapts the public desktop to one installation: names and e-mail addresses,
-host names, server endpoints, display geometry, keyboard hardware mappings,
-deliberate folder overrides, private wallpaper paths and extra or omitted packages.
+host names, server endpoints, display geometry, a single unit's keyboard
+mapping, deliberate folder overrides, private wallpaper paths, and extra or
+omitted packages that serve one machine.
 The product's chosen applications, fonts, theme and general keybindings are
 public defaults, even when they reflect its author's preferences.
 
@@ -188,12 +192,13 @@ personal value replaced, for the person to read and send. Never open, comment
 on or push to an upstream repository on your own. A workaround the supplement
 needs in the meantime names the issue it waits for.
 
-A problem in a vendored profile goes to its author:
-`./bin/shaffy profile propose ID` drafts the patch, after which
-`git restore profiles/OWNER/NAME` returns the copy to what was vendored. A need
-that no profile can express, a key a profile may not set or a mechanism
-profiles lack, goes to Shaffy OS: `./bin/shaffy profile propose ID --to shaffy`
-drafts the issue ([fix it upstream](docs/PROFILES.md#fix-it-upstream)).
+A problem in a vendored profile goes to its author. Make the fix in the
+vendored copy, draft the patch with `./bin/shaffy profile propose ID`, then
+return the copy to what was vendored with `git restore profiles/OWNER/NAME` in
+the same sitting. The edited copy is never applied or committed. A need that no
+profile can express, a key a profile may not set or a mechanism profiles lack,
+goes to Shaffy OS: `./bin/shaffy profile propose [ID] --to shaffy` drafts the
+issue ([fix it upstream](docs/PROFILES.md#fix-it-upstream)).
 
 ## A fresh clone
 

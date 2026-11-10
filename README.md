@@ -387,15 +387,17 @@ as ordinary files and settings; remove what you no longer want by hand:
 | `./bin/shaffy integration NAME adopt` or `release` | `adopt` records an integration that is already active here as managed; `release` stops tracking it and changes nothing. |
 | `./bin/shaffy profile add OWNER/REPO NAME... [--ref REF]` | Vendors [profiles](docs/PROFILES.md) from an author's repository into the supplement's `profiles/` at one commit, and prints what they run and install. They apply once `config.yaml` lists them. |
 | `./bin/shaffy profile update [ID...] [--ref REF]` | Takes a newer commit of vendored profiles, and shows the author's commits and what runs code. |
-| `./bin/shaffy profile remove ID...` | Deletes vendored profiles that `config.yaml` no longer lists, and names what stays on the machine. |
-| `./bin/shaffy profile propose ID [--to shaffy] [--key KEY]` | Drafts your edits of a vendored profile as a patch for its author, or, with `--to shaffy`, an issue for a need profiles cannot express. Sends nothing. |
+| `./bin/shaffy profile remove ID... [--force]` | Deletes vendored profiles that `config.yaml` no longer lists, and names what stays on the machine. `--force` also deletes a copy with hand edits, or a folder without a lock entry. |
+| `./bin/shaffy profile propose [ID] [--to shaffy] [--key KEY]` | Drafts your edits of a vendored profile as a patch for its author, or, with `--to shaffy`, an issue for a need profiles cannot express, which needs no ID. Sends nothing. |
 | `./bin/shaffy profile check [PATH]` | Checks a profile repository before you publish it: each profile loads and renders, its files are in the last commit, the licence, personal values and the lint of a copy of what vendoring reads. Runs none of the repository's files and changes nothing. |
 | `./bin/shaffy lint [--fix] [--changed] [--supplement [PATH]] [PATH...]` | Runs one formatter and linter per language, as [STYLE.md](STYLE.md) says; `--fix` lets the formatters rewrite the files and `--supplement` lints the bound supplement, or the one named, by the same rules, without its vendored `profiles/`. Needs the development tools of `mise.dev.toml`. |
 | `./bin/shaffy selftest [--skip-host] [-j N] [-v]` | Runs the test suite in parallel, one worker per CPU; `--skip-host` leaves out tests bound to this machine, as CI does, and `-j 1` runs plain unittest in order. |
 
 `check`, `data` and `diff` accept `--supplement PATH` or
 `--without-supplement` to try other settings than the bound ones; `diff` then
-previews them from a frozen copy. `apply --checkout PATH` applies once from a
+previews them from a frozen copy. The `profile` commands accept
+`--supplement PATH` to work on another supplement than the bound one; for
+`profile check`, it names the supplement whose private values the scan adds. `apply --checkout PATH` applies once from a
 checkout other than the bound one. chezmoi can still read the tracked
 configuration, for example `chezmoi --config chezmoi.toml --source home
 status`, but its hooks refuse `apply`, `update`, `init`, `destroy`, `purge` and
@@ -440,6 +442,12 @@ checked, and which commands change the machine. Try a branch on your machine
 with `./bin/shaffy apply --checkout PATH`, run in its checkout; the binding
 stays on your released checkout ([branches](AGENTS.md#branches)).
 [MAINTAINING.md](MAINTAINING.md) describes the maintainers' work.
+
+A problem in a vendored profile goes to its author's repository, and
+`./bin/shaffy profile propose ID` drafts the fix for it. A setting a profile
+may not set, or a mechanism profiles lack, comes here as an issue, which
+`./bin/shaffy profile propose --to shaffy` drafts
+([a problem in a profile](CONTRIBUTING.md#a-problem-in-a-profile)).
 
 ## Licence
 

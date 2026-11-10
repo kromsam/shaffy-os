@@ -23,11 +23,13 @@ names the checkout. For each changed file, ask:
 4. **A shareable setting.** A supplement setting that names no person or
    machine and that others would want, but not everyone, belongs in a profile
    (docs/PROFILES.md): a fragment, an asset, an extra package, an editor extra,
-   a plugin or an MCP server. Suggest moving it there ("Share yours"). A change
-   to a vendored copy under a supplement's `profiles/` is never right: the
-   change goes in `config.yaml` and the fix to the profile's author
-   (`./bin/shaffy profile propose ID`). A need profiles cannot express is a
-   Shaffy OS change (`./bin/shaffy profile propose ID --to shaffy`).
+   a plugin or an MCP server. Suggest moving it there ("Share yours"). A
+   vendored copy under a supplement's `profiles/` that is applied or committed
+   edited is never right: the change goes in `config.yaml` and the fix to the
+   profile's author. The copy is edited only to draft that fix with
+   `./bin/shaffy profile propose ID`, and restored in the same sitting. A need
+   profiles cannot express is a Shaffy OS change
+   (`./bin/shaffy profile propose [ID] --to shaffy`).
 5. **Convergence.** Would a second apply change nothing? Look for commands
    without `changed_when`, generated timestamps, an order that varies, and files
    an application rewrites, which need a `modify_` script or an integration's

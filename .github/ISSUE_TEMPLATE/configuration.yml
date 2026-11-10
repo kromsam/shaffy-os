@@ -23,7 +23,7 @@ body:
       options:
         - A public default, for everyone
         - A setting any supplement can use
-        - A profile (in my own profile repository)
+        - My profile repository, for the list in docs/PROFILES.md
         - A mechanism profiles need
         - Not sure
     validations:

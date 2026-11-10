@@ -9,3 +9,8 @@ contact_links:
     about: >-
       A problem in a profile goes to its author's repository; ./bin/shaffy profile propose drafts the fix
       for it.
+  - name: A problem in the profile commands or a profile rule
+    url: https://github.com/kromsam/shaffy-os/blob/main/CONTRIBUTING.md#a-problem-in-a-profile
+    about: >-
+      A bug in ./bin/shaffy profile, or a rule that refuses what a profile should share, is Shaffy OS's.
+      CONTRIBUTING.md says which form to open, and ./bin/shaffy profile propose --to shaffy drafts it.

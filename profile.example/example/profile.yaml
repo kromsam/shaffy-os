@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/kromsam/shaffy-os/main/schema/profile.schema.json
 # A profile adds things to a Shaffy OS desktop: fragments, files, packages, editor extras,
-# plugins and MCP servers. It never sets a value the machine has one of, and nothing that
+# plugins and MCP servers. It never sets a value the machine has only one of, and nothing that
 # names a person or a machine. docs/PROFILES.md in Shaffy OS describes every section.
 ---
 schema_version: 1

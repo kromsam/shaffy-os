@@ -44,7 +44,8 @@ when it lies in the mechanism:
   `profile check`: open a **Bug report**;
 - a setting a profile may not set, or a mechanism profiles lack: open a
   **Configuration** issue with "A mechanism profiles need".
-  `./bin/shaffy profile propose ID --to shaffy` drafts it in that form.
+  `./bin/shaffy profile propose ID --to shaffy` drafts it in that form, or
+  `./bin/shaffy profile propose --to shaffy` without a profile.
 
 ## Propose a feature or a configuration
 
@@ -57,9 +58,10 @@ when it lies in the mechanism:
   an issue with the **Configuration** form. Show the setting, override or
   asset with your personal values replaced, and say whether it should become a
   default for everyone or a mechanism that any supplement can use. A setting
-  that suits some people needs no issue: share it as a profile of your own,
-  and propose your profile repository for the list in
-  [docs/PROFILES.md](docs/PROFILES.md#profile-repositories) with a pull request.
+  that suits some people needs no issue of its own: share it as a profile of
+  your own, and propose your profile repository for the list in
+  [docs/PROFILES.md](docs/PROFILES.md#profile-repositories) with a pull
+  request, or with this form's "My profile repository" if you prefer an issue.
 
 ## Make a change
 

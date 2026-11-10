@@ -33,7 +33,7 @@ describes.
 Issues and pull requests are welcome. If a profile does something wrong for you, or lacks
 something you need, open an issue or send a fix. In Shaffy OS,
 `./bin/shaffy profile propose owner/NAME` turns your edits of a vendored copy into a patch
-for this repository.
+for this repository; restore the copy afterwards with `git restore`.
 
 A need that no profile can express, such as a setting profiles may not share, is a change
 to Shaffy OS: `./bin/shaffy profile propose owner/NAME --to shaffy` drafts that issue.
