@@ -705,5 +705,223 @@ class BoundaryTests(CommandCase):
         self.assertTrue(again.stderr.startswith('shaffy: alice/notes is vendored already'), again.stderr)
 
 
+class ProposeTests(CommandCase):
+    def edit(self):
+        """Hand edits of every kind: a changed text file, a binary one, a new file and a deleted one."""
+        folder = self.supplement / 'profiles/alice/notes'
+        (folder / 'style.csl').write_text('<style version="mine"/>\n')
+        (folder / 'shell/notes.fish').write_bytes(b'\x00\x01binary\xff')
+        (folder / 'extra.csl').write_text('<style/>\n')
+        (folder / 'README.md').unlink()
+        return folder
+
+    def test_propose_prints_a_patch_that_applies_to_the_source(self):
+        self.add('notes')
+        folder = self.edit()
+        patch, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertEqual(header[0], f'A fix for alice/notes against {SOURCE} at {self.first[:7]}.')
+        self.assertEqual(header[1], 'Personal values: none found in the added lines.')
+        self.assertEqual(
+            header[-2:],
+            [
+                'Then restore your copy (git restore profiles/alice/notes) and keep the change in config.yaml '
+                'meanwhile,',
+                'with a comment naming the issue it waits for.',
+            ],
+        )
+        clone = self.directory / 'clone'
+        git('clone', '-q', self.repository.url, clone)
+        git('-C', clone, 'checkout', '-q', self.first)
+        (self.directory / 'fix.patch').write_text(patch, errors='surrogateescape')
+        git('-C', clone, 'apply', '--check', self.directory / 'fix.patch')
+        git('-C', clone, 'apply', self.directory / 'fix.patch')
+        for name in ('style.csl', 'shell/notes.fish', 'extra.csl', 'profile.yaml'):
+            self.assertEqual((clone / 'notes' / name).read_bytes(), (folder / name).read_bytes(), name)
+        self.assertFalse((clone / 'notes/README.md').exists())
+        self.assertTrue((clone / 'notes/tests/check.sh').exists())  # never vendored, so never touched
+
+    def test_propose_warns_of_personal_values_without_printing_them(self):
+        self.add('notes')
+        planted = '/home/' + 'example-person/notes'  # split, so the repository's own scan passes this file
+        (self.supplement / 'profiles/alice/notes/style.csl').write_text(f'<style/>\n<!-- {planted} -->\n')
+        _, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertIn('  notes/style.csl:2: home-path', header)
+        self.assertTrue(header[1].startswith('Personal values: replace these in the added lines'))
+        self.assertNotIn(planted, '\n'.join(header))
+
+    def test_propose_without_edits_has_nothing_to_propose(self):
+        self.add('notes')
+        with self.assertRaisesRegex(vendor.ProfileError, f'nothing to propose: .* as vendored at {self.first[:7]}'):
+            vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+
+    def test_propose_to_a_github_author_links_the_fork_and_a_prefilled_issue(self):
+        self.add('notes')
+        self.edit()
+        lock = json.loads((self.supplement / profiles.LOCK).read_text())
+        lock['profiles']['alice/notes']['source'] = 'https://github.com/alice/profiles'
+        (self.supplement / profiles.LOCK).write_text(json.dumps(lock))
+        with mock.patch.dict(os.environ, {'GIT_CONFIG_VALUE_0': 'https://github.com/alice/profiles'}):
+            _, header = vendor.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        text = '\n'.join(header)
+        self.assertIn('fork the repository (https://github.com/alice/profiles/fork)', text)
+        self.assertIn('https://github.com/alice/profiles/issues/new?title=notes%3A%20&body=', text)
+
+    def test_propose_to_shaffy_drafts_the_configuration_form(self):
+        self.add('notes')
+        self.config('profiles: [alice/notes]\n')
+        draft = vendor.propose_shaffy(self.supplement, ROOT, 'alice/notes', 'desktop.keyboard')
+        form = loader.parse(ROOT / vendor.FORM)
+        fields = {field['id']: field['attributes'] for field in form['body'] if 'id' in field}
+        self.assertIn(f'{vendor.SHAFFY_ISSUES}/new?template=configuration.yml', draft[1])
+        self.assertEqual(draft[2], 'Personal values: none found in the draft.')
+        body = draft[draft.index('') + 1 :]
+        self.assertEqual(body[0], 'Title: Profiles: let a profile set desktop.keyboard')
+        self.assertEqual(body[1], f'{fields["configuration"]["label"]}:')
+        self.assertTrue(body[2].startswith(f'  # Profile alice/notes at {self.first[:7]} ({SOURCE}), Shaffy OS '))
+        self.assertIn('the layouts a person types are theirs', ' '.join(body))
+        self.assertEqual(body[-4:-2], ['  desktop:', '    keyboard: <what the profile would set>'])
+        where = body[-2].removeprefix(f'{fields["where"]["label"]}: ')
+        self.assertIn(where, fields['where']['options'])
+        self.assertTrue(body[-1].startswith(f'{fields["why"]["label"]}: '))
+        text = '\n'.join(draft)
+        for personal in (str(self.supplement), 'synthetic', str(self.directory)):
+            self.assertNotIn(personal, text)
+
+    def test_propose_to_shaffy_needs_no_profile_and_refuses_a_key_profiles_may_set(self):
+        draft = vendor.propose_shaffy(None, ROOT)
+        self.assertIn('Title: Profiles: <the mechanism profiles need>', draft)
+        with self.assertRaisesRegex(vendor.ProfileError, 'assets is not a setting profiles are refused'):
+            vendor.propose_shaffy(None, ROOT, key='assets')
+
+    def test_the_propose_command_writes_the_patch_to_stdout_and_the_rest_to_stderr(self):
+        self.add('notes')
+        self.edit()
+        env = dict(os.environ, HOME=str(self.directory / 'home'), PATH='/usr/bin:/bin', LANG='C.UTF-8')
+        result = subprocess.run(
+            [str(ROOT / 'bin/shaffy'), 'profile', 'propose', 'alice/notes', '--supplement', str(self.supplement)],
+            capture_output=True,
+            env=env,
+            timeout=120,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.startswith(b'diff --git a/notes/'), result.stdout[:80])
+        self.assertTrue(result.stderr.startswith(b'A fix for alice/notes against'), result.stderr)
+
+
+class ReportTests(CommandCase):
+    """The profile lines of check and status."""
+
+    def test_check_notes_name_what_nothing_reads(self):
+        self.add('notes', 'keys')
+        self.config('profiles: [alice/notes]\n')
+        folder = self.supplement / profiles.FOLDER
+        (folder / 'alice/notes/stray.txt').write_text('x\n')
+        (folder / 'bob/left').mkdir(parents=True)
+        (folder / '.staging-alice-notes-x').mkdir()
+        notes = vendor.findings(self.supplement, self.listed_data())
+        self.assertIn(
+            f'{folder}/.staging-alice-notes-x: left by an interrupted profile command; the next one deletes it', notes
+        )
+        self.assertIn(
+            'profiles/alice/keys is vendored, but config.yaml does not list it, so nothing reads it: list it under '
+            'profiles:, or ./bin/shaffy profile remove alice/keys',
+            notes,
+        )
+        self.assertIn(
+            'profiles/alice/notes/stray.txt: not in the lock, so nothing reads it; delete it, or ./bin/shaffy profile '
+            'propose alice/notes drafts it for the author',
+            notes,
+        )
+        self.assertIn(
+            'profiles/bob/left has no lock entry, so nothing reads it: ./bin/shaffy profile remove bob/left deletes it',
+            notes,
+        )
+
+    def listed_data(self):
+        return loader.load(ROOT, supplement=self.supplement)['shaffy']
+
+    def test_keys_and_keyboard_matches_two_profiles_both_set_are_noted_with_both_authors(self):
+        manifest = 'schema_version: 1\ndescription: x\noverrides:\n  noctalia: shell.toml\n  keyboard_hwdb: keys.hwdb\n'
+        match = 'evdev:input:b0003v1234p5678*\n'
+        self.repository.commit(
+            'Add two that overlap',
+            {
+                'one/profile.yaml': manifest,
+                'one/shell.toml': '[osd]\nposition = "top_center"\nlocation = "x"\n',
+                'one/keys.hwdb': match + ' KEYBOARD_KEY_70039=leftmeta\n',
+                'two/profile.yaml': manifest,
+                'two/shell.toml': '[osd]\nposition = "bottom_center"\nlocation = "x"\n',
+                'two/keys.hwdb': match + ' KEYBOARD_KEY_70039=capslock\n',
+            },
+        )
+        self.add('one', 'two')
+        self.config('profiles: [alice/one, alice/two]\n')
+        notes = vendor.findings(self.supplement, self.listed_data())
+        self.assertEqual(
+            notes,
+            [
+                f'keyboard map {match.strip()}: alice/one and alice/two both set it; alice/two, later in the list, '
+                'wins where they differ. Set it in your own overrides.keyboard_hwdb fragment to choose, or tell the '
+                f'authors: {ISSUES}',
+                'noctalia osd.position: alice/one and alice/two both set it; alice/two, later in the list, wins where '
+                f'they differ. Set it in your own noctalia fragment to choose, or tell the authors: {ISSUES}',
+            ],
+        )  # osd.location is the same in both: no note
+
+    def test_status_lists_the_profiles_in_use_and_invites_sharing(self):
+        self.add('notes')
+        for name in ('own.fish', 'own.toml', 'font.otf'):
+            (self.supplement / name).write_text('# mine\n')
+        self.config(
+            'profiles: [alice/notes]\noverrides:\n  fish: own.fish\n  mise: own.toml\n'
+            'assets:\n  "~/.local/share/fonts/x.otf": font.otf\n'
+            'lazyvim:\n  extras: [lazyvim.plugins.extras.lang.ruby]\n'
+        )
+        lines = vendor.summary(self.supplement, self.listed_data())
+        self.assertEqual(
+            lines,
+            [
+                'Profiles: 1 in use',
+                f'  alice/notes at {self.first[:7]}, following HEAD of {SOURCE}',
+                '  config.yaml also sets 1 asset, lazyvim.extras and overrides (fish, mise) that a profile could share '
+                'if they are not personal: docs/PROFILES.md#share-yours',
+            ],
+        )
+
+    def test_check_and_status_print_the_profile_lines(self):
+        self.add('notes', 'keys')
+        self.config('profiles: [alice/notes]\n')
+        state = self.directory / 'state'
+        env = {
+            **os.environ,
+            'HOME': str(self.directory / 'home'),
+            'XDG_STATE_HOME': str(state),
+            'PATH': '/usr/bin:/bin',
+            'SHAFFY_TEST_PREREQUISITES': 'fake',
+            'SHAFFY_TEST_ROOT_STATE': str(self.directory / 'root'),
+        }
+
+        def shaffy(*arguments):
+            result = subprocess.run(
+                [str(ROOT / 'bin/shaffy'), *arguments],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout
+
+        checked = shaffy('check', '--no-render', '--no-home', '--supplement', str(self.supplement))
+        self.assertIn('Note: profiles/alice/keys is vendored, but config.yaml does not list it', checked)
+        shaffy('supplement', 'attach', '--supplement', str(self.supplement))
+        status = shaffy('status', '--no-drift').splitlines()
+        start = status.index('Profiles: 1 in use')
+        self.assertEqual(status[start + 1], f'  alice/notes at {self.first[:7]}, following HEAD of {SOURCE}')
+        self.assertTrue(status[start + 2].startswith('  Note: profiles/alice/keys is vendored'), status)
+
+
 if __name__ == '__main__':
     unittest.main()

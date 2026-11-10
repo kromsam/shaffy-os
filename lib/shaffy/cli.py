@@ -165,6 +165,10 @@ def check(args):
             f'Settings are valid: supplement {selection["supplement_id"]} at {selection["path"]} '
             f'({selection["source"]}).'
         )
+        from shaffy import vendor
+
+        for note in data['shaffy']['notes'] + vendor.findings(Path(selection['path']), data['shaffy']):
+            print(f'Note: {note}')
     else:
         print(f'Settings are valid: public defaults only ({selection["source"]}).')
     import tempfile
@@ -627,6 +631,9 @@ def status(args):
         if not pending:
             for line in _integration_report():
                 print(line)
+    if record and record['binding']['mode'] == 'supplement':
+        for line in _profiles_status():
+            print(line)
     state = chezmoi_state_path()
     print(f'chezmoi state: {state}' if state.exists() else f'chezmoi state: none yet; the first apply creates {state}')
     dotfiles, dotfiles_drift, failed = _dotfiles_status(drift=not args.no_drift)
@@ -654,6 +661,20 @@ def status(args):
     for line in dotfiles_drift:
         print(line)
     return 1 if failed else 0
+
+
+def _profiles_status():
+    """status's lines on the profiles the bound supplement uses, from the cached settings."""
+    from shaffy import vendor
+    from shaffy.fastload import load_data
+    from shaffy.loader import SettingsError
+    from shaffy.selection import SelectionError
+
+    try:
+        shaffy = load_data(ROOT)['shaffy']
+    except (SelectionError, SettingsError) as error:
+        return [f'Profiles: unknown; {error}']
+    return vendor.summary(Path(shaffy['selection']['path']), shaffy)
 
 
 def _named_dotfiles(strict=False):
@@ -712,11 +733,16 @@ def _dotfiles_status(drift):
 
 
 def profile(args):
-    """Vendor, update or remove the profiles in a supplement's profiles/ folder (lib/shaffy/vendor.py);
-    each prints what vendor returns, and a refusal as `shaffy: ...` with exit status 1."""
+    """Vendor, update or remove the profiles in a supplement's profiles/ folder, or draft a fix
+    for an author or Shaffy OS (lib/shaffy/vendor.py). Each prints what vendor returns, and a
+    refusal as `shaffy: ...` with exit status 1; propose writes its patch to stdout and the rest
+    to stderr. Nothing is sent anywhere."""
     from shaffy import pins, vendor
     from shaffy.selection import SelectionError, resolve
 
+    if args.action == 'propose' and args.to == 'shaffy' and not args.id:
+        print('\n'.join(vendor.propose_shaffy(None, ROOT, key=args.key)))  # needs no supplement
+        return 0
     try:
         selection = resolve(args.supplement)
     except SelectionError as error:
@@ -726,6 +752,16 @@ def profile(args):
     root = Path(selection['path'])
     try:
         with pins.Upstream() as upstream:
+            if args.action == 'propose' and args.to == 'shaffy':
+                print('\n'.join(vendor.propose_shaffy(root, ROOT, args.id, args.key)))
+                return 0
+            if args.action == 'propose':
+                if not args.id:
+                    return _fail('name the profile: ./bin/shaffy profile propose OWNER/NAME')
+                patch, header = vendor.propose(root, ROOT, args.id, upstream)
+                print('\n'.join(header), file=sys.stderr)
+                sys.stdout.write(patch)
+                return 0
             if args.action == 'remove':
                 print('\n'.join(vendor.remove(root, args.ids)))
                 return 0
@@ -1038,7 +1074,9 @@ def main(argv):
         help='adopt: record its activation already here as managed; release: stop tracking it and change nothing',
     )
     own.set_defaults(run=integration)
-    shared = commands.add_parser('profile', help="vendor, update and remove other people's profiles (docs/PROFILES.md)")
+    shared = commands.add_parser(
+        'profile', help="vendor, update, remove and propose fixes to other people's profiles (docs/PROFILES.md)"
+    )
     verbs = shared.add_subparsers(dest='action', required=True, metavar='action')
     vendoring = verbs.add_parser('add', help='vendor profiles from a repository into profiles/; config.yaml is yours')
     vendoring.add_argument('source', help='OWNER/REPO on GitHub, or the https URL of a Git repository')
@@ -1053,7 +1091,19 @@ def main(argv):
     renewing.add_argument('--ref', help='follow this branch, tag or commit from now on')
     dropping = verbs.add_parser('remove', help='delete vendored profiles that config.yaml no longer lists')
     dropping.add_argument('ids', nargs='+', metavar='ID', help='OWNER/NAME')
-    for verb in (vendoring, renewing, dropping):
+    drafting = verbs.add_parser(
+        'propose',
+        help='draft your edits of a profile for its author, or a need profiles lack for Shaffy OS; sends nothing',
+    )
+    drafting.add_argument('id', nargs='?', metavar='ID', help='OWNER/NAME of the vendored profile')
+    drafting.add_argument(
+        '--to',
+        choices=('author', 'shaffy'),
+        default='author',
+        help="author: a patch of your edits (stdout) against the vendored commit; shaffy: a Shaffy OS issue's draft",
+    )
+    drafting.add_argument('--key', help='with --to shaffy, the setting a profile was refused, as its error named it')
+    for verb in (vendoring, renewing, dropping, drafting):
         verb.add_argument('--supplement', metavar='PATH', help='this supplement instead of the bound one')
     shared.set_defaults(run=profile)
     args = parser.parse_args(argv)

@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import runpy
 import shutil
@@ -15,7 +16,9 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shaffy import pins, updates
+from support import vendor_profile
 
 NOW = datetime.datetime(2026, 10, 28, tzinfo=datetime.UTC)
 OLD, NEW = '2026-10-01T00:00:00Z', '2026-10-27T00:00:00Z'  # NEW is younger than three days
@@ -340,6 +343,70 @@ class RefreshScriptTests(unittest.TestCase):
         self.assertIn('broken: not raised: ValueError: no single entry', out.getvalue())
         self.assertIn('offline: not checked: URLError: down', out.getvalue())
         self.assertIn('fine: 1, up to date', out.getvalue())
+
+
+class ProfileRefs(pins.Upstream):
+    """Where the authors' refs point now; one of the sources cannot be read."""
+
+    def refs(self, url, *patterns):
+        if url == 'https://example.test/alice/profiles':
+            return {'HEAD': '3' * 40}
+        raise subprocess.CalledProcessError(128, ['git', 'ls-remote'], stderr='fatal: repository not found\n')
+
+
+class ProfileSectionTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.home = Path(directory.name) / 'home'
+        supplement = Path(directory.name) / 'supplement'
+        supplement.mkdir()
+        (supplement / 'config.yaml').write_text('schema_version: 1\nsupplement_id: synthetic\n')
+        manifest = {'profile.yaml': 'schema_version: 1\ndescription: x\n'}
+        for profile_id, source, commit, ref in (
+            ('alice/notes', 'https://example.test/alice/profiles', '1' * 40, 'HEAD'),
+            ('alice/keys', 'https://example.test/alice/profiles', '3' * 40, 'HEAD'),
+            ('bob/keys', 'https://example.test/bob/profiles', '2' * 40, '2' * 40),
+            ('carol/gone', 'https://example.test/carol/missing', '4' * 40, 'HEAD'),
+        ):
+            vendor_profile(supplement, profile_id, manifest, source=source, commit=commit, ref=ref)
+        self.bind({'mode': 'supplement', 'path': str(supplement)})
+        environment = mock.patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for name in ('XDG_STATE_HOME', 'SHAFFY_OP_MODE'):
+            os.environ.pop(name, None)
+
+    def bind(self, binding):
+        state = self.home / '.local/state/shaffy'
+        state.mkdir(parents=True, exist_ok=True)
+        (state / 'binding.json').write_text(json.dumps({'binding': binding}))
+
+    def test_profiles_behind_their_ref_are_reported(self):
+        section = updates.profile_section(self.home, ProfileRefs())
+        self.assertEqual(section.title, 'Profiles')
+        self.assertEqual(
+            section.summary,
+            "1 behind; take each with ./bin/shaffy profile update ID, which shows the author's commits and what "
+            'runs code',
+        )
+        self.assertIn('alice/notes 1111111 → 3333333 (HEAD of example.test/alice/profiles)', section.lines)
+        self.assertFalse([line for line in section.lines if line.startswith('alice/keys')])  # up to date
+
+    def test_a_pinned_profile_is_reported_as_pinned(self):
+        self.assertIn('bob/keys pinned at 2222222', updates.profile_section(self.home, ProfileRefs()).lines)
+
+    def test_an_unreachable_profile_source_hides_nothing_else(self):
+        lines = updates.profile_section(self.home, ProfileRefs()).lines
+        self.assertIn(
+            'carol/gone: not checked: https://example.test/carol/missing cannot be read: fatal: repository not found',
+            lines,
+        )
+        self.assertEqual(len(lines), 3)  # alice/notes behind, bob/keys pinned, carol/gone not checked
+
+    def test_without_a_supplement_no_profile_is_in_use(self):
+        self.bind({'mode': 'none'})
+        self.assertEqual(updates.profile_section(self.home, ProfileRefs()).summary, 'none in use')
 
 
 if __name__ == '__main__':

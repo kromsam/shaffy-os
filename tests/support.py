@@ -56,7 +56,9 @@ def host_test(reason, *, tools=(), paths=(), reflink=False):
     return unittest.skipIf(bool(missing), f'host-bound ({reason}); missing: {", ".join(missing)}')
 
 
-def vendor_profile(supplement, profile_id, files, *, source='https://github.com/example/profiles', commit='0' * 40):
+def vendor_profile(
+    supplement, profile_id, files, *, source='https://github.com/example/profiles', commit='0' * 40, ref='HEAD'
+):
     """Vendor a synthetic profile into SUPPLEMENT as `./bin/shaffy profile add` leaves one: FILES
     ({path: text or bytes}) under profiles/OWNER/NAME and a lock entry with their digests."""
     from shaffy import profiles, vendor
@@ -66,7 +68,7 @@ def vendor_profile(supplement, profile_id, files, *, source='https://github.com/
         profile_id,
         source,
         profile_id.split('/')[1],
-        'HEAD',
+        ref,
         commit,
         {name: hashlib.sha256(data).hexdigest() for name, data in content.items()},
     )

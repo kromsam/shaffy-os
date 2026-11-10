@@ -2,9 +2,9 @@
 
 `report` only reads: pacman's and the AUR's pending upgrades, mise's outdated tools,
 the user installs against this checkout's pins, the LazyVim plugins against the managed
-lock, the applications that update themselves and the Shaffy OS release, and, with the
-pins, the retirements past their removal date. `steps` is the update routine, in order;
-`./bin/shaffy update` runs it and stops at the first failure.
+lock, the applications that update themselves, the Shaffy OS release and the supplement's
+vendored profiles, and, with the pins, the retirements past their removal date. `steps` is
+the update routine, in order; `./bin/shaffy update` runs it and stops at the first failure.
 Neither changes configuration: a release still reaches the machine through an apply.
 """
 
@@ -178,6 +178,21 @@ def removal_section(root, today=None):
     return Section('Removals', summary, lines)
 
 
+def profile_section(home, upstream=None):
+    """The bound supplement's vendored profiles against their authors' repositories."""
+    from . import pins, vendor
+    from .selection import SelectionError, resolve
+
+    try:
+        selection = resolve(home=home)
+    except SelectionError as error:
+        return Section('Profiles', f'not checked: {error}')
+    if selection['mode'] != 'supplement':
+        return Section('Profiles', 'none in use')
+    summary, lines = vendor.behind(Path(selection['path']), upstream or pins.Upstream())
+    return Section('Profiles', summary, lines)
+
+
 def report(root, home, pins=True):
     """Every section, read in parallel; the network reads dominate."""
     checks = [
@@ -189,6 +204,7 @@ def report(root, home, pins=True):
         lambda: lazyvim(home),
         lambda: self_updating(home),
         lambda: shaffy_release(root),
+        lambda: profile_section(home),
     ]
     if pins:
         checks += [lambda: pin_section(root), lambda: removal_section(root)]
