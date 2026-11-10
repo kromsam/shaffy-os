@@ -65,7 +65,7 @@ def propose(root, checkout, profile_id, upstream):
     old = {name: fetched[name] for name in locked.files if name in fetched}
     new = {name: (folder / name).read_bytes() for name in current}
     patch = _patch(locked.path, old, new)
-    hits = _personal(patch, literals.static_rules() + literals.environment_rules(checkout))
+    hits = _personal(patch, _rules(root, checkout))
     source = locked.source.rstrip('/').removesuffix('.git')
     header = [
         f'A fix for {profile_id} against {locked.source} at {locked.commit[:7]}.',
@@ -129,7 +129,7 @@ def propose_shaffy(root, checkout, profile_id=None, key=None):
         f'Where it should go: {MECHANISM}',
         'Why: <who else it helps, and what it changes for someone who uses the profile>',
     ]
-    rules = literals.static_rules() + literals.environment_rules(checkout)
+    rules = _rules(root, checkout)
     hits = sorted({rule for line in draft for rule, find in rules if find(line) or find(line.replace('_', '-'))})
     return [
         'A Shaffy OS issue in the shape of its Configuration form. Read it, replace anything personal, then',
@@ -282,6 +282,18 @@ def _patch(path, old, new):
             '--dst-prefix=b/',
             *trees,
         ).decode(errors='surrogateescape')
+
+
+def _rules(root, checkout):
+    """The personal-value rules a draft is scanned with: the static ones, this machine's identity
+    and, with ROOT, the supplement's denylist and the settings that identify its owner."""
+    rules = literals.static_rules() + literals.environment_rules(checkout)
+    if root is None:
+        return rules
+    try:
+        return rules + literals.supplement_rules(root, _config(root))
+    except ValueError as error:
+        raise ProfileError(f'{error}; the draft cannot be scanned for it until it is') from None
 
 
 def _personal(patch, rules):

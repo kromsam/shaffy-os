@@ -749,6 +749,23 @@ class ProposeTests(CommandCase):
         self.assertTrue(header[1].startswith('Personal values: replace these in the added lines'))
         self.assertNotIn(planted, '\n'.join(header))
 
+    def test_the_supplements_denylist_and_identifying_settings_are_scanned_too(self):
+        self.add('notes')
+        self.config('profiles: [alice/notes]\nidentity:\n  name: Example Person\n')
+        (self.supplement / 'denylist.txt').write_text('# synthetic\n\\bexample-secret-word\\b\n\\balice\\b\n')
+        (self.supplement / 'profiles/alice/notes/style.csl').write_text(
+            '<style/>\n<!-- Example Person -->\n<!-- example-secret-word -->\n'
+        )
+        _, header = sharing.propose(self.supplement, ROOT, 'alice/notes', self.upstream)
+        self.assertIn('  notes/style.csl:2: settings field identity.name', header)
+        self.assertIn('  notes/style.csl:3: denylist.txt line 2', header)
+        self.assertNotIn('Example Person', '\n'.join(header))
+        draft = sharing.propose_shaffy(self.supplement, ROOT, 'alice/notes')
+        self.assertEqual(draft[2], 'Personal values: replace what matches denylist.txt line 3 first.')  # the source
+        (self.supplement / 'denylist.txt').write_text('(\n')
+        with self.assertRaisesRegex(vendor.ProfileError, 'denylist.txt line 1 is not a valid regular expression'):
+            sharing.propose_shaffy(self.supplement, ROOT, 'alice/notes')
+
     def test_propose_without_edits_has_nothing_to_propose(self):
         self.add('notes')
         with self.assertRaisesRegex(vendor.ProfileError, f'nothing to propose: .* as vendored at {self.first[:7]}'):

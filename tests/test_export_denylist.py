@@ -8,40 +8,12 @@ Without a supplement it is skipped.
 
 import os
 from pathlib import Path
-import re
 import sys
 import unittest
-from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
 from shaffy import literals
-
-# Settings whose values identify the owner; paths and generic values match public conventions.
-FIELDS = (
-    'supplement_id',
-    'identity.name',
-    'identity.email',
-    'backup.host',
-    'backup.repository.id',
-    'backup.repository.sftp.host',
-    'backup.repository.sftp.user',
-    'backup.repository.sftp.host_key',
-    'tailnet.login_server',
-    'tailnet.address',
-)
-
-
-def field(settings, dotted):
-    for key in dotted.split('.'):
-        settings = settings.get(key) if isinstance(settings, dict) else None
-    if not isinstance(settings, str):
-        return None
-    if dotted.endswith('login_server'):
-        return urlsplit(settings).hostname
-    if dotted.endswith('host_key'):
-        return max(settings.split(), key=len)  # the key body, not its type
-    return settings
 
 
 class ExportDenylistTests(unittest.TestCase):
@@ -58,30 +30,12 @@ class ExportDenylistTests(unittest.TestCase):
             self.skipTest(f'{self.supplement / "denylist.txt"} does not exist')
 
     def rules(self):
-        rules = []
-        for number, line in enumerate((self.supplement / 'denylist.txt').read_text().splitlines(), 1):
-            if line.strip() and not line.lstrip().startswith('#'):
-                try:
-                    compiled = re.compile(line, re.IGNORECASE)
-                except re.error:
-                    self.fail(f'denylist.txt line {number} is not a valid regular expression')
-                rules.append((f'denylist.txt line {number}', compiled))
-        from shaffy.loader import load
+        from shaffy.loader import parse
 
-        settings = load(ROOT, supplement=str(self.supplement))['shaffy']['settings']
-        for name in FIELDS:
-            value = field(settings, name)
-            if value and len(value) >= 6:
-                rules.append(
-                    (
-                        f'settings field {name}',
-                        re.compile(r'(?<![A-Za-z0-9])' + re.escape(value) + r'(?![A-Za-z0-9])', re.IGNORECASE),
-                    )
-                )
-        return [
-            (rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)])
-            for rule, compiled in rules
-        ]
+        try:
+            return literals.supplement_rules(self.supplement, parse(self.supplement / 'config.yaml'))
+        except ValueError as error:
+            self.fail(str(error).replace(str(self.supplement) + '/', ''))
 
     def test_public_files_hold_no_private_value(self):
         files = literals.public_files(ROOT)

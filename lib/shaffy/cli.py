@@ -733,13 +733,22 @@ def _dotfiles_status(drift):
 
 
 def profile(args):
-    """Vendor, update or remove the profiles in a supplement's profiles/ folder, or draft a fix
-    for an author or Shaffy OS (lib/shaffy/vendor.py, lib/shaffy/sharing.py). Each prints what they
-    return, and a refusal as `shaffy: ...` with exit status 1; propose writes its patch to stdout and
-    the rest to stderr. Nothing is sent anywhere."""
+    """Vendor, update or remove the profiles in a supplement's profiles/ folder, draft a fix for
+    an author or Shaffy OS (lib/shaffy/vendor.py, lib/shaffy/sharing.py), or check an author's
+    profile repository (lib/shaffy/authoring.py). Each prints what they return, and a refusal as
+    `shaffy: ...` with exit status 1; propose writes its patch to stdout and the rest to stderr.
+    Nothing is sent anywhere."""
     from shaffy import pins, sharing, vendor
     from shaffy.selection import SelectionError, resolve
 
+    if args.action == 'check':  # an author's repository; a supplement adds only its private values
+        from shaffy.authoring import check_repository
+
+        report = check_repository(ROOT, args.path, args.supplement)
+        print('\n'.join(report.lines()), flush=True)  # before the refusal on stderr
+        if report.problems:
+            return _fail(f'profile check found {report.problems} problem{"s" * (report.problems != 1)}')
+        return 0
     if args.action == 'propose' and args.to == 'shaffy' and not args.id:
         print('\n'.join(sharing.propose_shaffy(None, ROOT, key=args.key)))  # needs no supplement
         return 0
@@ -1075,7 +1084,9 @@ def main(argv):
     )
     own.set_defaults(run=integration)
     shared = commands.add_parser(
-        'profile', help="vendor, update, remove and propose fixes to other people's profiles (docs/PROFILES.md)"
+        'profile',
+        help="vendor, update, remove and propose fixes to other people's profiles, or check your own "
+        '(docs/PROFILES.md)',
     )
     verbs = shared.add_subparsers(dest='action', required=True, metavar='action')
     vendoring = verbs.add_parser('add', help='vendor profiles from a repository into profiles/; config.yaml is yours')
@@ -1103,8 +1114,16 @@ def main(argv):
         help="author: a patch of your edits (stdout) against the vendored commit; shaffy: a Shaffy OS issue's draft",
     )
     drafting.add_argument('--key', help='with --to shaffy, the setting a profile was refused, as its error named it')
-    for verb in (vendoring, renewing, dropping, drafting):
-        verb.add_argument('--supplement', metavar='PATH', help='this supplement instead of the bound one')
+    checking = verbs.add_parser(
+        'check', help='check a profile repository of your own before you publish it; changes nothing'
+    )
+    checking.add_argument('path', nargs='?', default='.', metavar='PATH', help='the repository (default: here)')
+    for verb in (vendoring, renewing, dropping, drafting, checking):
+        verb.add_argument(
+            '--supplement',
+            metavar='PATH',
+            help='this supplement instead of the bound one (check: the private values its scan adds)',
+        )
     shared.set_defaults(run=profile)
     args = parser.parse_args(argv)
     return args.run(args)

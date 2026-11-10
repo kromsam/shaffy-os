@@ -10,6 +10,11 @@ scan it:
   and Git identity), so the owner's values are caught without being written down.
   They cannot be allowlisted, because an entry would publish the value.
 
+A supplement adds its own rules (supplement_rules): its denylist.txt and the values
+of its settings that identify the owner. The self-test scans the public tree with
+them, and the profile commands scan what a person is about to share. These match
+private values, so whoever reports a hit names where it matched, never the text.
+
 Licence notices are exempt, because they may name the copyright holder: lines with
 SPDX-FileCopyrightText, and the copyright line of a LICENSE file.
 """
@@ -24,6 +29,7 @@ import pwd
 import re
 import socket
 import subprocess
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
@@ -189,6 +195,57 @@ def environment_rules(root):
         ).stdout.strip()
         if value and not SYNTHETIC_DOMAINS.search(value.rsplit('@', 1)[-1]):
             rules.append(('git-identity', _word(value)))
+    return [
+        (rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)]) for rule, compiled in rules
+    ]
+
+
+# Settings whose values identify the owner; paths and generic values match public conventions.
+FIELDS = (
+    'supplement_id',
+    'identity.name',
+    'identity.email',
+    'backup.host',
+    'backup.repository.id',
+    'backup.repository.sftp.host',
+    'backup.repository.sftp.user',
+    'backup.repository.sftp.host_key',
+    'tailnet.login_server',
+    'tailnet.address',
+)
+
+
+def _field(settings, dotted):
+    for key in dotted.split('.'):
+        settings = settings.get(key) if isinstance(settings, dict) else None
+    if not isinstance(settings, str):
+        return None
+    if dotted.endswith('login_server'):
+        return urlsplit(settings).hostname
+    if dotted.endswith('host_key'):
+        return max(settings.split(), key=len)  # the key body, not its type
+    return settings
+
+
+def supplement_rules(root, settings):
+    """Rules for a supplement's private values: each line of ROOT/denylist.txt, one Python
+    regular expression applied case-insensitively, and the FIELDS values of SETTINGS, its
+    config.yaml as parsed, of six characters or more. Never allowlistable. Raises ValueError
+    naming a denylist line that is not a valid regular expression."""
+    rules = []
+    denylist = Path(root) / 'denylist.txt'
+    lines = denylist.read_text().splitlines() if denylist.is_file() else []
+    for number, line in enumerate(lines, 1):
+        if line.strip() and not line.lstrip().startswith('#'):
+            try:
+                compiled = re.compile(line, re.IGNORECASE)
+            except re.error:
+                raise ValueError(f'{denylist} line {number} is not a valid regular expression') from None
+            rules.append((f'denylist.txt line {number}', compiled))
+    for name in FIELDS:
+        value = _field(settings, name)
+        if value and len(value) >= 6:
+            rules.append((f'settings field {name}', _word(value)))
     return [
         (rule, lambda line, previous='', c=compiled: [m.group(0) for m in c.finditer(line)]) for rule, compiled in rules
     ]

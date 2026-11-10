@@ -1,12 +1,17 @@
 """`./bin/shaffy lint`: which files each tool sees, and what it reports (lib/shaffy/lint.py)."""
 
+import argparse
+import contextlib
+import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'lib'))
@@ -262,6 +267,39 @@ class SupplementTests(unittest.TestCase):
         inside = self.hook(self.supplement)
         self.assertEqual(inside.returncode, 0, inside.stderr)
         self.assertEqual(len(list((self.runtime / 'shaffy/lint-sessions').glob('*.json'))), 1)
+
+    def test_the_vendored_profiles_keep_their_authors_form(self):
+        subprocess.run(['git', 'init', '-q', str(self.supplement)], check=True)
+        (self.supplement / 'config.yaml').write_text('---\nschema_version: 1\nsupplement_id: t\n')
+        (self.supplement / 'own.py').write_text('OWN = 1\n')
+        vendored = self.supplement / 'profiles/alice/notes/tool.py'
+        vendored.parent.mkdir(parents=True)
+        vendored.write_text('x=1\n')  # what ruff format would rewrite, and every load verifies
+
+        def main(**options):
+            output = io.StringIO()
+            arguments = {'paths': [], 'fix': True, 'changed': False, 'hook': False, **options}
+            with contextlib.redirect_stdout(output):
+                status = lint.main(argparse.Namespace(supplement=str(self.supplement), **arguments))
+            return status, output.getvalue()
+
+        status, output = main()
+        self.assertEqual(status, 0, output)
+        self.assertIn('ruff format: 1 file(s) clean', output)
+        self.assertEqual(main(changed=True)[0], 0)
+        self.assertEqual(vendored.read_text(), 'x=1\n')
+        # The agents' hook in the supplement neither fixes nor reports an edit of a vendored file.
+        event = {
+            'hook_event_name': 'PostToolUse',
+            'cwd': str(self.supplement),
+            'tool_input': {'file_path': str(vendored)},
+        }
+        with (
+            mock.patch.dict(os.environ, {'XDG_RUNTIME_DIR': str(self.runtime)}),
+            mock.patch('sys.stdin', io.StringIO(json.dumps(event))),
+        ):
+            self.assertEqual(main(hook=True), (0, ''))
+        self.assertEqual(vendored.read_text(), 'x=1\n')
 
 
 class HookTests(unittest.TestCase):

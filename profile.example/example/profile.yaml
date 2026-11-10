@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kromsam/shaffy-os/main/schema/profile.schema.json
+# A profile adds things to a Shaffy OS desktop: fragments, files, packages, editor extras,
+# plugins and MCP servers. It never sets a value the machine has one of, and nothing that
+# names a person or a machine. docs/PROFILES.md in Shaffy OS describes every section.
+---
+schema_version: 1
+description: An example profile that installs one text file.
+# The oldest Shaffy OS release this profile works with:
+# minimum_release: v2026.11.09
+# Integrations config.yaml must set to managed for this profile to apply:
+# requires: [zotero]
+assets:
+  "~/.local/share/example-profile/hello.txt": hello.txt
+# Native fragments, each a file in this folder, loaded before the supplement's own:
+# overrides:
+#   niri: niri.kdl
+#   noctalia: noctalia.toml
+#   fish: example.fish
+#   alacritty: alacritty.toml
+#   mise: mise.toml
+#   keyboard_hwdb: keyboard.hwdb  # a keyboard model's map, matched by vendor and product
+# Packages on top of the public groups:
+# packages:
+#   extra: [example-package]
+# LazyVim extras:
+# lazyvim:
+#   extras: [lazyvim.plugins.extras.lang.example]
+# Claude Code plugins and MCP servers:
+# ai:
+#   claude_plugins:
+#     example-plugin@example-marketplace: example-owner/example-marketplace
+#   mcp_servers:
+#     example:
+#       command: example-mcp-server
+#       args: [--read-only]

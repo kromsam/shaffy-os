@@ -1,0 +1,61 @@
+---
+# Checks a public profile repository against a Shaffy OS release: `shaffy profile check`
+# (each profile loads, every file it names is tracked, the licence, a scan for personal
+# values, lint, and the home each profile renders) and a secret scan of its history. A
+# profile repository calls it from a workflow of its own
+# (profile.example/.github/workflows/shaffy.yml); it runs in that repository.
+name: profiles
+on:
+  workflow_call:
+    inputs:
+      shaffy-ref:
+        description: The Shaffy OS branch or tag to check against
+        type: string
+        default: main
+permissions:
+  contents: read
+jobs:
+  profiles:
+    runs-on: ubuntu-latest
+    container:
+      image: cachyos/cachyos@sha256:f645eba0ce0240b6a26c273b4542d463e734cc68bbd50d988964e3edbb037e5f
+    steps:
+      - name: Install the toolset
+        run: >-
+          pacman -Syu --needed --noconfirm git python python-yaml python-jsonschema
+          chezmoi niri noctalia fish tmux base-devel wayland libxkbcommon
+          mise uv gitleaks xdg-user-dirs desktop-file-utils
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: profiles
+          fetch-depth: 0 # gitleaks scans every commit
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kromsam/shaffy-os
+          ref: ${{ inputs.shaffy-ref }}
+          path: shaffy-os
+          fetch-depth: 0 # the release tags, which a profile's minimum_release is checked against
+          persist-credentials: false
+      # runuser without -l keeps the step's directory.
+      - name: Install the development tools (mise.dev.toml)
+        working-directory: shaffy-os
+        run: |
+          useradd --create-home tester
+          chown -R tester: "$GITHUB_WORKSPACE"
+          runuser -u tester -- env HOME=/home/tester MISE_ENV=dev sh -eu -c '
+            mise trust mise.toml
+            mise trust mise.dev.toml
+            mise install
+          '
+      - name: Check the profiles
+        working-directory: shaffy-os
+        env:
+          # The container is disposable, so the home render runs without bubblewrap.
+          SHAFFY_RENDER_DIRECT: "1"
+        run: runuser -u tester -- env HOME=/home/tester ./bin/shaffy profile check ../profiles
+      # The scan runs also after a failed check, so one run reports both.
+      - name: Scan the history for secrets
+        if: ${{ !cancelled() }}
+        working-directory: profiles
+        run: runuser -u tester -- gitleaks git --redact --no-banner .

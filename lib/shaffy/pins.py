@@ -353,8 +353,9 @@ def yabridge(root, upstream):
     ]
 
 
-# The workflows that run in the CI container: this repository's and the one supplements call.
-WORKFLOWS = ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml')
+# The workflows that run in the CI container: this repository's, and the ones supplements and
+# profile repositories call.
+WORKFLOWS = ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml', '.github/workflows/profiles.yml')
 
 
 def ci_container(root, upstream):

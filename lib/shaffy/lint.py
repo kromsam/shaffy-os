@@ -14,8 +14,10 @@ and --fix rewrites an `env` shebang.
 
 With --supplement it lints the bound supplement, or the one named, by the same rules:
 every tool is given this checkout's configuration, so the supplement needs none of its
-own. The home apply installs the agents' hooks for the supplement (`--hook
---supplement`), and the supplement's CI runs .github/workflows/supplement.yml.
+own. It leaves out the supplement's profiles/ folder: a vendored profile keeps its
+author's form, which every load verifies byte for byte, and the author's own CI lints it.
+The home apply installs the agents' hooks for the supplement (`--hook --supplement`), and
+the supplement's CI runs .github/workflows/supplement.yml.
 
 `--hook` reads a Claude Code or Codex hook event on stdin and answers in their JSON.
 At the session's start it records which files already differ from HEAD, so the owner's
@@ -39,6 +41,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
 LINES = 40
+VENDORED = 'profiles/'  # in a supplement: the vendored profiles, which --fix must never rewrite
 INSTALL = 'mise trust mise.dev.toml and MISE_ENV=dev mise install, in the checkout'
 
 
@@ -365,11 +368,12 @@ def _save(path, state):
     temporary.replace(path)
 
 
-def hook(event, root=ROOT, lint=run, state_file=None):
-    """Claude Code or Codex hook: the JSON reply, or {} when there is nothing to say."""
+def hook(event, root=ROOT, lint=run, state_file=None, leave_out=()):
+    """Claude Code or Codex hook: the JSON reply, or {} when there is nothing to say. Paths that
+    start with one of LEAVE_OUT are neither fixed nor checked."""
     name = event.get('hook_event_name')
     state_file = state_file or _state_file(event)
-    lintable = [path for path in changed(root) if language(path, root)]
+    lintable = [path for path in changed(root) if language(path, root) and not path.startswith(leave_out)]
     if name == 'SessionStart':
         # A resumed or compacted session keeps the record of its first start.
         if not (event.get('source') in ('resume', 'compact') and state_file.exists()):
@@ -387,6 +391,7 @@ def hook(event, root=ROOT, lint=run, state_file=None):
         if (
             outside
             or not language(path, root)
+            or path.startswith(leave_out)
             or subprocess.run(['git', '-C', str(root), 'check-ignore', '-q', path], check=False).returncode == 0
         ):
             return {}
@@ -425,8 +430,9 @@ def supplement_root(path=None):
 
 
 def main(args):
-    root = ROOT
+    root, leave_out = ROOT, ()
     if args.supplement is not None:
+        leave_out = (VENDORED,)
         root = supplement_root(args.supplement)
         if root is None and not args.hook:
             raise SystemExit('shaffy lint: no supplement is bound; name one with --supplement PATH')
@@ -436,14 +442,14 @@ def main(args):
         # The home's hook for the supplement says nothing outside it.
         if root is None or (cwd != root and root not in cwd.parents):
             return 0
-        reply = hook(event, root=root)
+        reply = hook(event, root=root, leave_out=leave_out)
         if reply:
             print(json.dumps(reply))
         return 0
-    everything = files(root)
+    everything = [path for path in files(root) if not path.startswith(leave_out)]
     if args.paths:
         named = [os.path.relpath(Path(p).resolve(), root) for p in args.paths]
         paths = [f for f in everything if any(f == n or f.startswith(n.rstrip('/') + '/') or n == '.' for n in named)]
     else:
-        paths = changed(root) if args.changed else everything
+        paths = [path for path in changed(root) if not path.startswith(leave_out)] if args.changed else everything
     return run(paths, fix=args.fix, root=root)

@@ -31,6 +31,7 @@ PINNED = (
     'scripts/build-audio-bridge.sh',
     '.github/workflows/selftest.yml',
     '.github/workflows/supplement.yml',
+    '.github/workflows/profiles.yml',
     'tests/tool-versions.json',
     'ruff.toml',
 )
@@ -129,9 +130,9 @@ class PinTests(unittest.TestCase):
         with mock.patch.dict(installer['download'].__globals__, fetch=lambda url: io.BytesIO(served[url])):
             installer['download'](installer['URL'], self.root / 'better-bibtex.xpi')
         self.assertEqual((self.root / 'better-bibtex.xpi').read_bytes(), BETTER_BIBTEX)
-        for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml'):
+        for path in pins.WORKFLOWS:
             self.assertEqual(text[path].count(f'actions/checkout@{"2" * 40} # v9.1.0'), 2, path)
-        for path in ('.github/workflows/selftest.yml', '.github/workflows/supplement.yml', 'tests/tool-versions.json'):
+        for path in (*pins.WORKFLOWS, 'tests/tool-versions.json'):
             self.assertIn(f'cachyos/cachyos@{DIGEST}', text[path])
         self.assertIn('target-version = "py399"', text['ruff.toml'])
         # yabridge is a reviewed source: reported, never rewritten.

@@ -1,0 +1,6 @@
+# Values that look personal but are synthetic, which ./bin/shaffy profile check may pass.
+# One per line, four fields separated by tabs: the rule (home-path, private-ip, email,
+# private-dns, device-id, ssh-key, mac or hex-id), a path glob (fnmatch; * also crosses /),
+# the exact text the rule matched (home-path matches /home/<name>, without the rest of the path),
+# and the reason. A value that matches your account, your machine, your Git identity or your
+# supplement's denylist can never be listed: the entry would publish it.

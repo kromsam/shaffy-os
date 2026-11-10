@@ -12,6 +12,9 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'lib'))
+from shaffy import pins
+
 RECORD = json.loads((ROOT / 'tests/tool-versions.json').read_text())
 # chezmoi's own record of its minimum, which it enforces before reading the home.
 MINIMUM = RECORD['minimum'] | {'chezmoi': (ROOT / 'home/.chezmoiversion').read_text().strip()}
@@ -62,8 +65,8 @@ class ToolVersionTests(unittest.TestCase):
         self.assertEqual(checkout['with']['fetch-depth'], 0)
 
     def test_ci_uses_the_recorded_container(self):
-        for name in ('selftest.yml', 'supplement.yml'):
-            workflow = (ROOT / '.github/workflows' / name).read_text()
+        for name in pins.WORKFLOWS:
+            workflow = (ROOT / name).read_text()
             self.assertIn(f'image: {RECORD["ci_container"]}', workflow, name)
 
 

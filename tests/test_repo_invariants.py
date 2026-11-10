@@ -194,6 +194,22 @@ class SupplementWorkflowTests(unittest.TestCase):
         self.assertEqual(len(scans), 2)
         self.assertIn('git submodule foreach --quiet --recursive', scans[1])
 
+    def test_the_profile_workflow_checks_against_the_releases_and_scans_the_history(self):
+        import yaml
+
+        workflow = yaml.safe_load((ROOT / '.github/workflows/profiles.yml').read_text())
+        steps = workflow['jobs']['profiles']['steps']
+        checkouts = [step['with'] for step in steps if step.get('uses', '').startswith('actions/checkout@')]
+        self.assertEqual([checkout.get('repository') for checkout in checkouts], [None, 'kromsam/shaffy-os'])
+        for checkout in checkouts:
+            self.assertIs(checkout.get('persist-credentials'), False, checkout)
+            self.assertEqual(checkout.get('fetch-depth'), 0, checkout)  # the history and the release tags
+        runs = [step.get('run', '') for step in steps]
+        self.assertTrue(any('./bin/shaffy profile check ../profiles' in run for run in runs), runs)
+        self.assertTrue(any('gitleaks git' in run for run in runs), runs)
+        caller = yaml.safe_load((ROOT / 'profile.example/.github/workflows/shaffy.yml').read_text())
+        self.assertEqual(caller['jobs']['profiles']['uses'], 'kromsam/shaffy-os/.github/workflows/profiles.yml@main')
+
 
 @unittest.skipUnless(shutil.which('git') and git('rev-parse', '--git-dir').returncode == 0, 'needs a git checkout')
 class TidinessTests(unittest.TestCase):
@@ -211,6 +227,12 @@ class TidinessTests(unittest.TestCase):
                 if other != path and not other.startswith('tests/') and name in text
             ]
             self.assertTrue(users, f'nothing outside the tests names {path}; document it or delete it')
+
+    def test_only_the_author_scaffold_and_the_test_fixtures_hold_a_profile(self):
+        # Shaffy OS curates no profile: people vendor them from their authors' repositories.
+        found = [path for path in self.files if Path(path).name == 'profile.yaml']
+        self.assertTrue(found)
+        self.assertEqual([path for path in found if not path.startswith(('profile.example/', 'tests/fixtures/'))], [])
 
     def test_relative_markdown_links_and_anchors_resolve(self):
         for path, text in sorted(self.files.items()):

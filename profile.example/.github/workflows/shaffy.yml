@@ -1,0 +1,14 @@
+---
+# Checks these profiles with Shaffy OS's reusable workflow, against its released main:
+# ./bin/shaffy profile check (each profile loads, every file it names is tracked, the
+# licence, a scan for personal values, lint, and the home each profile renders) and a
+# secret scan of the history (.github/workflows/profiles.yml in kromsam/shaffy-os).
+name: shaffy
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  profiles:
+    uses: kromsam/shaffy-os/.github/workflows/profiles.yml@main
