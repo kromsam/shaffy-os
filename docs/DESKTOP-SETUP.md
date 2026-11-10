@@ -100,11 +100,13 @@ its state file:
 2. `92-app-themes.toml`: the application colour templates.
 3. `94-desktop-controls.toml`: the searchable desktop controls.
 4. `95-desktop-apps.toml`: plugins and their launcher entries.
-5. `97-supplement.toml`: the supplement's fragment.
-6. `99-runtime.toml`: the clock format and battery label that `shaffy-desktop`
+5. `96-profile-NN-OWNER-NAME.toml`: the fragments of the supplement's
+   [profiles](PROFILES.md), in list order.
+6. `97-supplement.toml`: the supplement's fragment.
+7. `99-runtime.toml`: the clock format and battery label that `shaffy-desktop`
    toggles (create-only, then owned by the helper).
-7. `config.toml`: unmanaged, if Noctalia or a user created it.
-8. `~/.local/state/noctalia/settings.toml`: choices made in Noctalia's settings.
+8. `config.toml`: unmanaged, if Noctalia or a user created it.
+9. `~/.local/state/noctalia/settings.toml`: choices made in Noctalia's settings.
 
 A key that a managed fragment sets and one of the last three sets again silently
 takes the runtime value; a palette chosen in Noctalia's settings is the usual

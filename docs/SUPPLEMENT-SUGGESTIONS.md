@@ -9,6 +9,12 @@ patterns come from supplements in daily use; adapt them to yours. If one
 would serve everyone, propose it upstream with the **Configuration** form
 ([CONTRIBUTING.md](../CONTRIBUTING.md#propose-a-feature-or-a-configuration)).
 
+Several of these setups name no person or machine: a language's tooling, a
+writing house style, a keyboard model's key map. Rather than copy one by hand,
+vendor it as a [profile](PROFILES.md) from someone who shares it, or share
+yours as one ([share yours](PROFILES.md#share-yours)), so that fixes reach
+everyone who uses it.
+
 ## Machine tools
 
 Some setup belongs to the machine, not the desktop
@@ -65,10 +71,15 @@ settings. For Ruby, for example:
 - the native libraries the projects' packages build against in
   `packages.extra`.
 
+All four are settings a profile may set, so a language's tooling is a natural
+profile ([what a profile may set](PROFILES.md#what-a-profile-may-set)).
+
 ## A writing house style
 
-Export profiles, a citation style, Pandoc filters and a LaTeX header are
-personal: keep them as `assets`. Zettlr's profiles go under
+Zettlr's export profiles, a citation style, Pandoc filters and a LaTeX header
+are `assets`. Put them in a [profile](PROFILES.md) when others would want the
+house style, and in the supplement when they name you or your institution.
+Zettlr's export profiles go under
 `~/.config/Zettlr/defaults/`, Pandoc's data under `~/.local/share/pandoc/`, and
 a style for Zotero under `~/.local/share/zotero-data/styles/`; those targets
 need the `zettlr` and `zotero` integrations managed. Fonts the style names go in
@@ -82,7 +93,9 @@ and keeps the linter away from its upstream form.
 An external keyboard with its own layout or keys needs two settings:
 `desktop.keyboard` for the layouts, and `overrides.keyboard_hwdb` for a key map
 such as Caps Lock as Super on that keyboard alone
-([keyboard setup](KEYBOARD-SETUP.md)).
+([keyboard setup](KEYBOARD-SETUP.md)). The layouts are yours, but a key map
+that matches the keyboard model by its vendor and product can be a profile for
+everyone with that keyboard.
 
 ## Launchers for your own services
 

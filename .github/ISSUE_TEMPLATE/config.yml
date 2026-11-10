@@ -4,3 +4,8 @@ contact_links:
   - name: Report a security problem
     url: https://github.com/kromsam/shaffy-os/security/advisories/new
     about: Privately, as SECURITY.md describes; not in a public issue.
+  - name: A problem in a profile
+    url: https://github.com/kromsam/shaffy-os/blob/main/docs/PROFILES.md#fix-it-upstream
+    about: >-
+      A problem in a profile goes to its author's repository; ./bin/shaffy profile propose drafts the fix
+      for it.

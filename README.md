@@ -380,12 +380,17 @@ as ordinary files and settings; remove what you no longer want by hand:
 | `./bin/shaffy apply --resume` | Finishes an interrupted home or system operation from its captured settings. |
 | `./bin/shaffy apply [--system] --abandon` | Gives up an operation that cannot be resumed and names the snapshots and copies to review; deletes nothing. |
 | `./bin/shaffy status [--no-drift]` | Reports the binding, the checkout, unfinished work, integrations and drift from the source. |
-| `./bin/shaffy outdated [--no-pins]` | Reports what can be updated: packages, the AUR, firmware, mise tools, user installs, LazyVim plugins and the Shaffy OS release, and, without `--no-pins`, this repository's pins and expired transitions, which are the maintainers'. Changes nothing. |
+| `./bin/shaffy outdated [--no-pins]` | Reports what can be updated: packages, the AUR, firmware, mise tools, user installs, LazyVim plugins, the Shaffy OS release and the supplement's profiles, and, without `--no-pins`, this repository's pins and expired transitions, which are the maintainers'. Changes nothing. |
 | `./bin/shaffy update [--skip-packages]` | Updates the packages, the AUR, the mise tools and the user installs, in order; stops at the first failure. |
 | `./bin/shaffy supplement attach --supplement PATH` or `--none` | Binds an unbound installation to a supplement, or to the public defaults alone; applies nothing. `--adopt-system-record` recognises the root record of an earlier system apply. |
 | `./bin/shaffy supplement rebind --path PATH` or `--checkout PATH` | Follows a supplement or a checkout that moved; `--new-id` accepts a different `supplement_id`. |
 | `./bin/shaffy integration NAME adopt` or `release` | `adopt` records an integration that is already active here as managed; `release` stops tracking it and changes nothing. |
-| `./bin/shaffy lint [--fix] [--changed] [--supplement [PATH]] [PATH...]` | Runs one formatter and linter per language, as [STYLE.md](STYLE.md) says; `--fix` lets the formatters rewrite the files and `--supplement` lints the bound supplement, or the one named, by the same rules. Needs the development tools of `mise.dev.toml`. |
+| `./bin/shaffy profile add OWNER/REPO NAME... [--ref REF]` | Vendors [profiles](docs/PROFILES.md) from an author's repository into the supplement's `profiles/` at one commit, and prints what they run and install. They apply once `config.yaml` lists them. |
+| `./bin/shaffy profile update [ID...] [--ref REF]` | Takes a newer commit of vendored profiles, and shows the author's commits and what runs code. |
+| `./bin/shaffy profile remove ID...` | Deletes vendored profiles that `config.yaml` no longer lists, and names what stays on the machine. |
+| `./bin/shaffy profile propose ID [--to shaffy] [--key KEY]` | Drafts your edits of a vendored profile as a patch for its author, or, with `--to shaffy`, an issue for a need profiles cannot express. Sends nothing. |
+| `./bin/shaffy profile check [PATH]` | Checks a profile repository of your own before you publish it: each profile loads and renders, its files are tracked, the licence, personal values and the lint. Changes nothing. |
+| `./bin/shaffy lint [--fix] [--changed] [--supplement [PATH]] [PATH...]` | Runs one formatter and linter per language, as [STYLE.md](STYLE.md) says; `--fix` lets the formatters rewrite the files and `--supplement` lints the bound supplement, or the one named, by the same rules, without its vendored `profiles/`. Needs the development tools of `mise.dev.toml`. |
 | `./bin/shaffy selftest [--skip-host] [-j N] [-v]` | Runs the test suite in parallel, one worker per CPU; `--skip-host` leaves out tests bound to this machine, as CI does, and `-j 1` runs plain unittest in order. |
 
 `check`, `data` and `diff` accept `--supplement PATH` or
@@ -418,6 +423,8 @@ status`, but its hooks refuse `apply`, `update`, `init`, `destroy`, `purge` and
   the boot splash and the other choices that belong to the machine.
 - [Supplement suggestions](docs/SUPPLEMENT-SUGGESTIONS.md): tools, files and
   fragments a supplement can carry beyond its settings.
+- [Profiles](docs/PROFILES.md): public bundles of settings to vendor into a
+  supplement, fix upstream and share.
 - [Updating](docs/UPDATING.md): the machine and Shaffy OS releases.
 - [Maintenance](docs/MAINTENANCE.md): recurring commands, integrations and
   synchronization.

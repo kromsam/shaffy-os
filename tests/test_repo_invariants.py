@@ -248,6 +248,51 @@ class TidinessTests(unittest.TestCase):
                 if anchor and resolved.suffix == '.md':
                     self.assertIn(anchor, heading_slugs(resolved.read_text()), f'{path}: {target}')
 
+    def test_every_document_anchor_a_file_names_resolves(self):
+        # Messages, templates and workflows name anchors that no Markdown link test sees.
+        for path, text in sorted(self.files.items()):
+            for document, anchor in re.findall(r'\bdocs/([A-Z][A-Z0-9-]*\.md)#([a-z0-9-]+)', text):
+                target = ROOT / 'docs' / document
+                self.assertTrue(target.is_file(), f'{path}: docs/{document} does not exist')
+                self.assertIn(anchor, heading_slugs(target.read_text()), f'{path}: docs/{document}#{anchor}')
+
+    def test_the_documents_name_only_profile_actions_and_options_that_exist(self):
+        helps = {}
+        for path, text in sorted(self.files.items()):
+            if not path.endswith('.md'):
+                continue  # the code's own messages have tests of their own
+            for action, rest in re.findall(r'\./bin/shaffy profile ([a-z]+)([^`\n,;:)\'"]*)', text):
+                if action not in helps:
+                    shown = subprocess.run(
+                        [str(ROOT / 'bin/shaffy'), 'profile', action, '--help'],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    helps[action] = set(re.findall(r'--[a-z][a-z-]*', shown.stdout)) if not shown.returncode else None
+                self.assertIsNotNone(helps[action], f'{path}: ./bin/shaffy profile {action} is no action')
+                for option in re.findall(r'(?<![\w-])--[a-z][a-z-]*', rest):
+                    self.assertIn(option, helps[action], f'{path}: ./bin/shaffy profile {action} has no {option}')
+        self.assertEqual(sorted(helps), ['add', 'check', 'propose', 'remove', 'update'])
+
+    def test_the_contract_and_the_skills_send_a_profiles_fix_to_its_author(self):
+        for path in ('AGENTS.md', 'home/.chezmoitemplates/shaffy-os-skill.md', 'CONTRIBUTING.md'):
+            text = ' '.join(self.files[path].split())
+            self.assertIn('./bin/shaffy profile propose ID', text, path)
+            self.assertIn('--to shaffy', text, path)
+        contract = ' '.join(self.files['AGENTS.md'].split())
+        self.assertIn("editing a vendored profile under a supplement's `profiles/`", contract)
+        self.assertIn('It belongs in a profile', contract)
+        review = self.files['.agents/skills/shaffy-change-review/SKILL.md']
+        self.assertIn('**A shareable setting.**', review)
+
+    def test_the_profiles_document_names_every_key_a_profile_may_not_set(self):
+        from shaffy import profiles
+
+        document = self.files['docs/PROFILES.md']
+        missing = [key for key in profiles.PROFILE_EXCLUDED if f'`{key}`' not in document]
+        self.assertEqual(missing, [], 'docs/PROFILES.md, "What a profile may set"')
+
     def test_agent_hosts_only_point_to_the_agents_folder(self):
         # .agents/ is the one source: a copy under .claude/ would drift from it.
         for folder in ('.claude/skills', '.claude/agents'):

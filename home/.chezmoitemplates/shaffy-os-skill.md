@@ -26,10 +26,22 @@ right until the next apply restores the source.
    the dotfiles with chezmoi. A file neither source manages is the user's own
    to edit. For a path under `/etc`, search the checkout's roles
    (`grep -rn PATH roles/`): a file or line a role manages changes through it.
+   A file can also come from a profile, a public bundle the supplement vendors
+   under `profiles/OWNER/NAME/`: its fragments are the `profiles/` folders
+   beside a tool's own files and the `96-profile-*` and `80-profile-*` files,
+   and `./bin/shaffy data` names each asset's `layer` and each value's
+   `provenance`. Never edit a vendored profile: override what it sets in the
+   supplement's `config.yaml`, which wins, and draft the fix for its author
+   with `./bin/shaffy profile propose ID`. A need no profile can express goes
+   to Shaffy OS with `./bin/shaffy profile propose ID --to shaffy`. Show each
+   draft to the person; never send it, and never run `profile add` or `update`
+   yourself.
 2. Personal or public? A value that identifies a person, a machine or an
    account, or adapts the desktop to this installation, belongs in the
    supplement: its `config.yaml`, its native `overrides`, its `assets` or its
-   `dotfiles`. A change to the product's defaults belongs in the checkout. Read
+   `dotfiles`. A change to the product's defaults belongs in the checkout. A
+   setting others would want but not everyone, one that names no person or
+   machine, belongs in a profile (`docs/PROFILES.md` in the checkout). Read
    `{{ $checkout }}/AGENTS.md` before changing either; the
    `shaffy-change-review` skill checks a change against it, and
    `shaffy-practice-review` against the good practices of the tools it

@@ -20,6 +20,7 @@ my-supplement/
 ├── overrides/      # native fragments named under `overrides`
 ├── assets/         # personal files named under `assets`
 ├── dotfiles/       # optional: your own chezmoi source, named by `dotfiles`
+├── profiles/       # optional: profiles vendored by ./bin/shaffy profile, and their lock.json
 ├── tools/          # optional: personal helpers
 ├── tests/          # optional: their tests
 ├── docs/           # optional: their notes
@@ -28,8 +29,11 @@ my-supplement/
 ```
 
 Shaffy OS reads `config.yaml`, exactly the files it names under `overrides`
-and `assets`, and the files in the folder it names as `dotfiles`; only the
-denylist test also reads `denylist.txt`. `overrides/`, `assets/` and
+and `assets`, the files in the folder it names as `dotfiles`, and
+`profiles/lock.json` with the files of each profile it lists under `profiles`.
+Only the denylist test and the profile commands' scans also read
+`denylist.txt`. Only `./bin/shaffy profile` writes `profiles/`
+([profiles](PROFILES.md)). `overrides/`, `assets/` and
 `dotfiles/` are conventions; any path inside the supplement works. A reference is relative to the supplement's root and must
 resolve inside it after links are followed, so a link that leads out of the
 supplement is refused. Nothing else in the directory, `tools/`, `tests/` and
@@ -76,7 +80,9 @@ repository ID, server, user and host key, the Tailnet server and the Tailnet
 address. It reports where a value matched,
 never the value. It is skipped when no supplement is bound, when the bound one
 has no `denylist.txt`, and under `selftest --skip-host`. A denylist with no
-pattern adds nothing to the identifying values.
+pattern adds nothing to the identifying values. `./bin/shaffy profile propose`
+and `profile check` scan what you are about to share with the same rules
+([fix it upstream](PROFILES.md#fix-it-upstream)).
 
 ## config.yaml
 
@@ -127,6 +133,10 @@ so that no reader takes them for booleans.
   such as `desktop: {}`, an unknown key, a value of the wrong type or shape, and
   a reference to a file the supplement does not contain. The loader reports
   every problem at once, each with its file and key.
+
+With profiles listed, the same rules hold layer by layer, except that
+`packages.extra` and `lazyvim.extras` gather the items of every profile and of
+`config.yaml` ([how layers combine](PROFILES.md#how-layers-combine)).
 
 `./bin/shaffy check` validates the settings and renders the home for a
 synthetic user; `./bin/shaffy data` prints the effective settings as JSON.
@@ -298,14 +308,16 @@ fragment runs in every shell, and a Niri fragment can start programs.
 | Setting | Scope | Rendered as | Precedence |
 | --- | --- | --- | --- |
 | `overrides.niri` | home | `~/.config/niri/user.kdl` | Included last by `config.kdl`, so its bindings replace public ones of the same key. Niri adds `output` blocks and other multipart sections instead of merging them, so leave outputs to `desktop.displays`. |
-| `overrides.noctalia` | home | `~/.config/noctalia/97-supplement.toml` | After the public fragments, before `99-runtime.toml`, an unmanaged `config.toml` and Noctalia's state, which win for a key they also set. |
+| `overrides.noctalia` | home | `~/.config/noctalia/97-supplement.toml` | After the public fragments and the profiles' `96-profile-*` files, before `99-runtime.toml`, an unmanaged `config.toml` and Noctalia's state, which win for a key they also set. |
 | `overrides.fish` | home | `~/.config/fish/supplement.fish` | Sourced at the end of `config.fish`, after `conf.d/`, so it can replace functions defined there. |
 | `overrides.alacritty` | home | `~/.config/alacritty/supplement.toml` | The last import, so it wins over the generated colours and `shaffy.toml`. |
-| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public tool's `latest` selector. The workspace installer, and so `./bin/shaffy update`, installs its tools with the public ones. |
-| `overrides.keyboard_hwdb` | system | `/etc/udev/hwdb.d/90-shaffy-keyboard.hwdb` | Keyboard key maps for systemd's hardware database, installed by the `keyboard` role (see [keyboard setup](KEYBOARD-SETUP.md)). |
+| `overrides.mise` | home | `~/.config/mise/conf.d/90-supplement.toml` | Loaded beside `config.toml`, which wins for a key both set: the fragment adds personal runtimes and settings but cannot change a public tool's `latest` selector. It loads after the profiles' `80-profile-*` files in the same folder, so it wins a tool or setting they also name. The workspace installer, and so `./bin/shaffy update`, installs the tools of every file there with the public ones. |
+| `overrides.keyboard_hwdb` | system | `/etc/udev/hwdb.d/90-shaffy-keyboard.hwdb` | Keyboard key maps for systemd's hardware database, installed by the `keyboard` role (see [keyboard setup](KEYBOARD-SETUP.md)). The file holds the profiles' maps first and the supplement's last, so its entries win. |
 
 A home fragment renders into a file that stays when the setting is removed:
-the next apply empties it instead of deleting it. A fragment the settings name
+the next apply empties it instead of deleting it. A profile's fragment has a
+file of its own, which the next apply deletes once no listed profile sets it
+([removing a profile](PROFILES.md#removing-a-profile)). A fragment the settings name
 but the supplement lacks fails validation. The system fragment is read as text
 of at most 65,536 characters when the settings are loaded and travels inside
 them, so the system apply reads it from its verified copy and root never opens
@@ -352,6 +364,14 @@ client; point `desktop.wallpaper.directory` at it instead.
 
 [Bring your own dotfiles](#bring-your-own-dotfiles) describes the setup, what
 this version supports and where the dotfiles may write.
+
+### profiles
+
+| Key | Value and effect | Without it | Applied by |
+| --- | --- | --- | --- |
+| `profiles` | The profiles this supplement uses, each `OWNER/NAME`, vendored under `profiles/OWNER/NAME/` by `./bin/shaffy profile add`. They apply in list order, between the public defaults and `config.yaml`, which wins ([how layers combine](PROFILES.md#how-layers-combine)). A listed profile that is not vendored, or whose copy differs from `profiles/lock.json`, fails validation, as does a profile that requires an integration this file does not set to `managed`. | No profile applies; a vendored profile that is not listed is read by nothing. | the apply that applies each setting a profile sets |
+
+[Profiles](PROFILES.md) describes how to add, update, remove and share them.
 
 ### integrations
 
@@ -653,7 +673,8 @@ home was restored, `supplement attach --supplement PATH --adopt-system-record`
 ## What an apply captures
 
 Every apply freezes the supplement before it reads it. `config.yaml`, each
-file it names and every file in the `dotfiles` folder are copied into
+file it names, every file in the `dotfiles` folder, `profiles/lock.json` and
+the files of each listed profile are copied into
 `~/.local/state/shaffy/runs/<op>/capture/supplement/`, readable by the user
 only, under the paths `config.yaml` writes and with the content they resolve to;
 the capture's manifest records the SHA-256 of each file and a digest of the

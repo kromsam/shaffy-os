@@ -46,7 +46,10 @@ This forbids, as ways of making a change:
   `systemctl --user enable`;
 - running `chezmoi apply`, or `ansible-playbook` with `site.yml`, instead of
   `./bin/shaffy apply`;
-- installing packages ad hoc instead of declaring them.
+- installing packages ad hoc instead of declaring them;
+- editing a vendored profile under a supplement's `profiles/`, which every load
+  then refuses. Put the change in `config.yaml`, and send the fix to the
+  profile's author ([fix it upstream](docs/PROFILES.md#fix-it-upstream)).
 
 Reading the live system is always fine, and is often the right first step.
 
@@ -74,6 +77,13 @@ public defaults, even when they reflect its author's preferences.
   the schema field, the template or role that consumes it, and a test here,
   then set the value in the supplement. Never write the personal value into
   this repository, not even as a default or an example.
+
+A third kind of value names no person or machine and others would want it, but
+not everyone who installs Shaffy OS: a language's tooling, a writing setup, a
+keyboard model's key map. It belongs in a profile, a public bundle of settings
+in a repository of its own that supplements vendor ([profiles](docs/PROFILES.md)).
+When a supplement holds such a setting, suggest moving it into a profile of the
+person's own ([share yours](docs/PROFILES.md#share-yours)).
 
 Packages follow the same split. Public ones belong in `defaults/packages/` and
 the role that installs them; personal ones in the supplement's
@@ -150,7 +160,9 @@ returns the machine to `main`. Releasing `dev` into `main` is maintainer work
 Anything that writes outside this working tree changes the machine:
 `./bin/shaffy apply` (home or system), `./bin/shaffy update`,
 `./bin/shaffy supplement attach` and `rebind`,
-`./bin/shaffy integration NAME adopt` and `release`, the helpers in
+`./bin/shaffy integration NAME adopt` and `release`,
+`./bin/shaffy profile add`, `update` and `remove`, which bring another
+author's code into the supplement or take it out, the helpers in
 `scripts/` that install, build or configure something or run with `--apply` or
 `--resume`, a supplement's own `tools/` run with `--apply` or as root,
 `restic-home init`, `backup` and `maintenance` (which prunes the repository),
@@ -175,6 +187,13 @@ or the pull request as [CONTRIBUTING.md](CONTRIBUTING.md) describes, with every
 personal value replaced, for the person to read and send. Never open, comment
 on or push to an upstream repository on your own. A workaround the supplement
 needs in the meantime names the issue it waits for.
+
+A problem in a vendored profile goes to its author:
+`./bin/shaffy profile propose ID` drafts the patch, after which
+`git restore profiles/OWNER/NAME` returns the copy to what was vendored. A need
+that no profile can express, a key a profile may not set or a mechanism
+profiles lack, goes to Shaffy OS: `./bin/shaffy profile propose ID --to shaffy`
+drafts the issue ([fix it upstream](docs/PROFILES.md#fix-it-upstream)).
 
 ## A fresh clone
 

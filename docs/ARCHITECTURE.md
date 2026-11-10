@@ -14,13 +14,15 @@ and recurring commands in [maintenance](MAINTENANCE.md).
 | Owner | Contents |
 | --- | --- |
 | This repository | Defaults (`defaults/config.yaml`), package groups (`defaults/packages/`), the integration catalogue (`defaults/integrations.yml`), the settings schema (`schema/supplement.schema.json`), a minimal example (`supplement.example/`), the chezmoi source (`home/`), the system plays (`site.yml`, `records.yml`, `roles/`), the wrapper, scripts and tests. |
-| A supplement | One person's values: `config.yaml`, the native fragments it names under `overrides`, the personal files it names under `assets` and the chezmoi source it names as `dotfiles`. |
+| A supplement | One person's values: `config.yaml`, the native fragments it names under `overrides`, the personal files it names under `assets`, the chezmoi source it names as `dotfiles`, and the profiles it vendors under `profiles/`. |
+| A profile repository | An author's public profiles, small bundles of shareable settings. A supplement keeps a copy of each profile it uses at one commit, recorded in `profiles/lock.json` ([profiles](PROFILES.md)). |
 | The machine, outside both | Records, journals, the ownership ledger, operation runs and the state of both chezmoi passes under `~/.local/state/shaffy/`; root records and root copies under `/var/lib/shaffy/`; the loader cache; snapper snapshots; application data and credentials. |
 
 A supplement is a directory with a `config.yaml`, normally a private Git
-repository with its own history. The loader reads only `config.yaml` and the
-files it references, and an apply copies only those and the `dotfiles` folder,
-so the supplement may also hold notes or tools of its own.
+repository with its own history. The loader reads only `config.yaml`, the
+files it references, `profiles/lock.json` and the files of the profiles it
+lists, and an apply copies only those and the `dotfiles` folder, so the
+supplement may also hold notes or tools of its own.
 It is selected by path and remembered by a binding, not included as a
 submodule. Keep it beside the checkout, for example `~/Projects/shaffy-os` and
 `~/Projects/my-supplement`.
@@ -56,12 +58,28 @@ file does not follow it: the tracked `chezmoi.toml` names
    checkout's HEAD contains is refused before the schema check, with that
    reason alone; the sandboxed render, which cannot see a worktree's Git
    directory, is handed the release found outside it.
-4. Merge the supplement over the defaults. Mappings merge key by key; scalars
-   and lists replace, so an explicit `false` or `[]` survives. An absent key
-   keeps the default, while `key: null` and `key: {}` are errors.
-5. Run the checks a schema cannot express. Every `overrides` and `assets`
-   reference is relative, exists, and resolves inside the supplement after
-   links are followed. `dotfiles` names a folder there, not the supplement
+4. Read each profile `config.yaml` lists under `profiles`, in order
+   (`lib/shaffy/profiles.py`). Its folder under `profiles/` must hold exactly
+   the files `profiles/lock.json` records, byte for byte and without links; a
+   listed profile that is not vendored, or a copy that differs, is refused with
+   the way to fix it upstream. Its `profile.yaml` is validated against the
+   profile schema, derived from the supplement schema
+   (`schema/profile.schema.json`); a key a profile may not set is refused with
+   the reason.
+5. Fold the layers in order: the defaults, each profile, then the supplement.
+   Mappings merge key by key; scalars and lists replace, so an explicit `false`
+   or `[]` survives, except `packages.extra` and `lazyvim.extras`, which gather
+   every layer's items. An MCP server or a Claude plugin, or an asset target,
+   that two profiles set differently is an error until the supplement sets it.
+   An absent key keeps the default, while `key: null` and `key: {}` are errors.
+   The fold records which profile set each value. With no profile listed, the
+   fold equals merging the supplement over the defaults.
+6. Run the checks a schema cannot express. Every `overrides` and `assets`
+   reference is relative, exists, and resolves inside its layer, the
+   supplement or the profile's folder, after links are followed. A profile's
+   home fragments become assets at their places under `~/.config/`, one file
+   per profile, and the keyboard maps join into one text, the supplement's
+   last. `dotfiles` names a folder there, not the supplement
    itself; the loader checks only the folder, never its files. A system-scope
    fragment (`overrides.keyboard_hwdb`) is read as text of at most 65,536
    characters into the settings, so root never reads the user's files. Package
@@ -69,9 +87,10 @@ file does not follow it: the tracked `chezmoi.toml` names
    omitted `required` package, no `extra` package that a group already
    installs, and no `remove` of a package that is still installed or that
    Shaffy OS itself needs. Integration requests must name catalogued
-   integrations and the settings they depend on. Each enabled MCP server needs a
+   integrations and the settings they depend on, and an integration a profile
+   requires must be `managed` in the supplement. Each enabled MCP server needs a
    command, and backup excludes must keep the backup's verification marker.
-6. Emit one JSON object under the key `shaffy`.
+7. Emit one JSON object under the key `shaffy`.
 
 That object holds `selection` (mode, path, source and `supplement_id`),
 `settings` (the effective values), `overrides` (absolute paths of the
@@ -79,9 +98,11 @@ fragments), `assets` (target, path, SHA-256 and the `executable` and
 `private` attributes), `dotfiles` (the folder as `config.yaml` names it, or
 null), `system_overrides`, `packages` (`groups` and `aur`
 hold each group's repository and AUR selections after omissions, alongside
-`extra` and `remove`) and `integrations` (each catalogued
-integration with its requested state, scope, targets and activation records).
-`./bin/shaffy data` prints it.
+`extra` and `remove`), `integrations` (each catalogued
+integration with its requested state, scope, targets and activation records),
+`profiles` (each listed profile's source, ref and commit, in merge order),
+`provenance` (the profile that set each value a profile set) and `notes`.
+Each asset also names its `layer`. `./bin/shaffy data` prints it.
 
 ### The cached path
 
@@ -220,6 +241,7 @@ wrapper creates `~/.local/state/shaffy/runs/<op>/capture/` with:
 
 - `selection.json`: the selection (mode, path and source);
 - `supplement/`: the supplement's `config.yaml` and every file it references,
+  `profiles/lock.json` and the files of each listed profile included,
   stored under the path `config.yaml` names and with the content that path
   resolves to, so a reference through a link reads the same from the capture;
   and every file of the `dotfiles` folder under `supplement/<dotfiles>/`
@@ -803,6 +825,15 @@ and changes nothing else.
   untouched.
 - Framework-owned files are retired through `home/.chezmoiremove`, never
   directories that hold user data.
+- A profile's home fragment has a file of its own at its place under
+  `~/.config/`. When the profile leaves `profiles:`, moves in the list or drops
+  the fragment, `home/dot_config/.chezmoiremove.tmpl` deletes the file the
+  settings no longer render, after the run has copied it. Its keyboard map
+  leaves the one hardware database file at the next system apply. What else a
+  profile set follows the supplement's rules: an asset stays unmanaged, an
+  extra package stays installed, a Claude plugin stays enabled, and an MCP
+  entry stays or returns to its public default
+  ([removing a profile](PROFILES.md#removing-a-profile)).
 - A file that leaves the dotfiles stays in place, unmanaged; in an `exact_`
   folder of theirs it is deleted, after the run has copied it. Without the
   `dotfiles` setting the second pass no longer runs: what it wrote stays in

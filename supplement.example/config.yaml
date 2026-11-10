@@ -8,3 +8,7 @@ schema_version: 1
 supplement_id: my-desktop
 # Your own chezmoi source, a folder in this supplement, applied after Shaffy OS's home:
 # dotfiles: dotfiles
+# Profiles vendored with ./bin/shaffy profile add, applied in this order between the
+# public defaults and this file, which wins (docs/PROFILES.md):
+# profiles:
+#   - owner/name

@@ -53,6 +53,12 @@ Find a keyboard's vendor and product with `udevadm info` on its
 prints the `MSC_SCAN` value of each key pressed while it runs. The installed
 `/usr/lib/udev/hwdb.d/60-keyboard.hwdb` documents the match syntax.
 
+A map that matches a keyboard model by its vendor and product, as this one
+does, serves everyone with that keyboard, so it can come from a
+[profile](PROFILES.md) instead. The file then holds each profile's map in list
+order and the supplement's last, so the supplement's entry wins a key both map.
+A profile may not match one unit by a port, a unique id or a serial.
+
 The fragment has system scope: it is read as text of at most 65,536 characters
 when the settings are loaded, and the system apply takes it from its verified
 copy of the settings. `./bin/shaffy data` shows it; `./bin/shaffy diff` covers

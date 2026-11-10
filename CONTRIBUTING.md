@@ -16,7 +16,9 @@ Decide first where the change belongs
 that identifies you, your machine or an account, or adapts the desktop to your
 installation alone, stays in your supplement. A personal need that the
 supplement has no setting for is a public change: propose the setting, not your
-value.
+value. A setting that names no one and that others would want, but not
+everyone, is a profile: publish it in a profile repository of your own
+([share yours](docs/PROFILES.md#share-yours)).
 
 ## Report a bug
 
@@ -30,6 +32,20 @@ host names, addresses and paths that identify you. Never paste the output of
 
 A security problem is not an issue: follow [SECURITY.md](SECURITY.md).
 
+## A problem in a profile
+
+A profile belongs to its author and lives in their repository. A fix to what a
+profile sets goes there: `./bin/shaffy profile propose ID` turns your edits of
+the vendored copy into a patch for the author and prints where to send it
+([fix it upstream](docs/PROFILES.md#fix-it-upstream)). A problem is Shaffy OS's
+when it lies in the mechanism:
+
+- a bug in the profile commands, in the loader's reading of a profile or in
+  `profile check`: open a **Bug report**;
+- a setting a profile may not set, or a mechanism profiles lack: open a
+  **Configuration** issue with "A mechanism profiles need".
+  `./bin/shaffy profile propose ID --to shaffy` drafts it in that form.
+
 ## Propose a feature or a configuration
 
 - **A feature**, such as a new default application, integration or setting:
@@ -40,7 +56,10 @@ A security problem is not an issue: follow [SECURITY.md](SECURITY.md).
 - **A configuration** you have in your supplement and others would want: open
   an issue with the **Configuration** form. Show the setting, override or
   asset with your personal values replaced, and say whether it should become a
-  default for everyone or a mechanism that any supplement can use.
+  default for everyone or a mechanism that any supplement can use. A setting
+  that suits some people needs no issue: share it as a profile of your own,
+  and propose your profile repository for the list in
+  [docs/PROFILES.md](docs/PROFILES.md#profile-repositories) with a pull request.
 
 ## Make a change
 

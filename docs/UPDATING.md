@@ -44,8 +44,8 @@ one and run it again. A step with nothing to do is skipped.
    checkout's `collections/`.
 5. **mise tools, the agent plugins and Better BibTeX**: `scripts/install-workspace-tools.sh`,
    for every tool of the mise configuration, Zotero MCP among them, and of the
-   supplement's mise fragment, pstack and the supplement's other Claude Code
-   plugins, and Better BibTeX when the managed Zotero profile has none.
+   profiles' and the supplement's mise fragments, pstack and the other Claude
+   Code plugins the settings name, and Better BibTeX when the managed Zotero profile has none.
    mise's `latest` is the newest release that is at least three days old
    ([workspace tools](WORKSPACE-TOOLS.md)).
 6. **Yaru icons**: downloads and installs the pinned release, only when the
@@ -77,6 +77,10 @@ use.
   update: some put back the vendor's keys or turn Secure Boot off. Kernel
   updates need nothing; the boot hooks enrol and sign again.
 - **Mason's language tools**: `:Mason` in Neovim, then `U` to update them.
+- **Profiles**: `outdated` names each vendored profile whose branch or tag has
+  moved. `./bin/shaffy profile update ID` takes the new commit and shows the
+  author's commits and what runs code; review it, commit it in the supplement
+  and apply ([profiles](PROFILES.md#update-a-profile)).
 - **Personal pins**: a version the supplement's mise fragment fixes, such as a
   Node.js release, stays where the supplement puts it.
 

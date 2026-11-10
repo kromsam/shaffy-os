@@ -22,7 +22,9 @@ before mise activates in a shell.
 
 Personal runtimes belong in a project's `mise.toml` or the supplement's mise
 fragment (`overrides.mise`), which renders as
-`~/.config/mise/conf.d/90-supplement.toml` beside the public configuration.
+`~/.config/mise/conf.d/90-supplement.toml` beside the public configuration. A
+profile's mise fragment renders as `~/.config/mise/conf.d/80-profile-NN-OWNER-NAME.toml`,
+before the supplement's, which wins a tool both name ([profiles](PROFILES.md#how-layers-combine)).
 
 ## Install and update
 
@@ -36,8 +38,9 @@ bash scripts/install-workspace-tools.sh          # mise tools, Zotero MCP, the a
 The script refuses to run as root. It installs every tool
 `home/dot_config/mise/config.toml` names, with the version and options of the
 home's mise configuration, which the home apply renders from that file; all
-public mise tools use `latest`. It installs every tool of the supplement's mise
-fragment as well, with the versions and options the fragment gives them. With
+public mise tools use `latest`. It installs every tool of the files in
+`~/.config/mise/conf.d/` as well, the profiles' and the supplement's mise
+fragments, with the versions and options they give them. With
 the `zotero` integration managed it also
 installs Better BibTeX ([writing tools](DESKTOP-APPLICATIONS.md#writing-tools)).
 `./bin/shaffy update` runs it again to install updates, after the packages
@@ -49,7 +52,7 @@ launchers use the versions installed through mise; Claude's launcher also sets
 `latest` means the newest release that is at least three days old
 (`minimum_release_age` in the same file), for every mise tool, including the
 Ansible controller. A compromised release is usually withdrawn within that
-time. The public file wins over the supplement's mise fragment; to take a fix
+time. The public file wins over the profiles' and the supplement's mise fragments; to take a fix
 that is younger once, run the script as
 `MISE_MINIMUM_RELEASE_AGE=0 bash scripts/install-workspace-tools.sh`.
 
