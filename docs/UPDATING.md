@@ -73,7 +73,9 @@ still reaches the machine through an apply.
   reports a build whose revision differs from the checkout's pin.
 - **Firmware**: `outdated` lists the updates fwupd knows of; install them with
   `fwupdmgr update`, with the charger connected
-  ([machine setup](MACHINE-SETUP.md#firmware)). With Secure Boot set up, run
+  ([machine setup](MACHINE-SETUP.md#firmware)). With Secure Boot on, fwupd
+  installs system firmware only once `configure-secure-boot.py --prepare` has
+  signed its EFI program; `outdated` says when that is still missing. Run
   `sudo /usr/bin/python3 scripts/configure-secure-boot.py` after a firmware
   update: some put back the vendor's keys or turn Secure Boot off. Kernel
   updates need nothing; the boot hooks enrol and sign again.

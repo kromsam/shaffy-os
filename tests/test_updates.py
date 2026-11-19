@@ -208,7 +208,10 @@ class ReportTests(unittest.TestCase):
 
     def test_firmware_updates_come_from_fwupds_metadata(self):
         device = {'Name': 'System Firmware', 'Version': '309', 'Releases': [{'Version': '312'}]}
-        with mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/fwupdmgr'):
+        with (
+            mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/fwupdmgr'),
+            mock.patch.object(updates, 'SECURE_BOOT', self.home / 'no-uefi'),
+        ):
             for result, summary, lines in (
                 (Result(2), 'up to date', []),
                 (
@@ -224,6 +227,36 @@ class ReportTests(unittest.TestCase):
                     self.assertEqual(section.lines, lines)
         with mock.patch.object(updates.shutil, 'which', return_value=None):
             self.assertEqual(updates.firmware().summary, 'not checked: fwupd is not installed')
+
+    def test_firmware_says_when_secure_boot_keeps_fwupd_from_installing_it(self):
+        efivar, program = self.home / 'SecureBoot', self.home / 'fwupdx64.efi'
+        signed = program.with_name('fwupdx64.efi.signed')
+        program.write_bytes(b'fwupd')
+        with (
+            mock.patch.object(updates.shutil, 'which', return_value='/usr/bin/fwupdmgr'),
+            mock.patch.object(updates, '_run', return_value=Result(2)),
+            mock.patch.multiple(updates, SECURE_BOOT=efivar, FWUPD_EFI=program),
+        ):
+            # (Secure Boot variable, a signed copy, whether the report warns); None: no variable.
+            for state, has_signed, warns in (
+                (1, False, True),
+                (1, True, False),
+                (0, False, False),
+                (None, False, False),
+            ):
+                with self.subTest(state=state, signed=has_signed):
+                    efivar.unlink(missing_ok=True)
+                    signed.unlink(missing_ok=True)
+                    if state is not None:
+                        efivar.write_bytes(b'\x06\x00\x00\x00' + bytes([state]))
+                    if has_signed:
+                        signed.write_bytes(b'signed fwupd')
+                    section = updates.firmware()
+                    self.assertEqual(section.summary, 'up to date')
+                    warning = [line for line in section.lines if 'cannot install under Secure Boot' in line]
+                    self.assertEqual(bool(warning), warns, section.lines)
+                    if warns:
+                        self.assertIn('configure-secure-boot.py --prepare', warning[0])
 
     def test_user_installs_are_compared_with_this_checkouts_pins(self):
         (self.home / '.local/share/icons/Yaru').mkdir(parents=True)

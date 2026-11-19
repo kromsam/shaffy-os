@@ -26,6 +26,8 @@ SELF_UPDATING = (
     # Zotero's add-on updater, after scripts/install-better-bibtex.py installed it.
     ('Better BibTeX', '.zotero/zotero/shaffy.default/extensions/better-bibtex@iris-advies.com.xpi'),
 )
+SECURE_BOOT = Path('/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c')
+FWUPD_EFI = Path('/usr/lib/fwupd/efi/fwupdx64.efi')
 
 
 @dataclass
@@ -61,21 +63,39 @@ def aur():
     return Section('AUR packages', f'{len(upgrades)} upgrade(s)' if upgrades else 'up to date', upgrades)
 
 
+def capsules_blocked():
+    """Whether Secure Boot is on and fwupd's EFI program, which installs system firmware, has no signed copy.
+
+    The signature and fwupd's shim setting are readable by root only; scripts/configure-secure-boot.py
+    --prepare writes the signed copy and the setting together, so the copy stands for both.
+    """
+    try:
+        secure_boot = SECURE_BOOT.read_bytes()[4:5] == b'\x01'  # after the 4-byte attribute header
+    except OSError:  # no UEFI, or no Secure Boot variable
+        return False
+    return secure_boot and FWUPD_EFI.is_file() and not FWUPD_EFI.with_name(FWUPD_EFI.name + '.signed').is_file()
+
+
 def firmware():
     """Firmware updates fwupd knows of, from the metadata its daily timer refreshes."""
     if not shutil.which('fwupdmgr'):
         return Section('Firmware', 'not checked: fwupd is not installed')
     result = _run(['fwupdmgr', 'get-updates', '--json', '--no-unreported-check', '--no-metadata-check'])
-    if result.returncode == 2:  # nothing to update
-        return Section('Firmware', 'up to date')
-    if result.returncode:
+    if result.returncode not in (0, 2):  # 2: nothing to update
         return Section('Firmware', f'not checked: {result.stderr.strip() or "fwupdmgr failed"}')
+    devices = json.loads(result.stdout or '{}').get('Devices', []) if result.returncode == 0 else []
     lines = [
         f'{device["Name"]} {device.get("Version", "?")} → {device["Releases"][0]["Version"]}'
-        for device in json.loads(result.stdout or '{}').get('Devices', [])
+        for device in devices
         if device.get('Releases')
     ]
     summary = f'{len(lines)} update(s); install with fwupdmgr update' if lines else 'up to date'
+    if capsules_blocked():
+        lines.append(
+            'System firmware cannot install under Secure Boot until '
+            '`sudo /usr/bin/python3 scripts/configure-secure-boot.py --prepare` signs fwupd '
+            '(docs/MACHINE-SETUP.md#firmware)'
+        )
     return Section('Firmware', summary, lines)
 
 
