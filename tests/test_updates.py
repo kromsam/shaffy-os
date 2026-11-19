@@ -252,7 +252,10 @@ class RoutineTests(unittest.TestCase):
     def test_packages_come_first_and_the_routine_stops_at_a_failure(self):
         with tempfile.TemporaryDirectory() as home:
             steps = updates.steps(ROOT, Path(home))
-        self.assertEqual([s.command[:3] for s in steps if s.packages], [['sudo', 'pacman', '-Syu'], ['yay', '-Sua']])
+        self.assertEqual(
+            [s.command for s in steps if s.packages],
+            [['sudo', 'pacman', '-Syu'], ['yay', '-Sua', '--answerclean', 'None', '--answerdiff', 'All']],
+        )
         self.assertTrue(steps[0].packages and steps[1].packages and not any(s.packages for s in steps[2:]))
         self.assertEqual(steps[-1].command, ['nvim', '--headless', '+Lazy! restore', '+qa'])
         ran, out = [], []

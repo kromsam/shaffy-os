@@ -37,8 +37,10 @@ one and run it again. A step with nothing to do is skipped.
    loader and `limine-snapper-sync`, those snapshots also appear in the boot
    menu, so a bad upgrade can be booted around and rolled back. Without them,
    the snapshots are there to compare and restore files from, but not to boot.
-2. **AUR packages**: `yay -Sua`. Read the recipe changes yay shows before
-   confirming; a recipe is code its maintainer can change at any time.
+2. **AUR packages**: `yay -Sua --answerclean None --answerdiff All`. yay
+   still asks which packages to leave out and whether to proceed, but it
+   always shows the recipe changes: read them before confirming, since a
+   recipe is code its maintainer can change at any time.
 3. **Ansible controller**: `mise upgrade ansible-core` in the checkout.
 4. **Ansible collections**: the exact versions in `requirements.yml`, into the
    checkout's `collections/`.

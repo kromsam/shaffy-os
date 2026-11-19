@@ -243,7 +243,9 @@ def steps(root, home):
         ),
         Step(
             'AUR packages (read the recipe changes yay shows)',
-            ['yay', '-Sua'],
+            # Answer yay's clean-build and diff menus, so that it always shows the recipe changes; at the
+            # diff menu Enter shows none. Its upgrade menu still asks, to leave a package out.
+            ['yay', '-Sua', '--answerclean', 'None', '--answerdiff', 'All'],
             packages=True,
             skip=lambda: None if shutil.which('yay') else 'yay is not installed',
         ),
