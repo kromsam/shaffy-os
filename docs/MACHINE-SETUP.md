@@ -92,7 +92,8 @@ checkout:
    Gigabyte, decline the offer to reset without saving, then save and exit.
    Leave Secure Boot itself off, and start CachyOS.
 3. **Prepare.** `sudo /usr/bin/python3 scripts/configure-secure-boot.py --prepare`
-   refuses unless the firmware is in Setup Mode. It installs
+   refuses unless the firmware is in Setup Mode or already holds this
+   machine's keys, as it does when you run `--prepare` again later. It installs
    `/etc/initcpio/post/sbctl`, which keeps sbctl's mkinitcpio hook from
    signing kernel images: Limine checks them by hash, and signing would change
    them. It creates the keys in `/var/lib/sbctl/keys/`, turns on configuration
