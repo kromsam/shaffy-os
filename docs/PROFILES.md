@@ -314,8 +314,10 @@ can live beside them.
 
 The repository needs a licence: a `LICENSE` file or a `LICENSES/` folder at
 its root. Everyone who vendors a profile copies its files into a repository of
-their own, and the licence says they may. Fonts and citation styles often come
-with licences of their own. Keep them, and name them in the README.
+their own, and the licence says they may. Fonts, citation styles and add-ons
+copied from another project often come with licences of their own. Keep them,
+name them in the README, and attribute the files in a `REUSE.toml` at the
+repository's root, which the check reads (step 5).
 
 Check the repository before you publish it, and after every change:
 
@@ -349,7 +351,9 @@ someone else.
    with this checkout's configuration. The tools lint a copy of those files in
    a temporary folder, without links and without names that start with a dot,
    which a tool would read as its own configuration. ansible-lint does not run,
-   since it imports the plugins of the folder it lints.
+   since it imports the plugins of the folder it lints. A file that the
+   repository's `REUSE.toml` attributes to another project keeps its upstream's
+   form, as in Shaffy OS: name each such file by its path in an annotation.
 6. Each profile renders alone, then all of them together in folder order, in a
    temporary supplement with the integrations they require managed. The render
    runs in the sandbox, validates Niri, Noctalia and Fish, and checks that a
@@ -381,7 +385,7 @@ who answer for them. Read what you vendor. More are under the GitHub topic
 
 | Repository | Profiles |
 | --- | --- |
-| [kromsam/shaffy-os-profiles](https://github.com/kromsam/shaffy-os-profiles) | `ruby`: Ruby through mise with the ruby-lsp gem, LazyVim's Ruby extra and Claude Code's ruby-lsp plugin. |
+| [kromsam/shaffy-os-profiles](https://github.com/kromsam/shaffy-os-profiles) | `freecad`: FreeCAD with FreeCAD MCP, its addon and the MCP server for Claude Code, Claude Desktop and Codex. `ruby`: Ruby through mise with the ruby-lsp gem, LazyVim's Ruby extra and Claude Code's ruby-lsp plugin. |
 
 To add a repository, add a row with its profiles, in alphabetical order, and
 open a pull request against `dev`.

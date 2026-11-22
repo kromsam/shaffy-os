@@ -92,7 +92,7 @@ def check_repository(checkout, path, supplement=None):
         _files(committed, loaded),
         _licence(path, committed),
         _personal_values(path, supplement),
-        _lint(loaded),
+        _lint(path, loaded),
         _render(checkout, path, [folder for folder, data in loaded.items() if data is not None]),
     ]
     return Report(path, tuple(folder.name for folder in folders), tuple(steps))
@@ -251,17 +251,25 @@ def _personal_values(path, supplement):
     return Step('Personal values', summary, tuple(problems), tuple(notes))
 
 
-def _lint(loaded):
+def _lint(path, loaded):
     """The Lint step: STYLE.md's tools, each given this checkout's configuration, over a copy of
     what vendoring reads of each profile in a temporary folder, so nothing the repository brings
     runs. The copy leaves out links and every name that starts with a dot, which a tool would read
     as its configuration and markdownlint-cli2 would run as code; lint.run's FOREIGN keeps
-    ansible-lint from linting the copy as a project, which imports plugins."""
+    ansible-lint from linting the copy as a project, which imports plugins. A file the repository's
+    REUSE.toml attributes to another project keeps its upstream's form, as in Shaffy OS (STYLE.md)."""
+    try:
+        upstream = lint.third_party(path)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return Step('Lint', 'REUSE.toml cannot be read.', (f'REUSE.toml: {error}',))
     with tempfile.TemporaryDirectory(prefix='shaffy-profile-lint-') as directory:
-        copy, paths = Path(directory), []
+        copy, paths, kept = Path(directory), [], 0
         for folder, data in loaded.items():
             for name in _vendored(folder, data) if not folder.is_symlink() else []:
                 if (folder / name).is_symlink() or any(part.startswith('.') for part in name.split('/')):
+                    continue
+                if f'{folder.name}/{name}' in upstream:
+                    kept += 1
                     continue
                 (copy / folder.name / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(folder / name, copy / folder.name / name)
@@ -269,7 +277,10 @@ def _lint(loaded):
         report = []
         status = lint.run(paths, root=copy, out=report.append, foreign=True)
     if not status:
-        return Step('Lint', f"the {len(paths)} files vendoring reads are clean by Shaffy OS's STYLE.md.")
+        summary = f"the {len(paths)} files vendoring reads are clean by Shaffy OS's STYLE.md"
+        if kept:
+            summary += f", and the {kept} that REUSE.toml attributes to another project keep their upstream's form"
+        return Step('Lint', f'{summary}.')
     problems = [
         line.replace(f'{directory}/', '') for line in report if not line.endswith((' clean', 'Nothing to lint.'))
     ]

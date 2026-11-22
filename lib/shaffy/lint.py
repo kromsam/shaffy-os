@@ -240,7 +240,7 @@ def third_party(root=ROOT):
     """The files REUSE.toml attributes to another project."""
     reuse = root / 'REUSE.toml'
     paths = set()
-    for annotation in tomllib.loads(reuse.read_text())['annotations'] if reuse.exists() else []:
+    for annotation in tomllib.loads(reuse.read_text()).get('annotations', []) if reuse.exists() else []:
         listed = annotation['path']
         if listed != '**':
             paths.update([listed] if isinstance(listed, str) else listed)

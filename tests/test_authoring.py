@@ -262,6 +262,55 @@ class CodeTests(RepositoryCase):
         self.assertEqual(git_status(self.repository), '')
 
 
+@unittest.skipUnless(all(lint.available(step) for step in lint.STEPS if step.tool == 'ruff'), 'needs ruff')
+class ThirdPartyTests(RepositoryCase):
+    """A file the repository's REUSE.toml attributes to another project keeps its upstream's form,
+    as in Shaffy OS (STYLE.md)."""
+
+    # As a repository writes it: the author's own files first, then the other project's.
+    ATTRIBUTED = (
+        'version = 1\n\n[[annotations]]\npath = "**"\nSPDX-FileCopyrightText = "Example Author"\n'
+        'SPDX-License-Identifier = "MIT"\n\n[[annotations]]\npath = ["example/upstream.py"]\n'
+        'SPDX-FileCopyrightText = "Another Project"\nSPDX-License-Identifier = "MIT"\n'
+    )
+
+    def setUp(self):
+        super().setUp()
+        # Another project's style, which ruff refuses here: an unused import and double quotes.
+        self.asset('upstream.py', 'import os\nGREETING = "hello"\n')
+
+    def asset(self, name, text):
+        manifest = self.repository / 'example/profile.yaml'
+        listed = '  "~/.local/share/example-profile/hello.txt": hello.txt\n'
+        manifest.write_text(
+            manifest.read_text().replace(listed, f'{listed}  "~/.local/share/example-profile/{name}": {name}\n')
+        )
+        (self.repository / 'example' / name).write_text(text)
+
+    def lint_problems(self, reuse=None):
+        if reuse is not None:
+            (self.repository / 'REUSE.toml').write_text(reuse)
+        self.commit()
+        return self.step(self.check(), 'Lint').problems
+
+    def test_an_attributed_file_keeps_its_upstream_form(self):
+        self.assertTrue(any('example/upstream.py' in line for line in self.lint_problems()))
+        self.assertEqual(self.lint_problems(self.ATTRIBUTED), ())
+
+    def test_the_authors_own_files_are_still_linted(self):
+        self.asset('own.py', 'import os\n')
+        problems = self.lint_problems(self.ATTRIBUTED)
+        self.assertTrue(any('example/own.py' in line for line in problems), problems)
+        self.assertFalse(any('example/upstream.py' in line for line in problems), problems)
+
+    def test_a_reuse_toml_without_annotations_attributes_nothing(self):
+        self.assertTrue(any('example/upstream.py' in line for line in self.lint_problems('version = 1\n')))
+
+    def test_an_unreadable_reuse_toml_is_a_problem_of_its_own(self):
+        problems = self.lint_problems('version =\n')
+        self.assertTrue(problems and all(line.startswith('REUSE.toml: ') for line in problems), problems)
+
+
 def git_status(directory):
     return subprocess.run(
         ['git', '-C', str(directory), 'status', '--porcelain'], capture_output=True, text=True, check=True
